@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{% block title %}Ironpanel{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="logo">Fe</span>
+      <div>
+        <h1>Ironpanel</h1>
+        <small>VPN Control Center</small>
+      </div>
+    </div>
+
+    <nav class="side-nav" aria-label="Ironpanel Navigation">
+      <a href="/dashboard" class="menu-single {{ 'active' if request.path == '/dashboard' else '' }}"><span>🏠</span><b>داشبورد</b></a>
+
+      <details class="menu-section" data-menu="users" {% if request.path.startswith('/users') or request.path in ['/usage','/sessions','/resellers','/tickets'] %}open{% endif %}>
+        <summary><span>👥</span><b>کاربران و سرویس‌ها</b><em>Users</em></summary>
+        <div class="menu-items">
+          <a href="/users" class="{{ 'active' if request.path.startswith('/users') else '' }}">کاربران و کانفیگ‌ها</a>
+          <a href="/usage" class="{{ 'active' if request.path == '/usage' else '' }}">گزارش مصرف</a>
+          <a href="/sessions" class="{{ 'active' if request.path == '/sessions' else '' }}">کاربران آنلاین</a>
+          <a href="/resellers" class="{{ 'active' if request.path == '/resellers' else '' }}">نمایندگان</a>
+          <a href="/tickets" class="{{ 'active' if request.path == '/tickets' else '' }}">تیکت‌ها</a>
+        </div>
+      </details>
+
+      <details class="menu-section" data-menu="vpn" {% if request.path in ['/health','/backups','/monitoring'] or request.path.startswith('/cluster') or request.path.startswith('/nodes') %}open{% endif %}>
+        <summary><span>🛡️</span><b>VPN و زیرساخت</b><em>Core</em></summary>
+        <div class="menu-items">
+          <a href="/health" class="{{ 'active' if request.path.startswith('/health') else '' }}">Health Check / Repair</a>
+          <a href="/monitoring" class="{{ 'active' if request.path == '/monitoring' else '' }}">مانیتورینگ پیشرفته</a>
+          <a href="/backups" class="{{ 'active' if request.path.startswith('/backups') else '' }}">Backup / Restore</a>
+          {% if current_user.role == 'main_admin' %}
+          <a href="/cluster" class="{{ 'active' if request.path == '/cluster' else '' }}">Cluster / HA</a>
+          <a href="/nodes" class="{{ 'active' if request.path == '/nodes' else '' }}">Multi Server</a>
+          {% endif %}
+        </div>
+      </details>
+
+      {% if current_user.role == 'main_admin' %}
+      <details class="menu-section" data-menu="network" {% if request.path in ['/firewall','/dns','/domains'] or request.path.startswith('/ssl') %}open{% endif %}>
+        <summary><span>🌐</span><b>شبکه و دامنه</b><em>Network</em></summary>
+        <div class="menu-items">
+          <a href="/firewall" class="{{ 'active' if request.path == '/firewall' else '' }}">Firewall</a>
+          <a href="/dns" class="{{ 'active' if request.path == '/dns' else '' }}">DNS Manager</a>
+          <a href="/domains" class="{{ 'active' if request.path == '/domains' or request.path.startswith('/ssl') else '' }}">Domain / SSL</a>
+        </div>
+      </details>
+
+      <details class="menu-section" data-menu="billing" {% if request.path in ['/billing','/plans','/wallet'] %}open{% endif %}>
+        <summary><span>💳</span><b>مالی و فروش</b><em>Billing</em></summary>
+        <div class="menu-items">
+          <a href="/billing" class="{{ 'active' if request.path == '/billing' else '' }}">مالی</a>
+          <a href="/plans" class="{{ 'active' if request.path == '/plans' else '' }}">پلن‌ها</a>
+          <a href="/wallet" class="{{ 'active' if request.path == '/wallet' else '' }}">کیف پول</a>
+        </div>
+      </details>
+
+      <details class="menu-section" data-menu="security" {% if request.path in ['/security','/security/2fa','/login-history','/api-tokens','/logs'] %}open{% endif %}>
+        <summary><span>🔐</span><b>امنیت و API</b><em>Security</em></summary>
+        <div class="menu-items">
+          <a href="/security" class="{{ 'active' if request.path == '/security' else '' }}">Security Center</a>
+          <a href="/security/2fa" class="{{ 'active' if request.path == '/security/2fa' else '' }}">2FA</a>
+          <a href="/login-history" class="{{ 'active' if request.path == '/login-history' else '' }}">Login History</a>
+          <a href="/api-tokens" class="{{ 'active' if request.path == '/api-tokens' else '' }}">API v2</a>
+          <a href="/logs" class="{{ 'active' if request.path == '/logs' else '' }}">لاگ‌ها</a>
+        </div>
+      </details>
+
+      <details class="menu-section" data-menu="automation" {% if request.path in ['/telegram','/updates'] %}open{% endif %}>
+        <summary><span>⚙️</span><b>اتوماسیون</b><em>Tools</em></summary>
+        <div class="menu-items">
+          <a href="/telegram" class="{{ 'active' if request.path == '/telegram' else '' }}">Telegram Bot</a>
+          <a href="/updates" class="{{ 'active' if request.path == '/updates' else '' }}">Update Manager</a>
+        </div>
+      </details>
+
+      <details class="menu-section" data-menu="system" {% if request.path == '/settings' %}open{% endif %}>
+        <summary><span>🧩</span><b>سیستم</b><em>System</em></summary>
+        <div class="menu-items">
+          <a href="/settings" class="{{ 'active' if request.path == '/settings' else '' }}">تنظیمات سیستم</a>
+        </div>
+      </details>
+      {% endif %}
+
+      <a href="/logout" class="menu-single danger"><span>🚪</span><b>خروج</b></a>
+    </nav>
+
+    <div class="side-card compact-host">
+      <b>Host فعال</b>
+      <span>{{ panel_host() }}</span>
+      <small>همه کانفیگ‌ها با این آدرس ساخته می‌شوند.</small>
+    </div>
+  </aside>
+
+  <main class="content">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">پنل مدیریت چندپروتکل</p>
+        <h2>{% block heading %}Ironpanel{% endblock %}</h2>
+      </div>
+      <div class="user-pill">{{ current_user.username if current_user.is_authenticated else 'Guest' }}</div>
+    </header>
+    {% with messages=get_flashed_messages() %}
+      {% for m in messages %}<div class="toast">{{m}}</div>{% endfor %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+<script src="/static/js/app.js"></script>
+</body>
+</html>
