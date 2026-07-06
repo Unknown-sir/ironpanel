@@ -134,25 +134,6 @@ IronPanel در زمان نصب یا آپدیت، هسته سرویس‌های م
 - Remaining License Days
 - Latest Logs
 - VPN Core Status
-
-برای اضافه کردن اسکرین‌شات در GitHub، فایل‌های زیر را در مسیر `screenshots/` قرار دهید:
-
-```text
-screenshots/dashboard.png
-screenshots/users.png
-screenshots/subscription.png
-screenshots/monitoring.png
-screenshots/settings.png
-screenshots/online-users.png
-screenshots/health-check.png
-```
-
-نمونه استفاده در README:
-
-```md
-![Dashboard](screenshots/dashboard.png)
-```
-
 ---
 
 ## کاربران آنلاین
@@ -260,13 +241,7 @@ sudo /opt/ironpanel/.venv/bin/flask --app run.py enforce-limits
 
 ## سیستم لایسنس
 
-IronPanel دارای سیستم لایسنس آنلاین است و اعتبار لایسنس از طریق License Server بررسی می‌شود.
 
-آدرس پیش‌فرض License Server:
-
-```text
-http://license.skyshield.space:8002
-```
 
 در صورت منقضی شدن یا نامعتبر بودن لایسنس:
 
@@ -611,19 +586,6 @@ IronPanel dashboard includes:
 - Remaining License Days
 - Latest Logs
 - VPN Core Status
-
-Suggested screenshot paths:
-
-```text
-screenshots/dashboard.png
-screenshots/users.png
-screenshots/subscription.png
-screenshots/monitoring.png
-screenshots/settings.png
-screenshots/online-users.png
-screenshots/health-check.png
-```
-
 ---
 
 ## Online Users
@@ -730,15 +692,6 @@ IronPanel treats `0` as unlimited:
 ---
 
 ## License System
-
-IronPanel requires a valid online license.
-
-Default License Server:
-
-```text
-http://license.skyshield.space:8002
-```
-
 If the license is expired or invalid:
 
 - Login page will be disabled.
