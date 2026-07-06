@@ -1,0 +1,1 @@
+{% extends 'base.html' %}{% block heading %}لاگ فعالیت‌ها{% endblock %}{% block content %}<section class="card"><table><tr><th>زمان</th><th>اجراکننده</th><th>عملیات</th><th>هدف</th><th>جزئیات</th></tr>{% for l in logs %}<tr><td>{{l.created_at}}</td><td>{{l.actor}}</td><td>{{l.action}}</td><td>{{l.target}}</td><td>{{l.details}}</td></tr>{% endfor %}</table></section>{% endblock %}
