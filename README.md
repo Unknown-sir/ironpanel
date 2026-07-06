@@ -115,43 +115,8 @@ IronPanel از چندین پروتکل محبوب VPN پشتیبانی می‌ک
 - Latest Logs
 - VPN Core Status
 
-برای اضافه کردن اسکرین‌شات، فایل‌های زیر را در مسیر `screenshots/` قرار دهید:
 
-```text
-screenshots/dashboard.png
-screenshots/users.png
-screenshots/subscription.png
-screenshots/monitoring.png
-screenshots/settings.png
-```
 
-نمونه:
-
-```md
-![Dashboard](screenshots/dashboard.png)
-```
-
----
-
-## سیستم لایسنس
-
-IronPanel دارای سیستم لایسنس آنلاین است و اعتبار لایسنس از طریق License Server بررسی می‌شود.
-
-آدرس پیش‌فرض License Server:
-
-```text
-http://license.skyshield.space:8002
-```
-
-در صورت منقضی شدن یا نامعتبر بودن لایسنس:
-
-- صفحه ورود پنل نمایش داده نمی‌شود.
-- کاربران امکان استفاده از سرویس‌ها را نخواهند داشت.
-- صفحه فعال‌سازی لایسنس نمایش داده می‌شود.
-- مدیر می‌تواند لایسنس جدید ثبت کند.
-- لینک پشتیبانی برای تمدید یا دریافت لایسنس نمایش داده می‌شود.
-
----
 
 ## دریافت یا تمدید لایسنس
 
@@ -511,28 +476,9 @@ IronPanel dashboard includes:
 - Remaining License Days
 - Latest Logs
 - VPN Core Status
+`
 
-Suggested screenshot paths:
 
-```text
-screenshots/dashboard.png
-screenshots/users.png
-screenshots/subscription.png
-screenshots/monitoring.png
-screenshots/settings.png
-```
-
----
-
-## License System
-
-IronPanel requires a valid online license.
-
-Default License Server:
-
-```text
-http://license.skyshield.space:8002
-```
 
 If the license is expired or invalid:
 
