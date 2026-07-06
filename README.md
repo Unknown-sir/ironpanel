@@ -113,26 +113,6 @@ sudo bash upgrade.sh
 
 ---
 
-### سیستم لایسنس
-
-IronPanel برای اجرا به لایسنس معتبر نیاز دارد. پنل به‌صورت آنلاین لایسنس را از سرور لایسنس بررسی می‌کند.
-
-سرور لایسنس پیش‌فرض:
-
-```text
-http://license.skyshield.space:8002
-```
-
-در صورت نبود لایسنس، نامعتبر بودن لایسنس یا پایان تاریخ انقضا:
-
-- صفحه ورود پنل نمایش داده نمی‌شود.
-- کاربران امکان استفاده از سرویس‌ها را نخواهند داشت.
-- صفحه فعال‌سازی لایسنس نمایش داده می‌شود.
-- امکان ثبت لایسنس جدید وجود دارد.
-- لینک پشتیبانی نمایش داده می‌شود.
-
----
-
 ### دریافت یا تمدید لایسنس
 
 برای خرید، دریافت یا تمدید لایسنس IronPanel به پشتیبانی تلگرام پیام دهید:
@@ -257,26 +237,6 @@ Recommended:
 - 2 CPU
 - 2GB RAM
 - 40GB Disk
-
----
-
-### License System
-
-IronPanel requires a valid online license. The panel checks the license using the default license server.
-
-Default license server:
-
-```text
-http://license.skyshield.space:8002
-```
-
-When the license is missing, invalid, or expired:
-
-- The login page will not be displayed.
-- Users will not be able to use VPN services.
-- The license activation page will be displayed.
-- A new license can be submitted.
-- The support link will be shown.
 
 ---
 
