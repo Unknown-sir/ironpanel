@@ -122,15 +122,6 @@ sudo systemctl restart ironpanel
 
 ---
 
-## سیستم لایسنس
-
-IronPanel دارای سیستم لایسنس آنلاین است و امکانات پنل بر اساس نوع لایسنس فعال یا محدود می‌شود.
-
-License Server پیش‌فرض:
-
-```text
-http://license.skyshield.space:8002
-```
 
 ### انواع لایسنس
 
@@ -571,16 +562,6 @@ sudo systemctl restart ironpanel
 Then download a fresh OpenVPN file from the user Subscription page.
 
 ---
-
-## License System
-
-IronPanel uses online license verification and enables or disables features based on the license type.
-
-Default License Server:
-
-```text
-http://license.skyshield.space:8002
-```
 
 ### License Types
 
