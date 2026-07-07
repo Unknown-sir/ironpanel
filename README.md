@@ -316,12 +316,6 @@ sudo journalctl -u ironpanel-usage-sync.service -n 100 --no-pager
 
 ---
 
-## نصب سریع
-
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Unknown-sir/ironpanel/main/install.sh)
-```
-
 ---
 
 ## نصب دستی
@@ -634,13 +628,8 @@ License is generated and sent to the user
 
 ---
 
-## Installation
 
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/Unknown-sir/ironpanel/main/install.sh)
-```
-
-Manual installation:
+##installation:
 
 ```bash
 git clone https://github.com/Unknown-sir/ironpanel.git
