@@ -9,7 +9,8 @@
 </p>
 
 <p>
-  <img src="https://s34.picofile.com/file/8490835518/Screenshot_5.png" alt="IronPanel Dashboard" width="920">
+  <img src="https://s34.picofile.com/file/8490837600/Screenshot_6.png" alt="IronPanel Dashboard" width="460">
+  <img src="https://s34.picofile.com/file/8490837600/Screenshot_7.png" alt="IronPanel Dashboard" width="460">
 </p>
 
 <p>
