@@ -5,7 +5,8 @@
 **IronPanel** is an advanced multi-protocol, multi-node VPN management platform designed for server administrators, VPN service providers, support teams, and businesses that need a complete system for managing users, protocols, subscriptions, sales automation, outbound routing, monitoring, backups, and service delivery.
 
 <p align="center">
-  <img src="https://s34.picofile.com/file/8490835518/Screenshot_5.png" alt="IronPanel Dashboard" width="900">
+  <img src="https://s34.picofile.com/file/8490837600/Screenshot_6.png" alt="IronPanel Dashboard" width="420">
+  <img src="https://s34.picofile.com/file/8490837600/Screenshot_7.png" alt="IronPanel Dashboard" width="420">
 </p>
 
 ---
