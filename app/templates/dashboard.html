@@ -1,0 +1,158 @@
+{% extends 'base.html' %}
+{% block heading %}Security Command Dashboard{% endblock %}
+{% block content %}
+{% set total_users = users|length %}
+{% set active_users = users|selectattr('enabled')|list|length %}
+{% set online_count = online_sessions|length %}
+{% set ticket_count = tickets|length %}
+{% set license_ok = license_result and license_result.valid %}
+{% set risk_score = 80 if not license_ok else 18 %}
+{% set risk_label = 'HIGH' if not license_ok else 'LOW' %}
+{% set health_score = 98 if license_ok else 64 %}
+
+<section class="soc-dashboard">
+  <div class="soc-top-grid">
+    <div class="soc-card risk-panel">
+      <div class="soc-card-head">
+        <div>
+          <p class="soc-kicker">SECURITY LEVEL</p>
+          <h3>وضعیت کلی پنل</h3>
+        </div>
+        <span class="soc-chip danger">LIVE</span>
+      </div>
+      <div class="risk-meter {{ 'critical' if not license_ok else 'safe' }}" style="--risk: {{ risk_score }}%;">
+        <div class="risk-value"><b>{{ risk_score }}</b><span>{{ risk_label }}</span></div>
+      </div>
+      <div class="risk-summary">
+        <div><b>{{ total_users }}</b><small>Total Users</small></div>
+        <div><b>{{ active_users }}</b><small>Active Users</small></div>
+        <div><b>{{ online_count }}</b><small>Online</small></div>
+      </div>
+    </div>
+
+    <div class="soc-card chart-panel">
+      <div class="soc-card-head">
+        <div>
+          <p class="soc-kicker">TRAFFIC & SERVICES</p>
+          <h3>نمودار وضعیت سرویس‌ها</h3>
+        </div>
+        <span class="soc-chip ok">Realtime</span>
+      </div>
+      <div class="line-graph" aria-label="traffic chart">
+        <span style="--h:32%"></span><span style="--h:45%"></span><span style="--h:38%"></span><span style="--h:60%"></span><span style="--h:52%"></span><span style="--h:70%"></span><span style="--h:58%"></span><span style="--h:74%"></span><span style="--h:67%"></span><span style="--h:82%"></span><span style="--h:75%"></span><span style="--h:88%"></span>
+      </div>
+      <div class="chart-legend"><i class="c-red"></i>OpenVPN <i class="c-yellow"></i>WireGuard <i class="c-green"></i>Xray/V2Ray</div>
+    </div>
+
+    <div class="soc-card health-score-card">
+      <div class="soc-card-head">
+        <div>
+          <p class="soc-kicker">SYSTEM HEALTH</p>
+          <h3>سلامت سیستم</h3>
+        </div>
+      </div>
+      <div class="health-donut" style="--health: {{ health_score }}%;"><b>{{ health_score }}%</b><span>HEALTH</span></div>
+      <div class="health-bars">
+        <label>Core <span>98%</span></label><div><i style="width:98%"></i></div>
+        <label>Xray <span>96%</span></label><div><i style="width:96%"></i></div>
+        <label>VPN <span>94%</span></label><div><i style="width:94%"></i></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="soc-stats-grid">
+    <a class="soc-stat" href="/users"><span>↑</span><b>{{ total_users }}</b><small>کل کاربران</small></a>
+    <a class="soc-stat alert-red" href="/users"><span>✓</span><b>{{ active_users }}</b><small>کاربران فعال</small></a>
+    <a class="soc-stat" href="/sessions"><span>●</span><b>{{ online_count }}</b><small>آنلاین</small></a>
+    <a class="soc-stat alert-yellow" href="/tickets"><span>!</span><b>{{ ticket_count }}</b><small>تیکت‌ها</small></a>
+  </div>
+
+  <div class="soc-main-grid">
+    <div class="soc-card threat-map-card">
+      <div class="soc-card-head">
+        <div>
+          <p class="soc-kicker">PROTOCOL MATRIX</p>
+          <h3>پروتکل‌ها و کانفیگ‌های فعال</h3>
+        </div>
+        <a class="soc-link" href="/xray">Xray Core →</a>
+      </div>
+      <div class="protocol-bars">
+        {% for p in active_protocols() %}
+        <div class="protocol-row"><span>{{ p }}</span><div><i style="width: {{ 68 + loop.index0 * 5 if 68 + loop.index0 * 5 < 98 else 98 }}%"></i></div><b>{{ 'Running' if p else 'Ready' }}</b></div>
+        {% endfor %}
+      </div>
+      <div class="world-panel">
+        <div class="world-glow"></div>
+        <div class="world-dots"><i></i><i></i><i></i><i></i><i></i></div>
+      </div>
+    </div>
+
+    <div class="soc-card compact-table-card">
+      <div class="soc-card-head">
+        <div>
+          <p class="soc-kicker">ACTIVE SESSIONS</p>
+          <h3>کاربران آنلاین</h3>
+        </div>
+        <a class="soc-link" href="/sessions">مشاهده همه</a>
+      </div>
+      <table class="soc-table">
+        <tr><th>Username</th><th>Protocol</th><th>IP</th><th>Status</th></tr>
+        {% for s in online_sessions[:6] %}
+        <tr><td>{{ s.username }}</td><td>{{ s.protocol }}</td><td>{{ s.ip_address or '-' }}</td><td><span class="soc-badge ok">Online</span></td></tr>
+        {% else %}
+        <tr><td colspan="4">کاربر آنلاینی ثبت نشده است</td></tr>
+        {% endfor %}
+      </table>
+    </div>
+
+    <div class="soc-card license-mini-card">
+      <div class="soc-card-head">
+        <div>
+          <p class="soc-kicker">LICENSE & VERSION</p>
+          <h3>وضعیت لایسنس و نسخه</h3>
+        </div>
+        <a class="soc-link" href="/updates">Update</a>
+      </div>
+      <div class="license-soc-grid">
+        <div><span>License</span><b>{{ license_type() }}</b><small>{{ 'Active' if license_ok else 'Invalid' }}</small></div>
+        <div><span>Expire</span><b>{% if license_days is none %}--{% else %}{{ license_days }} روز{% endif %}</b><small>{{ license_result.expires_at if license_result and license_result.expires_at else 'Unknown' }}</small></div>
+        <div><span>Current</span><b>{{ github.current if github else 'unknown' }}</b><small>Panel version</small></div>
+        <div><span>GitHub</span><b>{{ github.latest if github and github.ok else 'نامشخص' }}</b><small>{% if github and github.update_available %}Update available{% else %}Up to date{% endif %}</small></div>
+      </div>
+      <div class="feature-strip">
+        <span class="{{ 'on' if feature_allowed('nodes') else 'off' }}">Nodes</span>
+        <span class="{{ 'on' if feature_allowed('sales_bot') else 'off' }}">Sales Bot</span>
+        <span class="{{ 'on' if feature_allowed('billing') else 'off' }}">Billing</span>
+        <span class="{{ 'on' if feature_allowed('network') else 'off' }}">Network</span>
+        <span class="on">Xray</span>
+      </div>
+    </div>
+
+    <div class="soc-card node-card">
+      <div class="soc-card-head">
+        <div>
+          <p class="soc-kicker">NODES</p>
+          <h3>وضعیت نودها</h3>
+        </div>
+      </div>
+      <table class="soc-table">
+        <tr><th>نام</th><th>هاست</th><th>وضعیت</th></tr>
+        {% for n in nodes[:6] %}
+        <tr><td>{{n.name}}</td><td>{{n.host}}</td><td><span class="soc-badge ok">{{n.health}}</span></td></tr>
+        {% else %}
+        <tr><td colspan="3">نودی ثبت نشده است</td></tr>
+        {% endfor %}
+      </table>
+    </div>
+  </div>
+
+  <section class="system-monitor soc-system-monitor card">
+    <div class="ring-card" data-metric="cpu"><div class="ring"><span id="cpu_percent">0%</span></div><b>CPU Usage</b><small id="cpu_sub">0 GHz</small></div>
+    <div class="ring-card" data-metric="ram"><div class="ring"><span id="ram_percent">0%</span></div><b>RAM Usage</b><small id="ram_sub">0MB / 0MB</small></div>
+    <div class="ring-card" data-metric="swap"><div class="ring"><span id="swap_percent">0%</span></div><b>Swap Usage</b><small id="swap_sub">0MB / 0MB</small></div>
+    <div class="ring-card" data-metric="disk"><div class="ring warning"><span id="disk_percent">0%</span></div><b>Disk Usage</b><small id="disk_sub">0GB / 0GB</small></div>
+    <div class="ring-card" data-metric="license"><div class="ring license-ring"><span id="license_days">{{ license_days if license_days is not none else '--' }}</span></div><b>License Days</b><small id="license_sub">روز باقی‌مانده</small></div>
+  </section>
+</section>
+
+{% endblock %}
