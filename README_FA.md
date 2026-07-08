@@ -5,7 +5,8 @@
 **IronPanel** یک پنل مدیریتی پیشرفته، چندپروتکلی و چندنودی برای مدیریت، فروش، مانیتورینگ و تحویل سرویس‌های VPN است. این پروژه برای مدیران سرور، فروشندگان سرویس VPN و تیم‌هایی طراحی شده که به یک سیستم کامل برای مدیریت کاربران، پروتکل‌ها، نودها، سابسکریپشن، ربات فروش، مسیریابی خروجی و پایش سلامت سرویس‌ها نیاز دارند.
 
 <p align="center">
-  <img src="https://s34.picofile.com/file/8490835518/Screenshot_5.png" alt="IronPanel Dashboard" width="900">
+  <img src="https://s34.picofile.com/file/8490837600/Screenshot_6.png" alt="IronPanel Dashboard" width="420">
+  <img src="https://s34.picofile.com/file/8490837600/Screenshot_7.png" alt="IronPanel Dashboard" width="420">
 </p>
 
 ---
