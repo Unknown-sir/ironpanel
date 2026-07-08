@@ -1,7 +1,8 @@
 # IronPanel v16.7
 
 <p align="center">
-  <img src="https://s34.picofile.com/file/8490835518/Screenshot_5.png" alt="IronPanel Dashboard" width="900">
+  <img src="https://s34.picofile.com/file/8490837600/Screenshot_6.png" alt="IronPanel Dashboard" width="450">
+  <img src="https://s34.picofile.com/file/8490837592/Screenshot_7.png" alt="IronPanel Dashboard" width="450">
 </p>
 
 <p align="center">
