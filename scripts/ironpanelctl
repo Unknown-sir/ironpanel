@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -e
+case "${1:-menu}" in
+  status) systemctl status ironpanel --no-pager ;;
+  restart) systemctl restart ironpanel ;;
+  logs) journalctl -u ironpanel -f ;;
+  info) cat /etc/ironpanel/ironpanel.env ;;
+  *) echo "Usage: ironpanelctl {status|restart|logs|info}" ;;
+esac
