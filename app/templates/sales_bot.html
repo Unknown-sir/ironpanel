@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% block heading %}ربات فروش IronPanel{% endblock %}
+{% block content %}
+<section class="card">
+  <h3>تنظیمات ربات فروش</h3>
+  <p>Telegram ID مدیر فروش را در این بخش وارد کنید. فقط این آیدی‌ها می‌توانند داخل ربات پلن بسازند، قیمت و زمان پلن را تعریف کنند و سفارش‌ها را تأیید یا رد کنند.</p>
+  <form method="post" class="grid">
+    <input type="hidden" name="action" value="settings">
+    <label><input type="checkbox" name="sales_bot_enabled" value="1" {% if settings.get('sales_bot_enabled') == '1' %}checked{% endif %}> فعال‌سازی ربات فروش</label>
+    <input name="sales_bot_token" placeholder="Bot Token" value="{{ settings.get('sales_bot_token','') }}">
+    <input name="sales_bot_admin_ids" placeholder="Telegram Admin IDs: 123,456" value="{{ settings.get('sales_bot_admin_ids','') }}">
+    <input name="sales_bot_support_url" placeholder="Support URL" value="{{ settings.get('sales_bot_support_url','https://t.me/unknown_eng') }}">
+    <input name="sales_bot_currency" placeholder="Currency" value="{{ settings.get('sales_bot_currency','IRT') }}">
+    <label><input type="checkbox" name="sales_bot_trial_enabled" value="1" {% if settings.get('sales_bot_trial_enabled','1') == '1' %}checked{% endif %}> تست رایگان فعال باشد</label>
+    <input name="sales_bot_trial_days" type="number" placeholder="مدت تست روز" value="{{ settings.get('sales_bot_trial_days','1') }}">
+    <input name="sales_bot_trial_traffic_gb" type="number" placeholder="حجم تست GB" value="{{ settings.get('sales_bot_trial_traffic_gb','1') }}">
+    <textarea name="sales_bot_payment_text" rows="4" placeholder="متن راهنمای پرداخت دستی">{{ settings.get('sales_bot_payment_text','') }}</textarea>
+    <button>ذخیره تنظیمات</button>
+  </form>
+</section>
+
+<section class="card">
+  <h3>ساخت پلن فروش</h3>
+  <form method="post" class="grid">
+    <input type="hidden" name="action" value="create_plan">
+    <input name="name" placeholder="نام پلن" required>
+    <input name="days" type="number" placeholder="مدت روز؛ 0=نامحدود" value="30">
+    <input name="traffic_gb" type="number" placeholder="حجم GB؛ 0=نامحدود" value="50">
+    <input name="price" type="number" step="0.01" placeholder="قیمت" required>
+    <input name="currency" placeholder="واحد پول" value="{{ settings.get('sales_bot_currency','IRT') }}">
+    <input name="connection_limit" type="number" placeholder="تعداد دستگاه" value="1">
+    <input name="sort_order" type="number" placeholder="ترتیب نمایش" value="0">
+    <label><input type="checkbox" name="protocols" value="openvpn" checked> OpenVPN</label>
+    <label><input type="checkbox" name="protocols" value="wireguard" checked> WireGuard</label>
+    <label><input type="checkbox" name="protocols" value="ocserv" checked> Cisco/Ocserv</label>
+    <label><input type="checkbox" name="protocols" value="l2tp" checked> L2TP/IPsec</label>
+    <label><input type="checkbox" name="protocols" value="xray" checked> Xray / V2Ray</label><label><input type="checkbox" name="protocols" value="pptp" checked> PPTP</label><label><input type="checkbox" name="protocols" value="hysteria2" checked> Hysteria2</label>
+    <p class="muted" style="grid-column:1/-1">برای فروش فقط کانفیگ Xray/V2Ray، فقط گزینه Xray / V2Ray را فعال بگذارید. کاربر بعد از تأیید پرداخت، فایل xray.txt و لینک Subscription را از ربات دریافت می‌کند.</p>
+    <label><input type="checkbox" name="active" checked> فعال</label>
+    <button>ساخت پلن</button>
+  </form>
+</section>
+
+<section class="card">
+  <h3>پلن‌های ربات</h3>
+  <table>
+    <tr><th>ID</th><th>نام</th><th>مدت</th><th>حجم</th><th>قیمت</th><th>پروتکل‌ها</th><th>وضعیت</th><th>عملیات</th></tr>
+    {% for p in plans %}
+    <tr>
+      <td>{{p.id}}</td>
+      <td>{{p.name}}</td>
+      <td>{{'نامحدود' if p.days == 0 else p.days ~ ' روز'}}</td>
+      <td>{{'نامحدود' if p.traffic_gb == 0 else p.traffic_gb ~ ' GB'}}</td>
+      <td>{{p.price}} {{p.currency}}</td>
+      <td>{{p.protocols}}</td>
+      <td>{{'فعال' if p.active else 'غیرفعال'}}</td>
+      <td class="actions">
+        <form method="post" style="display:inline"><input type="hidden" name="action" value="toggle_plan"><input type="hidden" name="plan_id" value="{{p.id}}"><button>{{'غیرفعال کن' if p.active else 'فعال کن'}}</button></form>
+        <form method="post" style="display:inline" onsubmit="return confirm('حذف شود؟')"><input type="hidden" name="action" value="delete_plan"><input type="hidden" name="plan_id" value="{{p.id}}"><button class="danger">حذف</button></form>
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  <p class="muted">در نسخه v16.5 ساخت پلن داخل ربات هم با دکمه انجام می‌شود. مدیر فقط نام، مدت، حجم، قیمت و واحد پول را تایپ می‌کند و سپس نوع کانفیگ را با دکمه انتخاب می‌کند: فقط Xray/V2Ray، همه پروتکل‌ها، کلاسیک بدون Xray یا انتخاب دستی.</p>
+</section>
+
+<section class="card">
+  <h3>سفارش‌های ربات</h3>
+  <table>
+    <tr><th>ID</th><th>Telegram ID</th><th>نوع</th><th>پلن</th><th>مبلغ</th><th>وضعیت</th><th>رسید</th><th>زمان</th><th>عملیات</th></tr>
+    {% for o in orders %}
+    <tr>
+      <td>{{o.id}}</td>
+      <td>{{o.telegram_id}}</td>
+      <td>{{o.order_type}}</td>
+      <td>{{o.plan_id or '-'}}</td>
+      <td>{{o.amount}} {{o.currency}}</td>
+      <td>{{o.status}}</td>
+      <td>{{'دارد' if o.receipt_file_id else '-'}}</td>
+      <td>{{o.created_at.strftime('%Y-%m-%d %H:%M') if o.created_at else ''}}</td>
+      <td class="actions">
+        {% if o.status in ['pending_payment','receipt_sent'] %}
+        <form method="post" action="/sales-bot/orders/{{o.id}}/approve" style="display:inline"><button>تأیید</button></form>
+        <form method="post" action="/sales-bot/orders/{{o.id}}/reject" style="display:inline"><button class="danger">رد</button></form>
+        {% else %}-{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+</section>
+
+<section class="card">
+  <h3>مشتریان تلگرام</h3>
+  <table>
+    <tr><th>ID</th><th>Telegram ID</th><th>Username</th><th>Test</th><th>Created</th></tr>
+    {% for c in customers %}
+    <tr><td>{{c.id}}</td><td>{{c.telegram_id}}</td><td>@{{c.username}}</td><td>{{'استفاده شده' if c.trial_used else 'استفاده نشده'}}</td><td>{{c.created_at.strftime('%Y-%m-%d') if c.created_at else ''}}</td></tr>
+    {% endfor %}
+  </table>
+</section>
+{% endblock %}
