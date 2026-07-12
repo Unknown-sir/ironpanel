@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+{% block title %}Upgrade | IronPanel{% endblock %}
+{% block heading %}Upgrade & License{% endblock %}
+{% block content %}
+{% set active_type = license_result.license_type|default('beginer') %}
+{% set paid = license_result.valid and license_result.paid %}
+<section class="upgrade-hero card">
+  <div>
+    <p class="eyebrow">IRONPANEL EDITIONS</p>
+    <h3>نسخه فعلی: <span>{{ active_type|upper }}</span></h3>
+    <p>
+      {% if paid %}
+      لایسنس تجاری فعال است و امکانات سطح {{ active_type|upper }} برای این سرور آزاد شده‌اند.
+      {% else %}
+      نسخه رایگان Beginner فعال است؛ پنل بدون کلید لایسنس کار می‌کند و تاریخ انقضا ندارد.
+      {% endif %}
+    </p>
+  </div>
+  <div class="edition-status {{ 'paid' if paid else 'free' }}">
+    <b>{{ active_type|upper }}</b>
+    <span>{{ 'PAID LICENSE' if paid else 'FREE FOREVER' }}</span>
+    <small>
+      {% if paid and license_days is not none %}{{ license_days }} روز باقی‌مانده{% elif paid %}لایسنس فعال{% else %}بدون انقضا{% endif %}
+    </small>
+  </div>
+</section>
+
+<section class="upgrade-grid">
+  <section class="card license-activation">
+    <div class="panel-title"><h3>فعال‌سازی یا تغییر لایسنس</h3><span>License Key</span></div>
+    <p class="muted">کلید Plus، Pro یا Admin را وارد کنید. بعد از تأیید سرور لایسنس، امکانات همان سطح فوراً آزاد می‌شود.</p>
+    <form method="post" class="form">
+      <input type="hidden" name="action" value="activate">
+      <label>License Key
+        <input name="license_key" value="{{ current_key }}" placeholder="IRON-XXXX-XXXX" autocomplete="off" required>
+      </label>
+      <button>بررسی و اعمال لایسنس</button>
+    </form>
+    <div class="license-result {{ 'ok' if paid else 'neutral' }}">
+      <b>وضعیت بررسی</b>
+      <span>{{ license_result.reason }}</span>
+      <small>License server: {{ license_server }}</small>
+    </div>
+    {% if current_key %}
+    <form method="post" onsubmit="return confirm('لایسنس حذف شود و پنل به Beginner Free برگردد؟')">
+      <input type="hidden" name="action" value="remove">
+      <button class="btn danger ghost" type="submit">حذف لایسنس و بازگشت به Beginner</button>
+    </form>
+    {% endif %}
+  </section>
+
+  <section class="card free-note">
+    <div class="panel-title"><h3>Beginner Free</h3><span>Built-in</span></div>
+    <ul class="feature-list">
+      <li>بدون نیاز به فعال‌سازی و بدون انقضا</li>
+      <li>مدیریت کاربران و پروتکل‌های اصلی</li>
+      <li>Xray/V2Ray، Hysteria2، WireGuard و سایر Coreها</li>
+      <li>Subscription، QR Code، مانیتورینگ و Backup</li>
+      <li class="muted">بدون Multi-Node، ربات فروش، شبکه/دامنه و بخش مالی</li>
+    </ul>
+  </section>
+</section>
+
+<section class="card tier-comparison">
+  <div class="panel-title"><h3>مقایسه سطح‌ها</h3><span>Feature Unlock</span></div>
+  <div class="tier-cards">
+    {% for tier, meta in tiers.items() %}
+    <article class="tier-plan {{ 'current' if tier == active_type else '' }}">
+      <div class="tier-head">
+        <h4>{{ meta.title }}</h4>
+        <span>{{ meta.price_label }}</span>
+      </div>
+      <div class="tier-features">
+        {% for feature in feature_names %}
+        {% set enabled = meta.features.get(feature, false) %}
+        <div class="tier-feature {{ 'enabled' if enabled else 'disabled' }}">
+          <i>{{ '✓' if enabled else '×' }}</i>
+          <span>{{ feature_label(feature) }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% if tier == active_type %}<b class="current-badge">فعال روی این سرور</b>{% endif %}
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}
