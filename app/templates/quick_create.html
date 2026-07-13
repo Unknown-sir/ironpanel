@@ -1,0 +1,22 @@
+{% extends 'base.html' %}{% block heading %}ساخت سریع کاربر{% endblock %}{% block content %}
+<section class="card hero"><div><p class="eyebrow">QUICK CREATE</p><h3>ساخت سریع کاربر و تحویل فوری کانفیگ</h3><p class="hint">این صفحه مسیر ساخت را مثل پنل‌های ساده‌تر می‌کند: اطلاعات پایه را وارد کن، Preset را انتخاب کن و مستقیم صفحه کانفیگ باز می‌شود.</p></div></section>
+<section class="card"><h3>کاربر جدید</h3><form method="post" class="form grid-form">
+<label>نام کاربری<input name="username" required placeholder="مثلاً ali-30d"></label>
+<label>رمز عبور<input name="password" placeholder="خالی = خودکار"></label>
+<label>روز اعتبار<input name="days" type="number" value="30"><small class="hint">0 یعنی نامحدود</small></label>
+<label>حجم <select name="traffic_unit"><option value="gb">GB</option><option value="mb">MB</option></select><input name="traffic_value" type="number" value="30"><small class="hint">0 یعنی نامحدود</small></label>
+<label>اتصال همزمان<input name="connection_limit" type="number" value="1"></label>
+<label>IP Limit<input name="ip_limit" type="number" value="0"><small class="hint">0 یعنی پیش‌فرض/نامحدود</small></label>
+<label>Preset
+<select name="preset">
+<option value="all">همه پروتکل‌های فعال</option>
+<option value="xray_plus">Xray + Hysteria2 سریع</option>
+<option value="mobile">موبایل پایدار: WireGuard + Ocserv + Hysteria2</option>
+<option value="legacy">سازگاری قدیمی: OpenVPN + L2TP + PPTP</option>
+<option value="custom">انتخاب دستی</option>
+</select></label>
+<div class="protocol-box wide"><b>انتخاب دستی پروتکل‌ها</b>{% for p in active_protocols() %}<label class="check"><input type="checkbox" name="protocols" value="{{p}}" checked> {{p}}</label>{% endfor %}</div>
+<label class="check"><input type="checkbox" name="sync_passwords" value="1" checked> همان رمز برای L2TP و Ocserv هم استفاده شود</label>
+<button>ساخت و نمایش کانفیگ‌ها</button>
+</form></section>
+{% endblock %}
