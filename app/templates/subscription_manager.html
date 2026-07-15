@@ -1,9 +1,0 @@
-{% extends 'base.html' %}{% block heading %}Subscription Outputs و قالب صفحه ساب{% endblock %}{% block content %}
-<section class="card"><h3>Subscription Theme Manager</h3><form method="post" class="form grid-form">
-<label>نام برند<input name="sub_brand_name" value="{{theme.brand_name}}"></label>
-<label>رنگ اصلی<input name="sub_theme_color" value="{{theme.theme_color}}" placeholder="#2f66ff"></label>
-<label>لینک پشتیبانی<input name="sub_support_url" value="{{theme.support_url}}" placeholder="https://t.me/support"></label>
-<label class="check"><input type="checkbox" name="sub_show_raw_configs" value="1" {{'checked' if theme.show_raw_configs else ''}}> نمایش متن خام کانفیگ‌ها در صفحه ساب</label>
-<label class="wide">متن راهنما<textarea name="sub_notice" rows="3">{{theme.notice}}</textarea></label>
-<button>ذخیره قالب ساب</button></form></section>
-<section class="card"><h3>خروجی‌های حرفه‌ای سابسکریپشن</h3><table><tr><th>کاربر</th><th>Raw</th><th>Clash Meta</th><th>Sing-box</th><th>Hiddify</th></tr>{% for u in users %}<tr><td>{{u.username}}</td><td><a href="/s/{{u.subscription_token}}/raw">raw</a></td><td><a href="/s/{{u.subscription_token}}/clash">clash</a></td><td><a href="/s/{{u.subscription_token}}/singbox">sing-box</a></td><td><a href="/s/{{u.subscription_token}}/hiddify">hiddify</a></td></tr>{% endfor %}</table></section>{% endblock %}
