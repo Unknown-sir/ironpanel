@@ -1,11 +1,11 @@
-# IronPanel v18.4
+# IronPanel v18.5.4
 
 **Persian documentation:** [README_FA.md](README_FA.md)
 
 **IronPanel** is a professional VPN management, sales, monitoring and configuration delivery panel. Version v18.4 introduces the built-in free Beginner edition, an in-panel upgrade center, a new **VPN-UI Dark Teal** interface, more protocols, a modern subscription page, QR codes for user configs, improved WireGuard and Cisco AnyConnect/Ocserv reliability, plus PPTP and Hysteria2 support.
 
 <p align="center">
-  <img src="https://s34.picofile.com/file/8490835518/Screenshot_5.png" alt="IronPanel Dashboard" width="900">
+  <img src="https://s34.picofile.com/file/8490877984/Ironpanel.png" alt="IronPanel Dashboard" width="900">
 </p>
 
 ## Main Features
@@ -224,10 +224,6 @@ Since 18.4.1 the **Auto SSL** page at `/ssl` is available to every tier, includi
 bash <(curl -fsSL https://raw.githubusercontent.com/Unknown-sir/ironpanel/main/install.sh)
 ```
 
-اگر مخزن یا branch متفاوت است:
-
-```bash
-IRONPANEL_GITHUB_REPO=YOUR_USERNAME/YOUR_REPO IRONPANEL_GITHUB_BRANCH=main bash <(curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/install.sh)
 ```
 
 نصب فقط یک مدل دارد: `install.sh`. اسکریپت سؤال‌های اصلی را می‌پرسد و برای گزینه‌های تخصصی مقدار امن پیشنهادی دارد.
