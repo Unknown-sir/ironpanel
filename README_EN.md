@@ -1,11 +1,11 @@
-# IronPanel v18.4
+# IronPanel v18.5.2
 
 **Persian documentation:** [README_FA.md](README_FA.md)
 
 **IronPanel** is a professional VPN management, sales, monitoring and configuration delivery panel. Version v18.4 introduces the built-in free Beginner edition, an in-panel upgrade center, a new **VPN-UI Dark Teal** interface, more protocols, a modern subscription page, QR codes for user configs, improved WireGuard and Cisco AnyConnect/Ocserv reliability, plus PPTP and Hysteria2 support.
 
 <p align="center">
-  <img src="https://s34.picofile.com/file/8490835518/Screenshot_5.png" alt="IronPanel Dashboard" width="900">
+  <img src="https://s34.picofile.com/file/8490877984/Ironpanel.png" alt="IronPanel Dashboard" width="900">
 </p>
 
 ## Main Features
