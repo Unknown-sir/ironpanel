@@ -221,11 +221,6 @@ Dashboard → Upgrade
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/Unknown-sir/ironpanel/main/install.sh)
 ```
-
-اگر مخزن یا branch متفاوت است:
-
-```bash
-IRONPANEL_GITHUB_REPO=YOUR_USERNAME/YOUR_REPO IRONPANEL_GITHUB_BRANCH=main bash <(curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/install.sh)
 ```
 
 نصب فقط یک مدل دارد: `install.sh`. اسکریپت سؤال‌های اصلی را می‌پرسد و برای گزینه‌های تخصصی مقدار امن پیشنهادی دارد.
