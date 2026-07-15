@@ -243,14 +243,6 @@ sudo bash install.sh
 bash <(curl -fsSL https://raw.githubusercontent.com/Unknown-sir/ironpanel/main/install.sh)
 ```
 
-اگر مخزن یا branch متفاوت است:
-
-```bash
-IRONPANEL_GITHUB_REPO=YOUR_USERNAME/YOUR_REPO IRONPANEL_GITHUB_BRANCH=main bash <(curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/install.sh)
-```
-
-نصب فقط یک مدل دارد: `install.sh`. اسکریپت سؤال‌های اصلی را می‌پرسد و برای گزینه‌های تخصصی مقدار امن پیشنهادی دارد.
-
 ## نکته Hysteria2
 
 Hysteria2 روی UDP کار می‌کند. علاوه بر باز بودن پورت داخل سرور، باید UDP پورت انتخابی، پیش‌فرض `4433`، در firewall دیتاسنتر یا Cloud Provider هم باز باشد.
