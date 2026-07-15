@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% block heading %}نمایندگان{% endblock %}
+{% block content %}
+<section class="card hero-card">
+  <div>
+    <h3>مدیریت نمایندگان</h3>
+    <p class="muted">برای هر نماینده سقف تعداد کاربر، سقف حجم قابل تخصیص و مسیر اختصاصی ورود ساخته می‌شود. آدرس نهایی پنل نماینده بعد از ذخیره در همین صفحه نمایش داده می‌شود.</p>
+  </div>
+</section>
+
+<section class="card">
+  <h3>ایجاد نماینده جدید</h3>
+  <form method="post" class="form grid-form">
+    <label>نام کاربری نماینده<input name="username" required placeholder="مثلاً reseller321"></label>
+    <label>رمز عبور<input name="password" required></label>
+    <label>سقف تعداد کاربر<input name="user_limit" type="number" min="0" value="0"><small>0 یعنی نامحدود</small></label>
+    <label>سقف حجم قابل تخصیص GB<input name="traffic_quota_gb" type="number" min="0" value="0"><small>0 یعنی نامحدود</small></label>
+    <label>مسیر اختصاصی پنل<input name="panel_path" placeholder="321"><small>نمونه خروجی: /r/321</small></label>
+    <label class="check"><input type="checkbox" name="enabled" value="1" checked> پنل نماینده فعال باشد</label>
+    <button>ایجاد نماینده و ساخت لینک پنل</button>
+  </form>
+</section>
+
+<section class="card">
+  <h3>لیست نمایندگان</h3>
+  <div class="table-wrap">
+    <table>
+      <tr><th>نماینده</th><th>وضعیت</th><th>مصرف سهمیه</th><th>آدرس پنل</th><th>ویرایش</th><th>کنترل</th></tr>
+      {% for r in resellers %}
+        {% set st = reseller_stats(r) %}
+        {% set url = reseller_panel_url(r) %}
+        <tr>
+          <td><b>{{ r.username }}</b><br><small>ID: {{ r.id }}</small></td>
+          <td><span class="badge {{ 'ok' if r.enabled else 'off' }}">{{ 'فعال' if r.enabled else 'متوقف' }}</span></td>
+          <td>
+            <div>کاربر: {{ st.user_count }} / {{ st.user_limit if st.user_limit else 'نامحدود' }}</div>
+            <div>حجم تخصیص‌یافته: {{ st.allocated_gb }} / {{ st.traffic_quota_gb if st.traffic_quota_gb else 'نامحدود' }} GB</div>
+            <div class="muted">مصرف واقعی کاربران: {{ st.used_gb }} GB</div>
+          </td>
+          <td><code>{{ url }}</code><br><button type="button" class="secondary" onclick="navigator.clipboard && navigator.clipboard.writeText('{{ url }}')">کپی آدرس</button></td>
+          <td>
+            <form method="post" action="/resellers/{{ r.id }}/update" class="form mini-form">
+              <input name="username" value="{{ r.username }}" required>
+              <input name="password" placeholder="رمز جدید؛ خالی یعنی بدون تغییر">
+              <input name="user_limit" type="number" min="0" value="{{ r.user_limit or 0 }}" title="سقف تعداد کاربر">
+              <input name="traffic_quota_gb" type="number" min="0" value="{{ r.traffic_quota_gb or 0 }}" title="سقف حجم GB">
+              <input name="panel_path" value="{{ r.panel_path or '' }}" placeholder="مسیر پنل">
+              <label class="check"><input type="checkbox" name="enabled" value="1" {% if r.enabled %}checked{% endif %}> فعال</label>
+              <button>ذخیره ویرایش</button>
+            </form>
+          </td>
+          <td>
+            <form method="post" action="/resellers/{{ r.id }}/toggle">
+              <button class="{{ 'danger' if r.enabled else '' }}">{{ 'توقف پنل' if r.enabled else 'وصل مجدد پنل' }}</button>
+            </form>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" class="muted">هنوز نماینده‌ای ساخته نشده است.</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+</section>
+{% endblock %}
