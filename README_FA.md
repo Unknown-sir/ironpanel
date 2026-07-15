@@ -4,12 +4,12 @@
 - Inline glass-button menus are shown on /start.
 - Admin bot buttons remain restricted to allowed Telegram admin IDs.
 
-# IronPanel v18.4
+# IronPanel v18
 
 **IronPanel** یک پنل مدیریتی حرفه‌ای برای مدیریت، فروش، مانیتورینگ و تحویل کانفیگ سرویس‌های VPN است. نسخه v18.4 با حالت رایگان Beginner، مرکز آپگرید داخلی و طراحی جدید **VPN-UI Dark Teal**، پشتیبانی از پروتکل‌های بیشتر، صفحه سابسکریپشن مدرن‌تر، QR Code برای کانفیگ‌ها، بهبود WireGuard و Cisco AnyConnect/Ocserv و اضافه شدن PPTP و Hysteria2 آماده شده است.
 
 <p align="center">
-  <img src="https://s34.picofile.com/file/8490835518/Screenshot_5.png" alt="IronPanel Dashboard" width="900">
+  <img src="https://s34.picofile.com/file/8490877984/Ironpanel.png" alt="IronPanel Dashboard" width="900">
 </p>
 
 ## ویژگی‌های اصلی
@@ -229,11 +229,6 @@ Dashboard → Upgrade
 bash <(curl -fsSL https://raw.githubusercontent.com/Unknown-sir/ironpanel/main/install.sh)
 ```
 
-اگر مخزن یا branch متفاوت است:
-
-```bash
-IRONPANEL_GITHUB_REPO=YOUR_USERNAME/YOUR_REPO IRONPANEL_GITHUB_BRANCH=main bash <(curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/install.sh)
-```
 
 نصب فقط یک مدل دارد: `install.sh`. اسکریپت سؤال‌های اصلی را می‌پرسد و برای گزینه‌های تخصصی مقدار امن پیشنهادی دارد.
 
