@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>{{ theme.brand_name }} | {{ user.username }} Subscription</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="public sub-v5" style="--sub-accent: {{ theme.theme_color }}">
+<main class="sub-v5-shell">
+  <section class="sub-v5-hero">
+    <div class="sub-v5-orb o1"></div><div class="sub-v5-orb o2"></div><div class="sub-v5-orb o3"></div>
+    <div class="sub-v5-copy">
+      <span class="sub-v5-pill">{{ theme.brand_name }} · Secure Subscription</span>
+      <h1>{{ user.username }}</h1>
+      <p>{{ theme.notice }}</p>
+      <div class="sub-v5-linkbox">
+        <small>Subscription URL</small><code>{{ subscription_url }}</code><button type="button" data-copy-text="{{ subscription_url }}">Copy</button>
+      </div>
+      <div class="sub-v5-cta"><a class="primary" href="{{ subscription_base_url }}/s/{{ user.subscription_token }}/download/subscription.txt">Download all</a>{% if theme.support_url %}<a href="{{ theme.support_url }}" target="_blank" rel="noopener">Support</a>{% endif %}</div>
+    </div>
+    <aside class="sub-v5-qr"><div class="sub-v5-qr-frame"><img src="{{ subscription_base_url }}/qr/subscription/{{ user.subscription_token }}.png" alt="Subscription QR"></div><b>Scan to import</b><span>{{ subscription_base_url }}</span></aside>
+  </section>
+  <section class="sub-v5-stats">
+    <article class="{{ 'ok' if user.enabled else 'bad' }}"><small>Status</small><b>{{ 'Active' if user.enabled else 'Disabled' }}</b><span>Access</span></article>
+    <article><small>Quota</small><b>{{ usage.total_human }}</b><span>Total traffic</span></article>
+    <article><small>Used</small><b>{{ usage.used_human }}</b><span>{% if usage.traffic_multiplier_enabled %}{{ usage.traffic_multiplier_label }} · raw {{ usage.raw_used_human }}{% else %}{{ usage.upload_human }} ↑ · {{ usage.download_human }} ↓{% endif %}</span></article>
+    <article><small>Left</small><b>{{ usage.remaining_human }}</b><span>Remaining</span></article>
+    <article><small>Expiry</small><b>{{ '∞' if usage.unlimited_time else usage.remaining_days ~ 'd' }}</b><span>{{ 'Unlimited' if usage.unlimited_time else usage.expires_at.strftime('%Y-%m-%d') }}</span></article>
+  </section>
+  <section class="sub-v5-heading"><span class="sub-v5-pill soft">Profiles</span><h2>Download or copy your configs</h2><p>Optimized for mobile import, QR scanning and direct download.</p></section>
+  <section class="sub-v5-grid">
+    {% for name, body in configs.items() %}
+      {% set proto = 'OpenVPN' if name.endswith('.ovpn') else 'WireGuard' if name == 'wireguard.conf' else 'Xray / V2Ray' if name == 'xray.txt' else 'Hysteria2' if name.startswith('hysteria2') else 'PPTP' if name == 'pptp.txt' else 'Account Status' if name == 'ACCOUNT_STATUS.txt' else 'Config' %}
+      {% set icon = '🛡️' if name.endswith('.ovpn') else '⚡' if name == 'wireguard.conf' else '🌐' if name == 'xray.txt' else '🚀' if name.startswith('hysteria2') else '🔗' %}
+      {% set qr_url = subscription_base_url ~ '/s/' ~ user.subscription_token ~ '/wireguard-qr.png' if name == 'wireguard.conf' else subscription_base_url ~ '/s/' ~ user.subscription_token ~ '/xray-qr.png' if name == 'xray.txt' else subscription_base_url ~ '/s/' ~ user.subscription_token ~ '/hysteria2-qr.png' if name == 'hysteria2.txt' else '' %}
+      <article class="sub-v5-card" style="--i:{{ loop.index0 }}"><header><span>{{ icon }}</span><div><small>{{ proto }}</small><h3>{{ download_names.get(name, name) }}</h3></div></header>
+        {% if qr_url %}<div class="sub-v5-mini"><img src="{{ qr_url }}" alt="{{ proto }} QR"><p>Scan this QR in supported clients.</p></div>{% endif %}
+        <div class="sub-v5-actions">{% if qr_url %}<a href="{{ qr_url }}" target="_blank" rel="noopener">QR</a>{% endif %}{% if name != 'ACCOUNT_STATUS.txt' %}<a class="primary" href="{{ subscription_base_url }}/s/{{ user.subscription_token }}/download/{{ name }}">Download</a>{% endif %}{% if not (name.endswith('.ovpn') or name == 'wireguard.conf') %}<button type="button" data-copy-target="cfg{{ loop.index }}">Copy</button>{% endif %}</div>
+        {% if name.endswith('.ovpn') or name == 'wireguard.conf' %}<div class="sub-v5-note">The downloaded filename is based on your username for easier mobile import.</div>{% elif theme.show_raw_configs %}<pre id="cfg{{ loop.index }}">{{ body }}</pre>{% else %}<div class="sub-v5-note">Raw config preview is disabled by the administrator.</div>{% endif %}
+      </article>
+    {% else %}<div class="sub-v5-empty">No active config is available for this account.</div>{% endfor %}
+  </section>
+</main>
+<div class="sub-v5-toast" id="copyToast">Copied</div>
+<script>(function(){const toast=document.getElementById('copyToast');function showToast(t){toast.textContent=t||'Copied';toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),1500)}document.addEventListener('click',async function(e){const direct=e.target.closest('[data-copy-text]');const target=e.target.closest('[data-copy-target]');let text='';if(direct)text=direct.getAttribute('data-copy-text')||'';if(target){const el=document.getElementById(target.getAttribute('data-copy-target'));text=el?el.innerText:''}if(!text)return;try{await navigator.clipboard.writeText(text);showToast('Copied')}catch(err){showToast('Copy manually')}})})();</script>
+</body></html>
