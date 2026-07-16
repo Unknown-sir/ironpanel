@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ورود IronPanel</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="login-body login-v17">
+  <div class="login-bg-orb orb-a"></div>
+  <div class="login-bg-orb orb-b"></div>
+  <div class="login-bg-orb orb-c"></div>
+
+  <main class="login-stage">
+    <section class="login-hero-panel" aria-label="IronPanel secure access">
+      <div class="login-brand-mark">
+        <span class="login-logo">IP</span>
+        <div>
+          <p class="login-kicker">IRONPANEL SECURE ACCESS</p>
+          <h1>{% if reseller is defined and reseller %}پنل نماینده {{ reseller.username }}{% else %}IronPanel{% endif %}</h1>
+        </div>
+      </div>
+      <h2>{% if reseller is defined and reseller %}ورود اختصاصی نماینده{% else %}مدیریت امن، سریع و چندپروتکل{% endif %}</h2>
+      <p>
+        پنل مدیریت کاربران، سابسکریپشن، نمایندگان، SSH، Xray، WireGuard، Hysteria2، OpenVPN و Telegram Proxy با طراحی مدرن و امنیت بهتر.
+      </p>
+      <div class="login-feature-grid">
+        <span>🔐 Secure Login</span>
+        <span>🌐 Multi Protocol</span>
+        <span>📊 Usage Control</span>
+        <span>⚡ Fast Provision</span>
+      </div>
+      <div class="login-glow-card">
+        <b>Protected Control Center</b>
+        <small>2FA Ready · License Aware · Responsive UI</small>
+      </div>
+    </section>
+
+    <section class="login-card login-card-v17">
+      <div class="login-card-head">
+        <span class="login-mini-logo">{{ 'RP' if reseller is defined and reseller else 'IP' }}</span>
+        <div>
+          <h2>{% if reseller is defined and reseller %}ورود نماینده{% else %}ورود به پنل{% endif %}</h2>
+          <small>{% if reseller is defined and reseller %}Reseller Portal{% else %}Admin Dashboard{% endif %}</small>
+        </div>
+      </div>
+
+      {% if reseller_url is defined %}
+      <p class="muted center reseller-url"><code>{{ reseller_url }}</code></p>
+      {% endif %}
+
+      <form method="post" class="form login-form-v17">
+        <label>نام کاربری
+          <span class="login-input-wrap"><i>👤</i><input name="username" required autofocus autocomplete="username" placeholder="admin"></span>
+        </label>
+        <label>رمز عبور
+          <span class="login-input-wrap"><i>🔑</i><input name="password" type="password" required autocomplete="current-password" placeholder="••••••••"></span>
+        </label>
+        <label>کد ۲FA یا Recovery Code
+          <span class="login-input-wrap"><i>🛡️</i><input name="totp" inputmode="numeric" autocomplete="one-time-code" placeholder="در صورت فعال بودن وارد کنید"></span>
+        </label>
+        <button class="login-submit" type="submit">ورود امن به پنل <span>←</span></button>
+      </form>
+
+      {% with messages=get_flashed_messages() %}
+        {% for m in messages %}<div class="toast login-toast">{{m}}</div>{% endfor %}
+      {% endwith %}
+    </section>
+  </main>
+</body>
+</html>
