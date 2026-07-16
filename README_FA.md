@@ -1,0 +1,210 @@
+# IronPanel
+
+![IronPanel](https://s34.picofile.com/file/8490877984/Ironpanel.png)
+
+**IronPanel** یک پنل چندپروتکل برای مدیریت کاربران VPN، نمایندگان، سابسکریپشن، SSL، ربات‌ها، LicensePanel و پروتکل‌های متنوع است. این پروژه برای مدیریت متمرکز کاربر، محدودیت حجم، تاریخ انقضا، اتصال همزمان، ساخت کانفیگ، صفحه سابسکریپشن، لایسنس و آپدیت از داخل پنل طراحی شده است.
+
+---
+
+## نصب سریع
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/Unknown-sir/ironpanel/main/install.sh)
+```
+
+بعد از اجرای دستور، نصب‌کننده اطلاعات اصلی مثل پورت پنل، نام کاربری ادمین، رمز عبور، دامنه و تنظیمات پایه را دریافت می‌کند.
+
+---
+
+## پروتکل‌های پشتیبانی‌شده
+
+- OpenVPN
+- WireGuard
+- Cisco / Ocserv
+- Xray / V2Ray
+- Hysteria2
+- Telegram MTProto Proxy
+- SSH Tunnel / SSH Proxy با پورت پیش‌فرض `422`
+
+---
+
+## جدول امکانات پروتکل‌ها
+
+| Protocol | Add | Delete | Online | Limit | Traffic | MultiSession | Backup | API | QR Code | Default Port | Notes |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|---:|---|
+| **OpenVPN** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `1194/udp` | تحویل فایل `username.ovpn` و مناسب برای اتصال پایدار |
+| **WireGuard** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `51820/udp` | MTU پیش‌فرض `1280` و قابل تغییر از پنل |
+| **Cisco / Ocserv** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `8445/tcp,udp` | مناسب برای AnyConnect و پشتیبانی از SSL |
+| **Xray / V2Ray** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `443/tcp` | پشتیبانی از TLS/Reality/Subscription |
+| **Hysteria2** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `4433/udp` | تحویل لینک `hy2://` و فایل YAML |
+| **Telegram Proxy** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | قابل تنظیم | یک پورت مشترک، secret اختصاصی هر کاربر، مصرف جداگانه |
+| **SSH** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | `422/tcp` | اکانت SSH محدود برای تونل/SSH Proxy |
+
+> در نسخه‌های جدید، نام فایل‌های دانلودی کانفیگ بر اساس نام کاربر ساخته می‌شود؛ مثل `username.ovpn`، `username.conf`، `username.txt` و `username-telegram-proxy.txt`.
+
+---
+
+## جدول امکانات لایسنس‌ها
+
+| Feature / License | Beginner | Plus | Pro |
+|---|:---:|:---:|:---:|
+| نصب و اجرای پایه پنل | ✅ | ✅ | ✅ |
+| نیاز به وارد کردن لایسنس برای شروع | ❌ | ✅ | ✅ |
+| مدیریت کاربران پایه | ✅ | ✅ | ✅ |
+| OpenVPN | ✅ | ✅ | ✅ |
+| WireGuard | ✅ | ✅ | ✅ |
+| Cisco / Ocserv | ✅ | ✅ | ✅ |
+| SSH Protocol | ✅ | ✅ | ✅ |
+| Xray / V2Ray | محدود | ✅ | ✅ |
+| Hysteria2 | محدود | ✅ | ✅ |
+| Telegram MTProto Proxy | ❌ | ✅ | ✅ |
+| صفحه Subscription اختصاصی | پایه | ✅ | ✅ |
+| QR Code و دانلود کانفیگ | ✅ | ✅ | ✅ |
+| محدودیت حجم و انقضا | ✅ | ✅ | ✅ |
+| IP Limit / MultiSession Control | پایه | ✅ | ✅ |
+| Auto SSL از داخل پنل | ❌ | ✅ | ✅ |
+| Update Manager داخل پنل | ✅ | ✅ | ✅ |
+| بخش نمایندگان / Reseller | ❌ | محدود | ✅ |
+| API مدیریتی | محدود | ✅ | ✅ |
+| ربات تلگرام مدیریتی/فروش | ❌ | ✅ | ✅ |
+| Node / Multi-Node Management | ❌ | محدود | ✅ |
+| Backup و Restore | پایه | ✅ | ✅ |
+| Logs Dashboard پیشرفته | پایه | ✅ | ✅ |
+| تنظیمات پیشرفته Theme / Language | ✅ | ✅ | ✅ |
+| پشتیبانی از امکانات حرفه‌ای آینده | ❌ | محدود | ✅ |
+
+### توضیح پلن‌ها
+
+**Beginner** برای نصب رایگان و استفاده پایه طراحی شده است. این حالت بدون لایسنس فعال می‌شود و برای تست، استفاده شخصی یا مدیریت ساده مناسب است.
+
+**Plus** برای مدیرانی مناسب است که به امکانات حرفه‌ای‌تر مثل Auto SSL، Telegram Proxy، Xray/Hysteria2 کامل، API بهتر و ربات نیاز دارند.
+
+**Pro** کامل‌ترین سطح لایسنس است و برای فروش، نمایندگی، چند نود، مدیریت پیشرفته، گزارش‌گیری و استفاده تجاری پیشنهاد می‌شود.
+
+---
+
+## امکانات مهم پنل
+
+- مدیریت کاربران با محدودیت حجم، تاریخ انقضا، اتصال همزمان و IP Limit
+- صفحه Subscription مدرن با QR و دانلود فایل‌ها
+- Auto SSL برای دامنه پنل و پروتکل‌های نیازمند SSL
+- بخش نمایندگان با محدودیت کاربر و حجم
+- Update Manager داخل پنل با لاگ و درصد پیشرفت
+- Telegram Proxy با سرویس مشترک و secret اختصاصی هر کاربر
+- WireGuard با MTU پیش‌فرض `1280` و قابلیت تغییر از پنل
+- پروتکل SSH با پورت پیش‌فرض `422` و فایل `ssh.txt` برای هر کاربر
+- LicensePanel و مدیریت لایسنس‌ها
+- README، docs و changelog به‌روز در هر نسخه
+
+---
+
+## Subscription
+
+برای هر کاربر یک صفحه سابسکریپشن اختصاصی ساخته می‌شود. این صفحه می‌تواند شامل لینک‌ها و فایل‌های زیر باشد:
+
+- OpenVPN config
+- WireGuard config
+- Cisco/Ocserv profile
+- Xray/V2Ray subscription
+- Hysteria2 link / YAML
+- Telegram Proxy link
+- SSH connection info
+
+اگر در تنظیمات پنل، **Subscription Domain** وارد شود، لینک‌های ساب با همان دامنه ساخته می‌شوند. در غیر این صورت، از آدرس پنل استفاده می‌شود.
+
+---
+
+## Auto SSL
+
+پنل امکان گرفتن SSL خودکار را دارد. مدیر می‌تواند دامنه یا ساب‌دامنه را وارد کند و پنل به‌صورت خودکار SSL را دریافت و برای بخش‌های موردنیاز استفاده کند.
+
+---
+
+## Telegram Proxy
+
+Telegram MTProto Proxy به‌صورت یک سرویس مشترک اجرا می‌شود:
+
+```bash
+systemctl status ironpanel-tgproxy.service
+```
+
+ویژگی‌ها:
+
+- یک پورت مشترک برای همه کاربران
+- secret اختصاصی برای هر کاربر
+- لینک اختصاصی `tg://proxy`
+- محاسبه مصرف هر کاربر بر اساس secret/user
+- اعمال مصرف روی حجم کل کاربر
+- حفظ پورت تنظیم‌شده کاربر هنگام آپدیت و Repair
+
+Repair:
+
+```bash
+sudo bash /opt/ironpanel/scripts/repair_telegram_proxy.sh --sync
+```
+
+---
+
+## SSH Protocol
+
+از نسخه `17.0.0` پروتکل SSH به پنل اضافه شده است. برای هر کاربر فعال، اکانت سیستم با نام امن‌شده ساخته می‌شود و اطلاعات اتصال در صفحه کانفیگ/سابسکریپشن تحویل داده می‌شود.
+
+پورت پیش‌فرض:
+
+```text
+422/tcp
+```
+
+Repair:
+
+```bash
+sudo bash /opt/ironpanel/scripts/repair_ssh.sh --sync
+```
+
+---
+
+## Update Manager
+
+Update Manager از داخل پنل قابل دسترسی است و روند آپدیت را با درصد پیشرفت و لاگ نمایش می‌دهد. پس از آپدیت، سرویس‌های جدید sync/repair می‌شوند تا تغییرات نصب، سرویس‌ها و پروتکل‌ها کامل اعمال شود.
+
+---
+
+## Login Security v17.1.0
+
+در نسخه `17.1.0` صفحه لاگین با تم Matrix بازطراحی شده است:
+
+- پس‌زمینه مشکی با نوشته‌های سبز متحرک
+- باکس ورود هماهنگ با تم Matrix
+- لرزش باکس هنگام خطای ورود
+- نمایش پیام خطای نام کاربری یا رمز عبور
+- ارسال گزارش ورود موفق و ناموفق به ربات مدیریت ادمین
+- ثبت IP، نام کاربری، وضعیت، زمان، User-Agent و رمز ماسک‌شده/طول رمز برای جلوگیری از نشت رمز خام
+
+---
+
+## دستورات کاربردی
+
+```bash
+systemctl status ironpanel --no-pager
+systemctl status ironpanel-tgproxy.service --no-pager
+sudo bash /opt/ironpanel/scripts/repair_wireguard.sh --sync
+sudo bash /opt/ironpanel/scripts/repair_ssh.sh --sync
+sudo bash /opt/ironpanel/scripts/repair_telegram_proxy.sh --sync
+tail -100 /var/log/ironpanel-tgproxy.log
+```
+
+---
+
+## نسخه 17.1.0
+
+- طراحی Matrix برای صفحه لاگین
+- لرزش کارت ورود هنگام ورود ناموفق
+- ارسال گزارش ورود موفق/ناموفق به ربات مدیریت
+- حفظ پورت سفارشی Telegram Proxy هنگام آپدیت/Repair
+- به‌روزرسانی README با جدول پروتکل‌ها و لایسنس‌ها
+
+---
+
+## پیشنهاد نصب
+
+برای بهترین عملکرد، نصب روی سرور تازه و تمیز پیشنهاد می‌شود. بعد از نصب، از داخل پنل می‌توانید پروتکل‌های موردنیاز، دامنه ساب، SSL، تنظیمات WireGuard، SSH، Telegram Proxy و License را مدیریت کنید.
