@@ -1,0 +1,50 @@
+{% extends 'base.html' %}{% block heading %}کاربران{% endblock %}{% block content %}
+<section class="card"><div class="section-head"><h3>ساخت کاربر جدید</h3><a class="btn ghost" href="/quick-create">ساخت سریع</a></div><p class="hint">روز اعتبار 0 = نامحدود. حجم 0 = نامحدود.</p><form method="post" class="form grid-form"><label>نام کاربری<input name="username" required></label><label>رمز پنل / پیش‌فرض<input name="password" placeholder="خالی = خودکار"></label><label>رمز L2TP<input name="l2tp_password" placeholder="خالی = همان رمز"></label><label>رمز Cisco/Ocserv<input name="cisco_password" placeholder="خالی = همان رمز"></label><label>روز اعتبار<input name="days" type="number" value="30"><small class="hint">0 یعنی نامحدود</small></label><label>حجم MB<input name="data_limit_mb" type="number" value="0"><small class="hint">0 یعنی نامحدود</small></label><label>اتصال همزمان<input name="connection_limit" type="number" value="1"></label><label>IP Limit<input name="ip_limit" type="number" value="0"><small class="hint">0 یعنی پیش‌فرض/نامحدود</small></label><label>دستگاه مجاز<input name="allowed_devices" type="number" value="0"><small class="hint">0 یعنی نامحدود</small></label><div class="protocol-box"><b>پروتکل‌ها</b>{% for p in active_protocols() %}<label class="check"><input type="checkbox" name="protocols" value="{{p}}" checked> {{p}}</label>{% endfor %}</div><button>ایجاد و نمایش کانفیگ‌ها</button></form></section>
+<section class="card users-card"><div class="section-head users-toolbar"><h3>لیست کاربران</h3><form method="get" class="grid users-search"><input name="q" value="{{search or ''}}" placeholder="جستجوی کاربر"><button class="btn small ghost">جستجو</button></form><form method="post" action="/users/sync-all"><button class="btn small ghost">Sync همه پروتکل‌ها</button></form></div>
+  <div class="users-responsive-grid">
+    {% for u in users %}{% set ok, reason = user_status(u) %}{% set us = usage_summary(u) %}{% set proto_list = (u.protocols or '').split(',') %}
+    <article class="user-modern-card {{'is-active' if ok else 'is-off'}}">
+      <div class="user-card-main">
+        <div class="user-avatar">{{ (u.username or '?')[:1]|upper }}</div>
+        <div class="user-identity">
+          <h4>{{u.username}}</h4>
+          {% if u.owner_id %}<span class="reseller-origin-badge">ساخته‌شده توسط نماینده: {{ admin_label_by_id(u.owner_id) }}</span>{% endif %}
+        </div>
+        <span class="badge {{'ok' if ok else 'off'}}">{{reason}}</span>
+      </div>
+
+      <div class="user-metrics-grid">
+        <div><small>مصرف</small><b>{{us.used_human}} / {{us.total_human}}</b>{% if us.traffic_multiplier_enabled %}<em>واقعی: {{us.raw_used_human}} · ضریب: {{us.traffic_multiplier_label}}</em>{% endif %}</div>
+        <div><small>باقی‌مانده</small><b>{{us.remaining_human}}</b></div>
+        <div class="hide-mobile"><small>IP Limit</small><b>{{get_user_ip_limit(u)}} / فعال: {{us.ip_active_count}}</b></div>
+        <div class="hide-mobile"><small>انقضا</small><b>{{u.expires_at.strftime('%Y-%m-%d') if u.expires_at else 'نامحدود'}}</b></div>
+      </div>
+
+      <div class="user-compact-row">
+        <details class="protocol-popover">
+          <summary title="نمایش پروتکل‌های کاربر"><span>!</span><b>{{ proto_list|length }}</b><em>پروتکل</em></summary>
+          <div class="protocol-popover-panel">
+            <strong>پروتکل‌های فعال {{u.username}}</strong>
+            <div class="protocol-chip-grid">
+              {% for p in proto_list if p %}
+              <span class="proto-chip"><i>{% if p == 'openvpn' %}🔐{% elif p == 'wireguard' %}⚡{% elif p in ['ocserv','cisco'] %}🛡️{% elif p == 'l2tp' %}🔗{% elif p == 'pptp' %}📡{% elif p == 'xray' %}✨{% elif p == 'hysteria2' %}🚀{% elif p == 'telegram_proxy' %}💬{% elif p == 'ssh' %}🖥️{% else %}•{% endif %}</i>{{p}}</span>
+              {% endfor %}
+            </div>
+          </div>
+        </details>
+        <a class="link user-sub-link" href="{{ subscription_url_for_user(u) }}" target="_blank">صفحه سابسکراپشن</a>
+      </div>
+
+      <div class="user-card-actions">
+        <a class="btn ghost" href="/users/{{u.id}}/configs">کانفیگ‌ها</a>
+        <a class="btn small ghost" href="/users/{{u.id}}/edit">ویرایش</a>
+        <form method="post" action="/users/{{u.id}}/reset-traffic" onsubmit="return confirm('حجم مصرفی این کاربر صفر شود؟')"><button class="btn small ghost">ریست حجم</button></form>
+        <form method="post" action="/users/{{u.id}}/toggle"><button class="btn small">تغییر وضعیت</button></form>
+        <form method="post" action="/users/{{u.id}}/delete" onsubmit="return confirm('این کاربر و کانفیگ‌هایش حذف شوند؟')"><button class="btn small danger">حذف</button></form>
+      </div>
+    </article>
+    {% else %}
+    <div class="empty-state">کاربری یافت نشد.</div>
+    {% endfor %}
+  </div>
+</section>{% endblock %}
