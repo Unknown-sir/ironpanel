@@ -49,12 +49,12 @@ sudo bash /opt/ironpanel/scripts/update_from_github.sh
 | Routing Rules / Outbound | ✅ | ✅ | ✅ |
 | Speed Limits | ✅ | ✅ | ✅ |
 | DNS Manager و DNS Presets | ✅ | ✅ | ✅ |
-| نمایندگان | ✅ | ✅ | ✅ |
+| نمایندگان | ✅ |✅ | ✅ |
+|OpenVPN| ✅ | ✅ | ✅ |
+|Xray| ✅ | ✅ | ✅ |
 | Node Gateway / Multi Server | ❌ | ❌ | ✅ |
 | Node Agent و Load Balancer | ❌ | ❌ | ✅ |
 |Sale Bot| ❌ | ❌ | ✅ |
-|OpenVPN| ✅ | ✅ | ✅ |
-|Xray| ✅ | ✅ | ✅ |
 |Cisco / Ocserv| ❌ | ✅ | ✅ |
 |L2TP/IPsec| ❌ | ✅ | ✅ |
 |WireGuard| ❌ | ✅ | ✅ |
