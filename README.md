@@ -52,7 +52,16 @@ sudo bash /opt/ironpanel/scripts/update_from_github.sh
 | نمایندگان | ✅ | ✅ | ✅ |
 | Node Gateway / Multi Server | ❌ | ✅ | ✅ |
 | Node Agent و Load Balancer | ❌ | ✅ | ✅ |
-
+|OpenVPN| ✅ | ✅ | ✅ |
+|Xray| ✅ | ✅ | ✅ |
+|Cisco / Ocserv| ❌ | ✅ | ✅ |
+|L2TP/IPsec| ❌ | ✅ | ✅ |
+|WireGuard| ❌ | ✅ | ✅ |
+|Hysteria2| ❌ | ✅ | ✅ |
+|Telegram MTProto Proxy| ❌ | ✅ | ✅ |
+|SSH| ❌ | ✅ | ✅ |
+|OpenVPN| ❌ | ✅ | ✅ |
+|PPTP| ❌ | ✅ | ✅ |
 ## Node Gateway چگونه کار می‌کند؟
 
 در حالت Node Gateway، کاربر همچنان کانفیگ را با آدرس سرور اصلی دریافت می‌کند. سرور اصلی بر اساس قانونی که مدیر تعیین کرده، اتصال هر پروتکل را به یکی از نودهای آنلاین هدایت می‌کند. انتخاب نود می‌تواند ثابت باشد یا به‌صورت خودکار بر اساس کمترین تعداد کاربر آنلاین، بهترین پینگ یا ترکیب این دو انجام شود.
