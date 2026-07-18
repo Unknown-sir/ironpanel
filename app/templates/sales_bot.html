@@ -1,0 +1,133 @@
+{% extends 'base.html' %}
+{% block heading %}ربات فروش IronPanel{% endblock %}
+{% block content %}
+<section class="clean-hero sales-hero">
+  <div>
+    <p class="eyebrow">SALES BOT CONTROL CENTER</p>
+    <h3>مدیریت ربات فروش {{ 'اختصاصی نماینده' if current_user.role == 'sub_admin' else 'اصلی' }}</h3>
+    <p>{% if current_user.role == 'sub_admin' %}این ربات فقط سفارش‌ها و مشتری‌های همین نماینده را مدیریت می‌کند.{% else %}این صفحه دوباره مرتب شده{% endif %} تا مسیر کار واضح باشد: اول ربات را وصل کن، بعد متن‌ها را تنظیم کن، پلن بساز و در آخر سفارش‌ها را مدیریت کن.</p>
+  </div>
+  <div class="clean-status-grid">
+    <div><span>وضعیت ربات</span><b class="{{ 'ok-text' if settings.get('sales_bot_enabled') == '1' else 'off-text' }}">{{ 'فعال' if settings.get('sales_bot_enabled') == '1' else 'غیرفعال' }}</b></div>
+    <div><span>پلن‌ها</span><b>{{ plans|length }}</b></div>
+    <div><span>سفارش‌ها</span><b>{{ orders|length }}</b></div>
+    <div><span>مشتری‌ها</span><b>{{ customers|length }}</b></div>
+  </div>
+</section>
+
+<section class="clean-steps">
+  <div class="clean-step active"><span>1</span><b>اتصال ربات</b><small>توکن و مدیرها</small></div>
+  <div class="clean-step"><span>2</span><b>پیام‌ها</b><small>خوش‌آمد، قوانین، پرداخت</small></div>
+  <div class="clean-step"><span>3</span><b>پلن‌ها</b><small>حجم، قیمت، پروتکل‌ها</small></div>
+  <div class="clean-step"><span>4</span><b>سفارش‌ها</b><small>تأیید، رد، کیف پول</small></div>
+</section>
+
+<section class="clean-grid two">
+  <div class="card clean-card">
+    <div class="clean-card-head"><div><p class="eyebrow">BASIC SETUP</p><h3>اتصال و دسترسی</h3></div><span class="pill">ضروری</span></div>
+    <form method="post" class="clean-form">
+      <input type="hidden" name="action" value="settings">
+      <label class="switch-row"><input type="checkbox" name="sales_bot_enabled" value="1" {% if settings.get('sales_bot_enabled') == '1' %}checked{% endif %}><span>ربات فروش فعال باشد</span></label>
+      <label>Bot Token<input name="sales_bot_token" placeholder="123456:ABC..." value="{{ settings.get('sales_bot_token','') }}"></label>
+      <label>Telegram ID مدیرهای فروش<input name="sales_bot_admin_ids" placeholder="123456789,987654321" value="{{ settings.get('sales_bot_admin_ids','') }}"></label>
+      <label>لینک پشتیبانی<input name="sales_bot_support_url" placeholder="https://t.me/support" value="{{ settings.get('sales_bot_support_url','https://t.me/unknown_eng') }}"></label>
+      <label>واحد پول<input name="sales_bot_currency" placeholder="IRT" value="{{ settings.get('sales_bot_currency','IRT') }}"></label>
+      <div class="inline-checks">
+        <label><input type="checkbox" name="sales_bot_qr_enabled" value="1" {% if settings.get('sales_bot_qr_enabled','1') == '1' %}checked{% endif %}> ارسال QR</label>
+        <label><input type="checkbox" name="sales_bot_trial_enabled" value="1" {% if settings.get('sales_bot_trial_enabled','1') == '1' %}checked{% endif %}> تست رایگان</label>
+      </div>
+      <div class="mini-grid">
+        <label>مدت تست<input name="sales_bot_trial_days" type="number" value="{{ settings.get('sales_bot_trial_days','1') }}"></label>
+        <label>حجم تست GB<input name="sales_bot_trial_traffic_gb" type="number" value="{{ settings.get('sales_bot_trial_traffic_gb','1') }}"></label>
+      </div>
+      <details class="advanced-inline clean-details" open>
+        <summary>پیام‌های ربات</summary>
+        <label>پیام خوش‌آمد /start<textarea name="sales_bot_welcome_text" rows="3" placeholder="به ربات فروش IronPanel خوش آمدید...">{{ settings.get('sales_bot_welcome_text','') }}</textarea></label>
+        <label>متن راهنمای پرداخت<textarea name="sales_bot_payment_text" rows="3" placeholder="شماره کارت، توضیحات پرداخت یا درگاه...">{{ settings.get('sales_bot_payment_text','') }}</textarea></label>
+        <label>قوانین ربات<textarea name="sales_bot_rules_text" rows="3" placeholder="قوانین استفاده از سرویس...">{{ settings.get('sales_bot_rules_text','') }}</textarea></label>
+        <label>راهنمای اتصال<textarea name="sales_bot_connection_guide" rows="3" placeholder="لینک آموزش نصب کلاینت‌ها...">{{ settings.get('sales_bot_connection_guide','') }}</textarea></label>
+      </details>
+      <button class="btn primary wide">ذخیره و ری‌استارت ربات</button>
+    </form>
+  </div>
+
+  <div class="card clean-card">
+    <div class="clean-card-head"><div><p class="eyebrow">PLAN WIZARD</p><h3>ساخت پلن فروش</h3></div><span class="pill soft">سریع</span></div>
+    <form method="post" class="clean-form">
+      <input type="hidden" name="action" value="create_plan">
+      <label>نام پلن<input name="name" placeholder="مثلاً یک ماهه 50 گیگ" required></label>
+      <div class="mini-grid three">
+        <label>روز<input name="days" type="number" placeholder="0=نامحدود" value="30"></label>
+        <label>حجم GB<input name="traffic_gb" type="number" placeholder="0=نامحدود" value="50"></label>
+        <label>قیمت<input name="price" type="number" step="0.01" placeholder="قیمت" required></label>
+      </div>
+      <div class="mini-grid">
+        <label>واحد پول<input name="currency" value="{{ settings.get('sales_bot_currency','IRT') }}"></label>
+        <label>محدودیت IP/دستگاه<input name="connection_limit" type="number" value="1"></label>
+      </div>
+      <label>ترتیب نمایش<input name="sort_order" type="number" value="0"></label>
+      <div class="protocol-pills">
+        {% for p in active %}<label><input type="checkbox" name="protocols" value="{{p}}" checked><span>{{p}}</span></label>{% endfor %}
+      </div>
+      <label class="switch-row"><input type="checkbox" name="active" checked><span>پلن فعال باشد</span></label>
+      <button class="btn primary wide">ساخت پلن</button>
+    </form>
+    <p class="muted">برای فروش فقط Xray، فقط گزینه Xray را روشن بگذار. برای فروش کامل، پروتکل‌های موردنظر را انتخاب کن.</p>
+  </div>
+</section>
+
+<section class="card clean-card">
+  <div class="clean-card-head"><div><p class="eyebrow">PLANS</p><h3>پلن‌های فعال و غیرفعال</h3></div><span class="pill">{{ plans|length }} پلن</span></div>
+  <div class="table-wrap clean-table">
+    <table>
+      <tr><th>ID</th><th>نام</th><th>مدت</th><th>حجم</th><th>قیمت</th><th>پروتکل‌ها</th><th>وضعیت</th><th>عملیات</th></tr>
+      {% for p in plans %}
+      <tr>
+        <td>{{p.id}}</td>
+        <td><b>{{p.name}}</b></td>
+        <td>{{'نامحدود' if p.days == 0 else p.days ~ ' روز'}}</td>
+        <td>{{'نامحدود' if p.traffic_gb == 0 else p.traffic_gb ~ ' GB'}}</td>
+        <td>{{p.price}} {{p.currency}}</td>
+        <td><code>{{p.protocols}}</code></td>
+        <td><span class="badge {{'ok' if p.active else 'off'}}">{{'فعال' if p.active else 'غیرفعال'}}</span></td>
+        <td class="actions compact-actions">
+          <form method="post"><input type="hidden" name="action" value="toggle_plan"><input type="hidden" name="plan_id" value="{{p.id}}"><button class="btn ghost small">{{'غیرفعال' if p.active else 'فعال'}}</button></form>
+          <form method="post" onsubmit="return confirm('این پلن حذف شود؟')"><input type="hidden" name="action" value="delete_plan"><input type="hidden" name="plan_id" value="{{p.id}}"><button class="btn danger small">حذف</button></form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8" class="muted">هنوز پلنی ساخته نشده است.</td></tr>
+      {% endfor %}
+    </table>
+  </div>
+</section>
+
+<section class="clean-grid two">
+  <div class="card clean-card">
+    <div class="clean-card-head"><div><p class="eyebrow">ORDERS</p><h3>سفارش‌ها و کیف پول</h3></div><span class="pill">آخرین 100 مورد</span></div>
+    <div class="table-wrap clean-table compact-table">
+      <table>
+        <tr><th>ID</th><th>Telegram</th><th>نوع</th><th>مبلغ</th><th>وضعیت</th><th>عملیات</th></tr>
+        {% for o in orders %}
+        <tr>
+          <td>#{{o.id}}</td><td>{{o.telegram_id}}</td><td>{{o.order_type}}</td><td>{{o.amount}} {{o.currency}}</td><td><span class="badge {{'ok' if o.status == 'approved' else 'warn' if o.status in ['pending_payment','receipt_sent'] else 'off'}}">{{o.status}}</span></td>
+          <td class="actions compact-actions">{% if o.status in ['pending_payment','receipt_sent'] %}<form method="post" action="/sales-bot/orders/{{o.id}}/approve"><button class="btn small">تأیید</button></form><form method="post" action="/sales-bot/orders/{{o.id}}/reject"><button class="btn danger small">رد</button></form>{% else %}-{% endif %}</td>
+        </tr>
+        {% else %}<tr><td colspan="6" class="muted">سفارشی ثبت نشده است.</td></tr>{% endfor %}
+      </table>
+    </div>
+  </div>
+
+  <div class="card clean-card">
+    <div class="clean-card-head"><div><p class="eyebrow">CUSTOMERS</p><h3>مشتریان تلگرام</h3></div><span class="pill">آخرین 100 نفر</span></div>
+    <div class="table-wrap clean-table compact-table">
+      <table>
+        <tr><th>ID</th><th>Telegram ID</th><th>Username</th><th>تست</th><th>تاریخ</th></tr>
+        {% for c in customers %}
+        <tr><td>{{c.id}}</td><td>{{c.telegram_id}}</td><td>{% if c.username %}@{{c.username}}{% else %}-{% endif %}</td><td>{{'استفاده شده' if c.trial_used else 'استفاده نشده'}}</td><td>{{c.created_at.strftime('%Y-%m-%d') if c.created_at else ''}}</td></tr>
+        {% else %}<tr><td colspan="5" class="muted">هنوز مشتری ثبت نشده است.</td></tr>{% endfor %}
+      </table>
+    </div>
+  </div>
+</section>
+{% endblock %}
