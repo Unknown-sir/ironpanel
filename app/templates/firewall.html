@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% block heading %}Firewall Manager{% endblock %}
+{% block content %}
+<div class="card firewall-hero">
+  <div>
+    <p class="eyebrow">Network Security</p>
+    <h3>بن کامل IP روی سرور</h3>
+    <p class="hint">هر IP یا CIDR که اینجا بن شود، با chain اختصاصی <code>{{ summary.ban_chain }}</code> در INPUT / FORWARD / OUTPUT بلاک می‌شود و دیگر نمی‌تواند به هیچ پورتی از سرور درخواست بدهد.</p>
+  </div>
+  <form method="post" class="inline-actions">
+    <input type="hidden" name="action" value="reapply">
+    <button class="btn ghost">اعمال دوباره قوانین</button>
+  </form>
+</div>
+
+<form class="card form firewall-ban-form" method="post">
+  <input type="hidden" name="action" value="add_ban">
+  <h3>افزودن IP Ban</h3>
+  <div class="grid grid-form">
+    <label>IP یا CIDR
+      <input name="ip" placeholder="مثال: 203.0.113.10 یا 203.0.113.0/24" required dir="ltr">
+    </label>
+    <label>نام / توضیح کوتاه
+      <input name="name" placeholder="مثال: abusive scanner">
+    </label>
+    <label class="checkline firewall-confirm"><input type="checkbox" name="confirm_self_ban"> در صورت هم‌پوشانی با IP فعلی من هم اعمال شود</label>
+  </div>
+  <button>بن کامل IP</button>
+  <p class="hint">برای جلوگیری از قفل‌شدن تصادفی، بن کردن <code>0.0.0.0/0</code> و <code>::/0</code> یا loopback مجاز نیست.</p>
+</form>
+
+<div class="card">
+  <div class="section-head">
+    <div>
+      <h3>IPهای بن‌شده</h3>
+      <p class="hint">این قوانین قبل از قوانین معمولی اجرا می‌شوند.</p>
+    </div>
+  </div>
+  <div class="firewall-ban-grid">
+    {% for r in summary.bans %}
+      <div class="firewall-ban-card {{ 'off' if not r.enabled else '' }}">
+        <div>
+          <b>{{ r.name }}</b>
+          <code>{{ r.source }}</code>
+          <small>{{ r.protocol|upper }} · {{ 'فعال' if r.enabled else 'غیرفعال' }}</small>
+        </div>
+        <div class="actions firewall-actions">
+          <form method="post"><input type="hidden" name="action" value="toggle"><input type="hidden" name="rule_id" value="{{ r.id }}"><button class="btn small ghost">{{ 'غیرفعال' if r.enabled else 'فعال' }}</button></form>
+          <form method="post" onsubmit="return confirm('این IP از لیست بن حذف شود؟')"><input type="hidden" name="action" value="delete"><input type="hidden" name="rule_id" value="{{ r.id }}"><button class="btn small danger">حذف</button></form>
+        </div>
+      </div>
+    {% else %}
+      <div class="empty-state">هنوز IP بن‌شده‌ای ثبت نشده است.</div>
+    {% endfor %}
+  </div>
+</div>
+
+<form class="card form" method="post">
+  <input type="hidden" name="action" value="add_rule">
+  <h3>قوانین معمولی پورت</h3>
+  <div class="grid grid-form">
+    <input name="name" placeholder="Rule name" required>
+    <input name="port" placeholder="Port" required inputmode="numeric">
+    <select name="protocol"><option>tcp</option><option>udp</option></select>
+    <select name="rule_action"><option value="allow">allow</option><option value="deny">deny</option></select>
+    <input name="source" placeholder="Source CIDR or any" value="any" dir="ltr">
+    <label class="checkline"><input type="checkbox" name="enabled" checked> Enabled</label>
+  </div>
+  <button>ذخیره قانون پورت</button>
+</form>
+
+<div class="card">
+  <h3>لیست قوانین پورت</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>نام</th><th>عملیات</th><th>پورت</th><th>Source</th><th>وضعیت</th><th></th></tr></thead>
+      <tbody>
+      {% for r in summary.rules %}
+        <tr>
+          <td>{{ r.name }}</td><td>{{ r.action }}</td><td>{{ r.port }}/{{ r.protocol }}</td><td><code>{{ r.source }}</code></td><td>{{ 'فعال' if r.enabled else 'غیرفعال' }}</td>
+          <td class="actions"><form method="post"><input type="hidden" name="action" value="toggle"><input type="hidden" name="rule_id" value="{{ r.id }}"><button class="btn small ghost">Toggle</button></form><form method="post" onsubmit="return confirm('حذف شود؟')"><input type="hidden" name="action" value="delete"><input type="hidden" name="rule_id" value="{{ r.id }}"><button class="btn small danger">Delete</button></form></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6">قانون پورت ثبت نشده است.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
