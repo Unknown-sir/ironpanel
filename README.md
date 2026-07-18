@@ -52,6 +52,8 @@ sudo bash /opt/ironpanel/scripts/update_from_github.sh
 | نمایندگان | ✅ | ✅ | ✅ |
 | Node Gateway / Multi Server | ❌ | ✅ | ✅ |
 | Node Agent و Load Balancer | ❌ | ✅ | ✅ |
+| ربات فروش | ❌ | ❌ | ✅ |
+| شبکه  | ❌ | ❌ | ✅ |
 
 ## Node Gateway چگونه کار می‌کند؟
 
