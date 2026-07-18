@@ -1,0 +1,49 @@
+{% extends 'base.html' %}{% block heading %}Node Agent / Multi Server{% endblock %}{% block content %}
+<section class="card">
+  <div class="section-head responsive-head">
+    <div>
+      <span class="eyebrow">PRO ONLY · EASY NODE SETUP</span>
+      <h3>مدیریت نودها</h3>
+      <p class="hint">نود را اضافه کن، دستور نصب را روی سرور نود اجرا کن، بعد Health/Sync/Gateway از همین پنل انجام می‌شود.</p>
+    </div>
+    <div class="actions-wrap"><a class="button" href="/v17/nodes">داشبورد پیشرفته</a><a class="btn ghost" href="/node-gateway">Node Gateway</a></div>
+  </div>
+  <form method="post" class="form-grid">
+    <label>Name<input name="name" required></label>
+    <label>Host/IP<input name="host" required></label>
+    <label>Location<input name="location" placeholder="Germany / Iran / ..."></label>
+    <label>Weight<input name="weight" type="number" min="1" max="10000" value="100"><small>100 عادی؛ عدد بیشتر یعنی سهم بیشتر در Auto Balance</small></label>
+    <label>Max Online Users<input name="max_users" type="number" min="0" value="0"><small>0 یعنی بدون سقف</small></label>
+    <label class="check"><input type="checkbox" name="gateway_enabled" value="1" checked> قابل استفاده در Gateway/Auto Balance</label>
+    <div class="wide protocol-box"><b>پروتکل‌های قابل اجرا روی این نود</b>{% for p in active_protocols() %}<label><input type="checkbox" name="protocols" value="{{p}}" checked> {{p}}</label>{% endfor %}</div>
+    <button>Add node</button>
+  </form>
+</section>
+<section class="card"><div class="section-head"><h3>وضعیت کلی نودها</h3><div class="mini-stats"><span>Nodes: {{ summary.nodes }}</span><span>Online: {{ summary.online_nodes }}</span><span>Queued: {{ summary.queued_jobs }}</span><span>Failed: {{ summary.failed_jobs }}</span></div></div></section>
+<section class="node-card-grid">
+{% for n in nodes %}
+  <article class="card node-modern-card">
+    <div class="node-card-head"><div><h3>{{n.name}}</h3><small>{{n.location or 'بدون لوکیشن'}} · {{n.host}}</small></div><span class="badge {{'ok' if n.health in ['online','ok','local','healthy'] else 'warn'}}">{{n.health}}</span></div>
+    <div class="node-metrics"><div><small>CPU</small><b>{{ (n.cpu_percent if n.cpu_percent is not none else 0)|round(1) }}%</b></div><div><small>RAM</small><b>{{ (n.ram_percent if n.ram_percent is not none else 0)|round(1) }}%</b></div><div><small>Disk</small><b>{{ (n.disk_percent if n.disk_percent is not none else 0)|round(1) }}%</b></div><div><small>Ping</small><b>{% if n.ping_ms and n.ping_ms > 0 %}{{ n.ping_ms|round(0) }}ms{% else %}-{% endif %}</b></div><div><small>Online</small><b>{{ n.online_users or 0 }}</b></div><div><small>Last seen</small><b>{{n.last_seen or '-'}}</b></div></div>
+    <details class="protocol-popover"><summary><span>!</span><b>Protocols</b><em>Health</em></summary><div class="protocol-popover-panel"><div class="protocol-chip-grid">{% for p in (n.protocols or '').split(',') if p %}<span class="proto-chip">{{p}}</span>{% endfor %}</div><pre class="log-output small">{{ n.protocol_health_json or '{}' }}</pre></div></details>
+
+    <details class="protocol-popover force-node-box"><summary><span>⇄</span><b>اتصال پروتکل‌ها فقط به این نود</b><em>Force</em></summary>
+      <form method="post" action="/nodes/{{n.id}}/force-protocols" class="protocol-chip-grid" onsubmit="return confirm('پروتکل‌های انتخاب‌شده فقط به این نود وصل شوند؟');">
+        {% set node_protocols = (n.protocols or '').split(',') %}
+        {% for p in active_protocols() if p in node_protocols %}<label class="proto-chip"><input type="checkbox" name="protocols" value="{{p}}"> {{p}}</label>{% endfor %}
+        <button class="btn small primary">Force selected protocols</button>
+      </form>
+      <p class="hint">این گزینه قوانین Node Gateway را روی Fixed Only می‌گذارد، پورت‌های همان پروتکل را از سرور اصلی به این نود DNAT/FORWARD می‌کند و کانفیگ پروتکل را روی نود Sync می‌کند.</p>
+    </details>
+    <div class="node-actions">
+      <a class="btn small ghost" href="/nodes/{{n.id}}/install">Install Command</a>
+      <a class="btn small" href="/nodes/{{n.id}}/edit">Edit</a>
+      <form method="post" action="/nodes/{{n.id}}/check"><button class="btn small">Check</button></form>
+      <form method="post" action="/nodes/{{n.id}}/sync"><button class="btn small ghost">Sync Users</button></form>
+      <form method="post" action="/nodes/{{n.id}}/ensure"><button class="btn small ghost">Install/Repair Cores</button></form>
+      <form method="post" action="/nodes/{{n.id}}/delete" onsubmit="return confirm('این نود حذف شود؟ کاربران وابسته به حالت Auto/Local برمی‌گردند.');"><button class="btn small danger">Delete</button></form>
+    </div>
+  </article>
+{% else %}<section class="card empty-state">هنوز نودی اضافه نشده است.</section>{% endfor %}
+</section>
+{% endblock %}
