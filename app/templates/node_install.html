@@ -1,8 +1,0 @@
-{% extends 'base.html' %}{% block heading %}Node Install{% endblock %}{% block content %}
-<section class="card">
-  <h3>نصب ساده نود {{node.name}}</h3>
-  <p>این دستور را روی سرور نود اجرا کن. آدرس <code>--master</code> با scheme و پورت واقعی پنل ساخته می‌شود؛ مثلاً اگر پنل روی <code>8001</code> و بدون SSL باشد، دستور با <code>http://IP:8001</code> ساخته می‌شود.</p>
-  <pre dir="ltr">{{command}}</pre>
-  <div class="notice soft">اگر نود Online نشد، روی سرور نود بزن: <code dir="ltr">journalctl -u ironpanel-node -n 100 --no-pager</code>. سرویس alias قدیمی <code>ironpanel-node-agent</code> هم پشتیبانی می‌شود.</div>
-</section>
-{% endblock %}
