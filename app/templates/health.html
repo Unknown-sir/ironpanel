@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block heading %}Health Doctor / Repair{% endblock %}
+{% block content %}
+<section class="card doctor-hero">
+  <div class="section-head responsive-head">
+    <div>
+      <span class="eyebrow">STABILITY DOCTOR</span>
+      <h3>بررسی کامل سلامت پنل، پروتکل‌ها و زیرساخت</h3>
+      <p class="muted">وضعیت سرویس‌ها، پورت‌ها، دیتابیس، SSL، نود، فایل‌های حیاتی و Speed Limit اینجا بررسی می‌شود. دکمه Repair برای پروتکل‌ها همیشه در دسترس است؛ حتی اگر Healthy باشند، ادمین می‌تواند repair دستی اجرا کند.</p>
+    </div>
+    <form method="post" class="actions-wrap"><input type="hidden" name="target" value="all"><button>Repair کامل</button></form>
+  </div>
+  <div class="grid stats compact-stats">
+    <div class="metric"><span>Checked At</span><b>{{ summary.checked_at }}</b></div>
+    <div class="metric"><span>Healthy</span><b>{{ summary.ok_count }}</b></div>
+    <div class="metric"><span>Needs Attention</span><b>{{ summary.bad_count }}</b></div>
+    <div class="metric"><span>Status</span><b>{{ 'OK' if summary.ok else 'Needs Repair' }}</b></div>
+  </div>
+  {% if repair_output %}<pre class="log-output">{{ repair_output }}</pre>{% endif %}
+</section>
+
+{% set cats = {'core':'Core','protocol':'Protocols','ports':'Ports','database':'Database','ssl':'SSL','node':'Nodes','license':'License/Telemetry','files':'Files'} %}
+{% for cat,label in cats.items() %}
+<section class="card table-card doctor-section">
+  <h3>{{ label }}</h3>
+  <div class="doctor-grid">
+  {% for r in summary.rows if r.category == cat %}
+    <div class="doctor-card {{ 'ok' if r.ok else 'bad' }}">
+      <div class="doctor-card-head"><span class="doctor-icon">{{ '✅' if r.ok else '⚠️' }}</span><div><b>{{ r.label }}</b><small>{{ r.id }}</small></div><em>{{ r.status }}</em></div>
+      <p>{{ r.detail or '-' }}</p>
+      {% if r.repair %}
+      <form method="post" class="inline-form">
+        <input type="hidden" name="target" value="{{ r.repair }}">
+        <button class="btn small {{ 'ghost' if r.ok else 'danger' }}">Repair</button>
+        {% if not r.ok %}<a class="btn ghost small" href="{{ url_for('web.health_error', service=r.id) }}">Log</a>{% endif %}
+      </form>
+      {% else %}
+      <span class="badge ok">Healthy</span>
+      {% endif %}
+    </div>
+  {% endfor %}
+  </div>
+</section>
+{% endfor %}
+{% endblock %}
