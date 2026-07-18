@@ -50,8 +50,9 @@ sudo bash /opt/ironpanel/scripts/update_from_github.sh
 | Speed Limits | ✅ | ✅ | ✅ |
 | DNS Manager و DNS Presets | ✅ | ✅ | ✅ |
 | نمایندگان | ✅ | ✅ | ✅ |
-| Node Gateway / Multi Server | ❌ | ✅ | ✅ |
-| Node Agent و Load Balancer | ❌ | ✅ | ✅ |
+| Node Gateway / Multi Server | ❌ | ❌ | ✅ |
+| Node Agent و Load Balancer | ❌ | ❌ | ✅ |
+|Sale Bot| ❌ | ❌ | ✅ |
 |OpenVPN| ✅ | ✅ | ✅ |
 |Xray| ✅ | ✅ | ✅ |
 |Cisco / Ocserv| ❌ | ✅ | ✅ |
