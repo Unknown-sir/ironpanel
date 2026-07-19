@@ -1,290 +1,331 @@
-# IronPanel v19.8.22
+<div align="center">
+
+# ⚙️ IronPanel
+
+### پنل حرفه‌ای مدیریت VPN، Proxy، کاربران، نودها و تونل‌های چندسروری
 
 ![IronPanel](https://s34.picofile.com/file/8490877984/Ironpanel.png)
 
-IronPanel یک پنل مدیریت چندپروتکل VPN و پروکسی است که برای مدیریت کاربران، نمایندگان، سابسکریپشن، SSL، نود، مانیتورینگ و تنظیمات پیشرفته سرور طراحی شده است.
+**IronPanel** برای مدیریت متمرکز سرویس‌های VPN/Proxy، کاربران، سابسکریپشن‌ها، نمایندگان، نودها، SSL، DNS، محدودیت سرعت، مانیتورینگ و عملیات نگهداری سرور طراحی شده است.
 
-## نصب سریع
+</div>
+
+---
+
+## ✨ خلاصه قابلیت‌ها
+
+IronPanel فقط یک پنل ساخت اکانت نیست؛ یک مرکز کنترل کامل برای مدیریت سرویس‌های چندپروتکلی و چندسروری است.
+
+- مدیریت کاربران، حجم، تاریخ انقضا، محدودیت سرعت و دسترسی پروتکل‌ها
+- ساخت کانفیگ و Subscription با QR Code و لینک اختصاصی
+- پشتیبانی از چند پروتکل محبوب VPN و Proxy
+- نصب، تعمیر و مانیتورینگ هسته‌ها از داخل پنل
+- Auto SSL برای دامنه پنل و پروتکل‌های نیازمند گواهی
+- DNS Manager، DNS Presets و WireGuard MTU
+- Routing Rules، Outbound Rules و Speed Limits
+- سیستم نمایندگان، محدودیت مصرف واقعی و ربات فروش اختصاصی
+- Health Doctor، Safe Backup، Safe Restore و Safe Update
+- Firewall IP/CIDR Ban با chain اختصاصی
+- Node Agent، Node Gateway، Transparent Relay و Auto Sync
+- نصب خودکار نود با SSH برای لایسنس‌های Pro و Admin
+
+---
+
+## 🚀 نصب سریع
+
+روی سرور اصلی اجرا کنید:
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/Unknown-sir/ironpanel/main/install.sh)
 ```
 
-## آپدیت از ترمینال
+بعد از نصب، اطلاعات ورود و آدرس پنل در خروجی ترمینال نمایش داده می‌شود.
+
+---
+
+## 🔄 آپدیت از ترمینال
+
+آپدیت سریع از GitHub:
 
 ```bash
 sudo bash /opt/ironpanel/scripts/update_from_github.sh
 ```
 
-## امکانات مهم نسخه‌های جدید
-
-- Node Gateway و Load Balancer برای لایسنس Plus و Pro
-- انتخاب نود به‌صورت ثابت، کمترین کاربر آنلاین، بهترین پینگ یا حالت ترکیبی
-- اتصال کاربر به آدرس سرور اصلی و هدایت اتصال از سرور اصلی به نود انتخابی
-- قوانین پروتکل به نود: هر پروتکل می‌تواند Local، Fixed Node یا Auto Balance باشد
-- اصلاح Update Manager تا بعد از ثبت لاگ تکمیل آپدیت، درصد روی 100٪ قرار بگیرد
-- نمایش badge برای کاربرانی که توسط نماینده ساخته شده‌اند
-
-## جدول پروتکل‌ها
-
-| پروتکل | وضعیت | پورت پیش‌فرض | توضیح |
-|---|---:|---:|---|
-| OpenVPN | ✅ | 1194 | ساخت فایل ovpn و مدیریت مصرف |
-| WireGuard | ✅ | 51820 | MTU و DNS قابل تنظیم |
-| Cisco / Ocserv | ✅ | 443 | مناسب AnyConnect |
-| L2TP/IPsec | ✅ | 1701/500/4500 | کانفیگ کلاسیک موبایل و دسکتاپ |
-| Xray | ✅ | 443 | Reality/TLS و لینک‌های Subscription |
-| Hysteria2 | ✅ | 443 UDP | کانفیگ جدید و خروجی YAML |
-| Telegram MTProto Proxy | ✅ | قابل تنظیم | پورت مشترک و secret اختصاصی |
-| SSH | ✅ | 422 | اطلاعات اتصال ساده برای کاربر |
-| PPTP | ✅ | 1723 | پشتیبانی legacy |
-
-## جدول امکانات پنل
-
-| امکان | Beginner | Plus | Pro |
-|---|:---:|:---:|:---:|
-| مدیریت کاربران و کانفیگ‌ها | ✅ | ✅ | ✅ |
-| Subscription و QR | ✅ | ✅ | ✅ |
-| Auto SSL | ✅ | ✅ | ✅ |
-| Routing Rules / Outbound | ✅ | ✅ | ✅ |
-| Speed Limits | ✅ | ✅ | ✅ |
-| DNS Manager و DNS Presets | ✅ | ✅ | ✅ |
-| نمایندگان | ✅ | ✅ | ✅ |
-|OpenVPN| ✅ | ✅ | ✅ |
-|Xray| ✅ | ✅ | ✅ |
-|Cisco / Ocserv| ❌ | ✅ | ✅ |
-|L2TP/IPsec| ❌ | ✅ | ✅ |
-|WireGuard| ❌ | ✅ | ✅ |
-|Hysteria2| ❌ | ✅ | ✅ |
-|Telegram MTProto Proxy| ❌ | ✅ | ✅ |
-|SSH| ❌ | ✅ | ✅ |
-|OpenVPN| ❌ | ✅ | ✅ |
-|PPTP| ❌ | ✅ | ✅ |
-| Node Gateway / Multi Server | ❌ | ❌ | ✅ |
-| Node Agent و Load Balancer | ❌ | ❌ | ✅ |
-|Sale Bot| ❌ | ❌ | ✅ |
-
-## Node Gateway چگونه کار می‌کند؟
-
-در حالت Node Gateway، کاربر همچنان کانفیگ را با آدرس سرور اصلی دریافت می‌کند. سرور اصلی بر اساس قانونی که مدیر تعیین کرده، اتصال هر پروتکل را به یکی از نودهای آنلاین هدایت می‌کند. انتخاب نود می‌تواند ثابت باشد یا به‌صورت خودکار بر اساس کمترین تعداد کاربر آنلاین، بهترین پینگ یا ترکیب این دو انجام شود.
-
-## نکته‌ها
-
-- README فقط اطلاعات IronPanel را پوشش می‌دهد.
-- برای استفاده از Node و Node Agent، لایسنس Plus و Pro فعال است؛ Beginner دسترسی ندارد.
-- بعد از تغییر قوانین نود، از صفحه Node Gateway گزینه Apply را بزنید.
-
-## نسخه 19.4.0 — مصرف واقعی نماینده و ربات فروش اختصاصی
-
-- حجم نماینده فقط بر اساس مصرف واقعی کاربران کم می‌شود، نه هنگام ساخت کانفیگ یا تعیین حجم کاربر.
-- اگر کاربر یا کانفیگ ساخته‌شده توسط نماینده حذف شود، مصرف ثبت‌شده نماینده کم نمی‌شود تا محدودیت حجم نماینده دقیق و غیرقابل دورزدن باقی بماند.
-- با رسیدن مصرف ثبت‌شده نماینده به سقف حجم، کاربران فعال همان نماینده غیرفعال می‌شوند.
-- در لایسنس Pro، ادمین اصلی و هر نماینده می‌تواند ربات فروش اختصاصی خودش را فعال و مدیریت کند.
-- هر ربات فروش نماینده سفارش‌ها، مشتری‌ها و پلن‌های خودش را جداگانه مدیریت می‌کند.
-
-### دستور sync سرویس‌های ربات فروش نمایندگان
-
-```bash
-sudo bash /opt/ironpanel/scripts/sync_sales_bots.sh
-```
-
-## نسخه 19.4.1
-- طراحی صفحه کاربران و کانفیگ‌ها ریسپانسیو شد.
-- پروتکل‌های هر کاربر با دکمه اطلاعات `!` نمایش داده می‌شود تا صفحه اسکرول افقی نخورد.
-- عملیات کاربران در موبایل و دسکتاپ مرتب‌تر نمایش داده می‌شود.
-
-
-## نود، Load Balancing و Gateway
-
-در نسخه 19.5.0 بخش Node کامل‌تر شده است. کاربر همچنان کانفیگ سرور اصلی را دریافت می‌کند، اما سرور اصلی می‌تواند اتصال هر پروتکل را پشت‌صحنه به نود مناسب منتقل کند. انتخاب نود می‌تواند بر اساس نود ثابت، کمترین کاربر آنلاین، بهترین پینگ یا حالت ترکیبی انجام شود.
-
-دستور نصب نود از داخل پنل در بخش **Nodes > Install Command** ساخته می‌شود و روی سرور نود اجرا می‌شود. بعد از نصب، نود به‌صورت خودکار heartbeat، health check و jobهای sync را از پنل دریافت می‌کند.
-
-## محدودیت سرعت هر کاربر روی هر پروتکل
-
-محدودیت سرعت دیگر سقف کلی یک پروتکل نیست. اگر برای WireGuard مقدار `20 Mbps` وارد شود، یعنی هر کاربر WireGuard جداگانه تا 20 مگابیت سرعت دارد. همچنین می‌توان برای هر کاربر و هر پروتکل مقدار اختصاصی تعریف کرد.
-
-
-## پایداری، بکاپ و آپدیت امن (v19.6.0)
-
-در این نسخه سه بخش مهم برای استفاده واقعی روی سرور اضافه شده است:
-
-| بخش | کاربرد | مسیر/دستور |
-|---|---|---|
-| Health Doctor | بررسی سلامت پنل، پروتکل‌ها، پورت‌ها، دیتابیس، SSL، نود و Speed Limit | `/health` |
-| Repair سریع | تعمیر موردی هر سرویس یا تعمیر کامل همه سرویس‌ها | `/health` یا `ironpanelctl repair` |
-| Safe Backup | بکاپ از دیتابیس، تنظیمات، پروفایل‌ها، SSL، systemd و سورس پنل | `/backups` |
-| Safe Restore | ریستور امن با ساخت pre-restore backup و بررسی مسیرهای خطرناک archive | `/backups` |
-| Safe Update | آپدیت از ترمینال با بکاپ، لاگ، health repair و درصد تکمیل | `sudo bash /opt/ironpanel/scripts/safe_update.sh` |
-
-دستور آپدیت امن از ترمینال:
+آپدیت امن همراه با بکاپ، health check و لاگ کامل:
 
 ```bash
 sudo bash /opt/ironpanel/scripts/safe_update.sh
 ```
 
-دستور بکاپ دستی:
+---
 
-```bash
-cd /opt/ironpanel && sudo /opt/ironpanel/.venv/bin/flask --app run.py safe-backup
+## 🧩 پروتکل‌های پشتیبانی‌شده
+
+| پروتکل | وضعیت | کاربرد | توضیح |
+|---|:---:|---|---|
+| OpenVPN | ✅ | عمومی و پایدار | خروجی `.ovpn`، مدیریت مصرف و auth hook |
+| WireGuard | ✅ | سبک و سریع | DNS، MTU، peer management و QR |
+| Cisco / Ocserv | ✅ | AnyConnect | مناسب موبایل و دسکتاپ |
+| L2TP/IPsec | ✅ | کلاسیک | سازگار با کلاینت‌های داخلی سیستم‌عامل‌ها |
+| PPTP | ✅ | Legacy | برای سناریوهای قدیمی و سازگاری خاص |
+| Xray | ✅ | VLESS/Reality/TLS | Subscription، QR، inboundهای قابل مدیریت |
+| Hysteria2 | ✅ | UDP پرسرعت | خروجی YAML و مناسب شبکه‌های پرنوسان |
+| Telegram MTProto Proxy | ✅ | MTProto | secret اختصاصی و پورت قابل تنظیم |
+| SSH | ✅ | SSH Tunnel | ساخت دسترسی SSH برای کاربران |
+
+---
+
+## 👥 مدیریت کاربران و سابسکریپشن
+
+در IronPanel می‌توانید برای هر کاربر این موارد را مدیریت کنید:
+
+- حجم کل، مصرف‌شده و باقی‌مانده
+- تاریخ انقضا و وضعیت فعال/غیرفعال
+- پروتکل‌های مجاز برای هر کاربر
+- محدودیت سرعت کلی یا اختصاصی برای هر پروتکل
+- Reset Traffic و تمدید سریع
+- لینک Subscription و QR Code
+- فایل‌های کانفیگ اختصاصی برای هر پروتکل
+- نمایش آنلاین‌ها و sessionهای فعال در پروتکل‌های پشتیبانی‌شده
+
+---
+
+## 🧠 Smart Core Reload
+
+IronPanel هنگام تغییر کاربر، همه سرویس‌ها را بی‌دلیل restart نمی‌کند. فقط همان پروتکلی که واقعاً تحت تأثیر تغییر قرار گرفته reload یا restart می‌شود.
+
+نمونه‌ها:
+
+- تغییر حجم یا تاریخ انقضا بدون restart سنگین
+- WireGuard در صورت امکان با `wg syncconf`
+- Xray/Hysteria2 فقط هنگام تغییر کاربران همان پروتکل
+- کاهش قطعی کاربران هنگام ویرایش‌های روزمره
+
+---
+
+## 🛰️ Node Gateway و Transparent Relay
+
+IronPanel برای معماری‌های چندسروری و تونلی طراحی شده است. در حالت Transparent Relay، کاربر همچنان به IP یا دامنه سرور اصلی وصل می‌شود، اما پنل اصلی پشت‌صحنه اتصال را به نود انتخابی منتقل می‌کند.
+
+مسیر پیشنهادی برای سناریوهای تونلی:
+
+```text
+User / Iran Tunnel
+        ↓
+Main Panel Public Endpoint
+        ↓
+IronPanel Transparent Relay
+        ↓
+Selected Node
+        ↓
+IronPanel Transparent Relay
+        ↓
+User / Iran Tunnel
 ```
 
+مزیت این مدل:
 
-## دستور آپدیت ترمینالی
+- کانفیگ کاربر همچنان آدرس سرور اصلی را دارد
+- IP/Domain نود مستقیم به کاربر داده نمی‌شود
+- مسیر رفت و برگشت برای تونل‌های واسط قابل کنترل‌تر است
+- امکان Force کردن هر پروتکل به نود خاص وجود دارد
+- Sync کانفیگ‌ها و کاربران روی نودها انجام می‌شود
 
-```bash
-sudo bash /opt/ironpanel/scripts/safe_update.sh
-```
+---
 
+## 🤖 نصب خودکار نود با SSH
 
-## نسخه 19.7.0
+از نسخه 19.9، نصب نود می‌تواند مستقیم از داخل پنل انجام شود. ادمین اطلاعات SSH نود را وارد می‌کند و IronPanel خودش مراحل نصب را انجام می‌دهد.
 
-- heartbeat و گزارش سلامت نصب‌ها کامل‌تر شد.
-- اجرای فرمان‌های مدیریتی فقط از لیست امن و محدود امکان‌پذیر است.
-- نتیجه Health Doctor، Safe Update، Backup و Repair به مرکز مدیریت گزارش می‌شود.
-- README اصلی همچنان فقط اطلاعات IronPanel را پوشش می‌دهد.
+قابلیت‌ها:
 
-## نسخه 19.8.0 - Smart Core Reload و اصلاح آپدیت
+- ورود با SSH Password
+- ورود با SSH Private Key
+- پشتیبانی از Key Passphrase
+- پشتیبانی از Sudo Password برای کاربر غیر root
+- ذخیره credentialها به‌صورت رمزنگاری‌شده
+- نصب dependencies، Clone/Update پروژه و اجرای `install_node.sh`
+- نصب/Repair هسته‌های انتخاب‌شده
+- Sync کانفیگ پروتکل‌ها و کاربران
+- Health Check نود بعد از نصب
+- Apply مجدد Gateway و Relay بعد از آماده شدن نود
 
-- هنگام ساخت، ویرایش، حذف یا فعال/غیرفعال کردن کاربر، دیگر همه هسته‌ها بی‌دلیل restart نمی‌شوند.
-- پنل فقط همان پروتکلی را reload/restart می‌کند که واقعاً تحت تأثیر تغییر کاربر بوده است.
-- تغییر حجم، تاریخ انقضا یا reset traffic بدون restart هسته‌ها انجام می‌شود.
-- WireGuard در صورت امکان با `wg syncconf` به‌روزرسانی می‌شود تا اتصال کاربران دیگر قطع نشود.
-- Update Manager دیگر با لاگ قدیمی 100٪ کاذب نشان نمی‌دهد و فقط بعد از اجرای واقعی آپدیت پیام تکمیل می‌دهد.
+> این قابلیت فقط برای لایسنس‌های **Pro** و **Admin** فعال است.
 
-### دستور آپدیت ترمینالی
+---
 
-```bash
-sudo bash /opt/ironpanel/scripts/safe_update.sh
-```
+## 📦 ماتریس پلن‌ها
 
+| قابلیت | Beginner / Free | Plus | Pro | Admin |
+|---|:---:|:---:|:---:|:---:|
+| نصب و استفاده بدون لایسنس | ✅ | ❌ | ❌ | ❌ |
+| OpenVPN | ✅ | ✅ | ✅ | ✅ |
+| Xray | ✅ | ✅ | ✅ | ✅ |
+| سایر پروتکل‌ها | ❌ | ✅ | ✅ | ✅ |
+| Subscription و QR | ✅ | ✅ | ✅ | ✅ |
+| DNS Manager و DNS Presets | ✅ | ✅ | ✅ | ✅ |
+| Speed Limits و Routing Rules | ✅ | ✅ | ✅ | ✅ |
+| نمایندگان | ✅ | ✅ | ✅ | ✅ |
+| Node Gateway / Node Agent | ❌ | ❌ | ✅ | ✅ |
+| Transparent Relay | ❌ | ❌ | ✅ | ✅ |
+| Node Auto SSH Installer | ❌ | ❌ | ✅ | ✅ |
+| ربات فروش اختصاصی | ❌ | ❌ | ✅ | ✅ |
+| امکانات مالی کامل | ❌ | ❌ | ❌ | ✅ |
 
+---
 
-## نسخه 19.8.1 — Menu Fix + Always Repair + Plus Nodes
+## 🛡️ امنیت و کنترل دسترسی
 
-- مشکل جمع‌شدن و درهم‌رفتن گزینه‌های More Setting در سایدبار اصلاح شد.
-- منوی More Setting در موبایل و دسکتاپ تک‌ستونه و بدون overlap نمایش داده می‌شود.
-- در Health & Repair، دکمه Repair برای همه پروتکل‌ها حتی در حالت Healthy همیشه نمایش داده می‌شود.
-- اسکریپت Repair جداگانه برای L2TP اضافه شد.
-- خروجی جدید Xray برای Reality x25519 با `PrivateKey` و `Password (PublicKey)` درست parse می‌شود.
-- آپدیت ترمینالی سبک‌تر شد و دیگر در repair/sync سنگین پروتکل‌ها گیر نمی‌کند.
-- در لایسنس Plus دسترسی به Nodes و Node Agent فعال شد.
+IronPanel برای استفاده روی سرور واقعی چندین لایه امنیتی دارد:
 
-### نکته نسخه 19.8.2
-- Update Manager فقط بعد از اتمام واقعی `upgrade.sh` و ثبت `upgrade.exit=0` به 100٪ می‌رسد.
-- تعمیر سنگین پروتکل‌ها از مسیر آپدیت جدا شده و از صفحه Health & Repair به‌صورت دستی انجام می‌شود.
-- در لایسنس Plus، دسترسی Nodes و Node Agent فعال است.
+- ذخیره رمزنگاری‌شده اطلاعات SSH نود
+- امکان حذف credential ذخیره‌شده از پنل
+- محدودسازی قابلیت Node Auto Installer به Pro/Admin
+- Firewall IP/CIDR Ban برای بلاک کامل IP یا subnet
+- اجرای فرمان‌های مدیریتی فقط از مسیرهای کنترل‌شده
+- جلوگیری از restartهای غیرضروری و عملیات پرریسک
+- تفکیک دسترسی‌ها بر اساس پلن و مجوز لایسنس
+- لاگ‌گذاری عملیات مهم برای بررسی و دیباگ
 
-## ماتریس پلن‌ها در نسخه 19.8.3
-
-| پلن | پروتکل‌ها | Node / Node Agent | ربات فروش | مالی |
-|---|---|---|---|---|
-| Beginner / Free | فقط OpenVPN و Xray | غیرفعال | غیرفعال | غیرفعال |
-| Plus | همه پروتکل‌ها | غیرفعال | غیرفعال | غیرفعال |
-| Pro | همه پروتکل‌ها | فعال | فعال | غیرفعال |
-| Admin | همه پروتکل‌ها | فعال | فعال | فعال |
-
-در ربات فروش LicensePanel، پلن Admin برای فروش عمومی نمایش داده نمی‌شود و فقط Plus/Pro قابل فروش هستند.
-
-
-
-### Firewall IP Ban
-در بخش **Firewall** مدیر می‌تواند IP یا CIDR را به‌صورت کامل بن کند. این بن روی chain اختصاصی `IRONPANEL-BAN` اعمال می‌شود و درخواست‌های آن IP به کل سرور، همه پورت‌ها و همه پروتکل‌ها DROP می‌شود. امکان فعال/غیرفعال‌کردن، حذف و اعمال دوباره قوانین هم وجود دارد.
-
-دستور اعمال دوباره از ترمینال:
+اعمال دوباره قوانین Firewall:
 
 ```bash
 sudo bash /opt/ironpanel/scripts/apply_firewall_rules.sh
 ```
 
-## نسخه 19.8.9 — اصلاح دستور نصب نود و مدیریت نودها
-- دستور نصب Node Agent حالا آدرس پنل اصلی را با پورت واقعی پنل می‌سازد؛ مثلاً اگر پنل روی `8001` باشد، مقدار `--master` به شکل `http://SERVER_IP:8001` تولید می‌شود.
-- روی IP خام و پورت غیر 443، دیگر به‌صورت اشتباه `https://IP` بدون SSL ساخته نمی‌شود.
-- برای هر نود در صفحه Nodes دکمه‌های Edit و Delete اضافه شد.
-- هنگام حذف نود، وابستگی کاربران و jobها پاک‌سازی می‌شود تا سیستم به Auto/Local برگردد.
+---
 
+## 🧰 Health Doctor، Repair و نگهداری
 
-## نسخه 19.8.10 — Node Connection Fix
+بخش Health & Repair وضعیت سرویس‌ها، پورت‌ها، هسته‌ها، دیتابیس، SSL، نودها و منابع سیستم را بررسی می‌کند.
 
-- دستور نصب Node اکنون Master URL را با پورت واقعی پنل تولید می‌کند؛ مثلا `http://SERVER_IP:8001`.
-- نصب‌کننده Node قبل از ساخت سرویس، Master را تست می‌کند و اگر دستور قدیمی `https://IP` یا بدون پورت باشد، مسیرهای رایج مثل `http://IP:8001` را امتحان و اولین مسیر سالم را ذخیره می‌کند.
-- Node Agent در برابر SSL اشتباه، IP بدون گواهی، پورت ناقص و خطای اتصال مقاوم‌تر شد.
-- endpoint سبک `/api/v2/node/ping` برای تست ارتباط نود با پنل اصلی اضافه شد.
-- سرویس نود با نام اصلی `ironpanel-node` و alias سازگار `ironpanel-node-agent` نصب می‌شود.
+قابلیت‌ها:
 
+- بررسی نصب و وضعیت سرویس‌ها
+- Repair جداگانه برای هر پروتکل
+- Repair کامل پنل و سرویس‌ها
+- نمایش وضعیت CPU، RAM، Disk، Swap و License
+- بررسی Node Agent، heartbeat، sync و gateway
 
-## نسخه 19.8.12 — Node Heartbeat Verify
+دستور تعمیر از ترمینال:
 
-- دستور نصب نود برای پنل‌های IP/بدون SSL روی پورت سفارشی مثل `8001` به‌صورت `http://IP:8001` ساخته می‌شود.
-- نصب‌کننده نود فقط وقتی آدرس Master را قبول می‌کند که endpoint واقعی heartbeat پاسخ معتبر بدهد.
-- اگر کانفیگ قدیمی `https://IP:8001` باقی مانده باشد، Agent جدید ابتدا `http://IP:8001` را امتحان می‌کند.
+```bash
+sudo ironpanelctl repair
+```
 
+یا:
 
-## نسخه 19.8.13 — Node Real Forward + Reset
+```bash
+cd /opt/ironpanel
+sudo bash scripts/ironpanel_doctor.sh
+```
 
-- حالت Fixed Only اکنون فقط تنظیم ظاهری نیست؛ روی سرور اصلی DNAT/FORWARD واقعی می‌سازد تا پورت پروتکل به نود انتخابی منتقل شود.
-- کانفیگ‌های اصلی پروتکل‌های انتخاب‌شده به نود Sync می‌شوند تا OpenVPN/WireGuard/Xray/Ocserv/Hysteria2 و سایر هسته‌ها با تنظیمات سرور اصلی هماهنگ باشند.
-- دکمه Reset forwards اضافه شد تا همه فورواردهای نود پاک شوند و اتصال همه پروتکل‌ها دوباره به سرور اصلی برگردد.
+---
 
+## 💾 Backup و Restore امن
 
-## نسخه 19.8.14 — اصلاح Force Node و فوروارد واقعی
+IronPanel می‌تواند از بخش‌های مهم سیستم بکاپ بگیرد:
 
-- خطای Internal Server Error هنگام Force کردن پروتکل به نود رفع شد.
-- هنگام ساخت یا Repair نود، کانفیگ‌های پروتکل و هسته‌ها برای نود Sync می‌شوند.
-- DNAT فقط برای ترافیکی اعمال می‌شود که مقصدش IP خود سرور اصلی است تا اتصال‌های دیگر خراب نشوند.
-- اگر پورت یک پروتکل با پورت پنل یکی باشد، فوروارد آن پورت برای جلوگیری از قطع دسترسی پنل skip می‌شود.
-- دکمه Reset forwards همه فورواردهای نود را پاک می‌کند و پروتکل‌ها را به سرور اصلی برمی‌گرداند.
-## نسخه 19.8.15 — Dynamic Node Gateway Ports
+- دیتابیس پنل
+- تنظیمات پروتکل‌ها
+- فایل‌های کانفیگ کاربران
+- SSL و certificateها
+- فایل‌های systemd
+- تنظیمات نود و gateway
 
-در Node Gateway پورت‌ها دیگر ثابت نیستند و از تنظیمات واقعی پنل و کانفیگ‌های پروتکل خوانده می‌شوند. اگر Xray روی 444، Hysteria2 روی 4433 یا Telegram Proxy روی 6967 باشد، همان پورت‌ها در Gateway Plan نمایش داده شده و همان‌ها به نود فوروارد می‌شوند. بعد از Force کردن پروتکل به نود، کانفیگ‌های همان پروتکل روی نود Sync می‌شود و firewall نود هم بر اساس پورت‌های واقعی بازسازی می‌شود.
+ساخت بکاپ دستی:
 
+```bash
+cd /opt/ironpanel
+sudo /opt/ironpanel/.venv/bin/flask --app run.py safe-backup
+```
 
-## نسخه 19.8.16 — Node Gateway Apply Fix
-- رفع خطای `Node Gateway apply error` زمانی که chainهای قبلی MASQUERADE وجود نداشتند و اسکریپت به خاطر `pipefail` قبل از ساخت قانون‌ها خارج می‌شد.
-- دستور نصب نود حالا scheme واقعی پنل را حفظ می‌کند؛ اگر پنل روی `https://IP:8001` اجرا شده باشد، دیگر به اشتباه `http://IP:8001` تولید نمی‌شود.
-- لاگ Node Gateway دقیق‌تر شد و اگر هیچ قانونی اعمال نشود یا host نود resolve نشود، خطای قابل بررسی داخل `/var/log/ironpanel-node-gateway.log` ثبت می‌شود.
+---
 
+## 📊 امکانات مدیریتی مهم
 
-## نسخه 19.8.17 — Node Gateway Xray Public Ports
+- داشبورد منابع سیستم و وضعیت لایسنس
+- مدیریت نمایندگان و محدودیت مصرف واقعی
+- ربات ادمین تلگرام برای گزارش‌ها و مدیریت سریع
+- ربات فروش برای پلن‌ها و کاربران
+- لاگ‌های نصب، آپدیت، نود، gateway و relay
+- API داخلی برای ارتباط Node Agent و سرویس‌ها
+- نمایش کاربران آنلاین و مصرف واقعی تا حد امکان هر پروتکل
 
-- پورت داخلی Xray مثل `10085` دیگر در Gateway Plan و قوانین فوروارد نمی‌آید.
-- فقط پورت عمومی کاربر مثل `444/tcp` فوروارد می‌شود.
-- هنگام Sync کانفیگ از سرور اصلی به نود، bind عمومی Xray/Hysteria2 روی نود به `0.0.0.0` نرمال می‌شود تا اگر کانفیگ اصلی به IP سرور اصلی bind شده باشد، روی نود هم درست اجرا شود.
-- لاگ Gateway شامل counterهای NAT/FORWARD است تا رسیدن ترافیک به نود قابل بررسی باشد.
+---
 
+## 🔧 دستورات کاربردی
 
-## نسخه 19.8.18 — Node Gateway Direct DNAT
+وضعیت پنل:
 
-- فوروارد واقعی پروتکل‌ها به نود با DNAT مستقیم‌تر و بدون گیرکردن روی شرط `dst-type LOCAL` انجام می‌شود.
-- برای تست‌های local یک hook محدود روی NAT OUTPUT اضافه شد.
-- هنگام Sync کانفیگ Xray روی نود، مقدارهای `sendThrough` که ممکن است مربوط به IP سرور اصلی باشند حذف می‌شوند تا خروجی اینترنت از IP خود نود انجام شود.
-- توجه: در کلاینت‌هایی مثل v2rayN/V2rayN همچنان آدرس سرور در کانفیگ می‌تواند IP پنل اصلی باشد؛ چون Gateway با DNAT کار می‌کند. ملاک واقعی، IP نمایش‌داده‌شده داخل سایت‌های تست IP بعد از اتصال است.
+```bash
+systemctl status ironpanel --no-pager
+```
 
-## نسخه 19.8.20 — Node Gateway Return Path Fix
+ری‌استارت پنل:
 
-- فوروارد واقعی نود با مسیر برگشت پایدارتر شد.
-- برای پورت‌های Force شده، قوانین DNAT، FORWARD دوطرفه و SNAT/MASQUERADE دقیق‌تر ساخته می‌شود.
-- `rp_filter` روی اینترفیس‌ها غیرفعال می‌شود تا برگشت ترافیک DNAT در VPSها drop نشود.
-- اسکریپت Gateway قبل از Apply، reachable بودن پورت TCP نود را لاگ می‌کند.
-- لاگ‌های NAT/FORWARD/POSTROUTING و counterها کامل‌تر شدند.
+```bash
+sudo systemctl restart ironpanel
+```
 
+لاگ پنل:
 
+```bash
+journalctl -u ironpanel -n 150 --no-pager
+```
 
-## نسخه 19.8.21 — Node Direct Endpoint Fallback
+اعمال Gateway نود:
 
-در حالت Fixed/Fixed Only، کانفیگ‌های جدید پروتکل‌ها مستقیماً آدرس نود انتخابی را دریافت می‌کنند و قوانین DNAT روی سرور اصلی به‌عنوان fallback برای کانفیگ‌های قدیمی باقی می‌مانند. بعد از Force کردن پروتکل به نود، کاربر باید subscription/config خود را دوباره import کند تا مستقیم به نود وصل شود.
-## v19.8.22 - Transparent Node Relay Mode
-- Reverted direct-node endpoint generation: client configs keep the main-panel IP/domain in Fixed/Fixed Only gateway mode.
-- Added a transparent userspace relay for node gateway TCP/UDP traffic. Public protocol ports on the main server are REDIRECTed to a local relay, and the relay connects to the selected node.
-- The response path is now deterministic for tunnel deployments: Client/Iran tunnel -> Main panel -> Node -> Main panel -> Client/Iran tunnel.
-- Kernel DNAT/SNAT remains only as GRE fallback for PPTP data channel; TCP/UDP protocols use relay mode.
-- Added `ironpanel-node-gateway-relay.service` and `/var/log/ironpanel-node-gateway-relay.log`.
+```bash
+sudo bash /opt/ironpanel/scripts/apply_node_gateway.sh --apply
+```
 
+پاک‌کردن Gateway و برگشت به سرور اصلی:
 
+```bash
+sudo bash /opt/ironpanel/scripts/apply_node_gateway.sh --clear
+```
 
-## 19.9.0 — Node Auto SSH Installer
+لاگ Gateway:
 
-- نصب خودکار نود از داخل پنل با SSH Password یا SSH Private Key.
-- ذخیره credentialها به‌صورت رمزنگاری‌شده.
-- اجرای نصب، نصب هسته‌ها، Sync کانفیگ‌ها و Sync کاربران.
-- فعال فقط برای لایسنس‌های Pro و Admin.
+```bash
+tail -n 150 /var/log/ironpanel-node-gateway.log
+```
+
+لاگ Transparent Relay:
+
+```bash
+tail -n 150 /var/log/ironpanel-node-gateway-relay.log
+```
+
+---
+
+## 📁 مستندات بیشتر
+
+مستندات نسخه‌ها و قابلیت‌های تخصصی داخل پوشه `docs/` قرار دارد. برای تاریخچه کامل تغییرات، فایل زیر را ببینید:
+
+```text
+CHANGELOG.md
+```
+
+---
+
+## ✅ مناسب برای چه کسانی است؟
+
+IronPanel برای مدیرانی مناسب است که نیاز دارند:
+
+- چند پروتکل را از یک پنل مدیریت کنند
+- برای کاربران subscription و QR بسازند
+- نماینده و فروشنده داشته باشند
+- چند سرور یا نود را پشت یک پنل کنترل کنند
+- مسیر تونلی بین کاربر، سرور اصلی و نود داشته باشند
+- نصب نود را بدون SSH دستی و از داخل پنل انجام دهند
+- بکاپ، آپدیت و تعمیر امن داشته باشند
+
+---
+
+<div align="center">
+
+### IronPanel — یک پنل، چند پروتکل، چند نود، مدیریت کامل
+
+</div>
