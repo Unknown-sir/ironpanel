@@ -1,0 +1,73 @@
+{% extends 'base.html' %}{% block heading %}تنظیمات سیستم{% endblock %}{% block content %}
+<section class="card"><div class="panel-title"><h3>نسخه و لایسنس</h3><span>{{ license_status.license_type|default('beginer')|upper }}</span></div><p class="hint">{{ license_status.reason }}</p><a class="btn ghost" href="/upgrade">ورود به بخش آپگرید و مدیریت لایسنس</a></section>
+<section class="card"><div class="panel-title"><h3>WireGuard Client Settings</h3><span>DNS Presets</span></div>
+<p class="hint">MTU، PersistentKeepalive و DNSهایی که داخل کانفیگ‌های WireGuard کاربران نوشته می‌شود را اینجا تنظیم کن. DNSهای معروف به‌صورت آماده اضافه شده‌اند و با یک کلیک قابل انتخاب هستند.</p>
+<form method="post" class="form grid-form">
+<input type="hidden" name="form_section" value="wireguard">
+<label>WireGuard MTU<input name="wireguard_mtu" type="number" min="576" max="1500" value="{{settings.get('wireguard_mtu','1280')}}"></label>
+<label>PersistentKeepalive<input name="wireguard_persistent_keepalive" type="number" min="0" max="120" value="{{settings.get('wireguard_persistent_keepalive','25')}}"><small class="hint">Recommended: 25 seconds.</small></label>
+<label class="wide">WireGuard DNS<input id="wireguardDnsInput" name="wireguard_dns" value="{{settings.get('wireguard_dns','1.1.1.1')}}" placeholder="1.1.1.1, 8.8.8.8"><small class="hint">چند DNS را با کاما جدا کن. این مقدار در فایل‌های جدید WireGuard نوشته می‌شود.</small></label>
+<div class="wide dns-presets">
+  <div class="mini-title">DNSهای آماده</div>
+  <div class="dns-preset-grid">
+    {% for preset in wireguard_dns_presets %}
+    <button type="button" class="dns-preset-chip" data-dns="{{ preset.value }}" title="{{ preset.note }}"><strong>{{ preset.name }}</strong><small>{{ preset.value }}</small></button>
+    {% endfor %}
+  </div>
+  <small class="hint">با کلیک روی هر گزینه، مقدار DNS بالا جایگزین می‌شود. همچنان می‌توانی DNS دلخواه خودت را دستی وارد کنی.</small>
+</div>
+<button>ذخیره تنظیمات WireGuard</button>
+</form></section>
+
+<section class="card"><div class="panel-title"><h3>Subscription Domain</h3><span>Public Links</span></div>
+<p class="hint">If you enter a domain or subdomain here, subscription links, QR codes, Telegram bot messages and reseller API responses will use it. Leave empty to use the panel host.</p>
+<form method="post" class="form grid-form">
+<input type="hidden" name="form_section" value="subscription_domain">
+<label class="wide">Subscription domain / URL<input name="subscription_domain" value="{{settings.get('subscription_domain','')}}" placeholder="sub.example.com or https://sub.example.com"><small class="hint">Example output: https://sub.example.com/s/USER_TOKEN</small></label>
+<button>Save Subscription Domain</button>
+</form></section>
+
+<section class="card"><div class="panel-title"><h3>Telegram MTProto Proxy</h3><span>Per-user proxy</span></div>
+<p class="hint">Telegram Proxy now has a dedicated management page. Admin can enable/disable it, set base port, install/repair core, sync users, restart services and review per-user usage.</p>
+<div class="actions-wrap"><a class="btn" href="/telegram-proxy">Open Telegram Proxy Manager</a><form method="post" action="/telegram-proxy/repair" class="inline-form"><button class="btn ghost">Quick Install / Repair</button></form></div>
+</section>
+
+<section class="card"><h3>تنظیمات ساده پنل</h3><form method="post" class="form grid-form"><input type="hidden" name="form_section" value="system">
+<label>حالت رابط کاربری<select name="ui_mode"><option value="simple" {{'selected' if settings.get('ui_mode','simple')!='advanced' else ''}}>ساده، مناسب استفاده روزمره</option><option value="advanced" {{'selected' if settings.get('ui_mode')=='advanced' else ''}}>پیشرفته، نمایش همه بخش‌ها</option></select></label>
+<label>نام کاربری مدیر<input name="admin_username" value="{{current_user.username}}"></label><label>رمز جدید مدیر<input name="admin_password" type="password" placeholder="خالی = بدون تغییر"></label>
+<label>هاست عمومی<input name="public_host" value="{{settings.get('public_host','')}}"><small class="hint">دامنه یا IP که کاربرها در کانفیگ می‌بینند.</small></label><label>آدرس تانل برای کانفیگ‌ها<input name="tunnel_host" value="{{settings.get('tunnel_host','')}}"><small class="hint">خالی یعنی همان هاست عمومی.</small></label><label>پروتکل‌های فعال<input name="active_protocols" value="{{settings.get('active_protocols','openvpn,ocserv,l2tp,wireguard,xray,pptp,hysteria2,telegram_proxy,ssh')}}" placeholder="openvpn,ocserv,l2tp,wireguard,xray,pptp,hysteria2,telegram_proxy,ssh"><small class="hint">پروتکل‌های غیرمجاز پلن فعلی به صورت خودکار نادیده گرفته می‌شوند. Beginner فقط openvpn,xray دارد.</small></label>
+<details class="wide advanced-inline"><summary>تنظیمات پیشرفته پورت‌ها و پروتکل‌ها</summary><div class="form grid-form nested-form">
+<label>OpenVPN Transport<select name="openvpn_transport"><option value="udp" {{'selected' if openvpn_transport=='udp' else ''}}>UDP</option><option value="tcp" {{'selected' if openvpn_transport=='tcp' else ''}}>TCP</option></select></label>
+<label>Ocserv/AnyConnect Transport<select name="ocserv_transport"><option value="tcp_udp" {{'selected' if ocserv_transport=='tcp_udp' else ''}}>TCP + UDP</option><option value="tcp" {{'selected' if ocserv_transport=='tcp' else ''}}>TCP فقط</option><option value="udp" {{'selected' if ocserv_transport=='udp' else ''}}>UDP/DTLS</option></select></label>
+<label>WireGuard Transport<select name="wireguard_transport"><option value="udp" selected>UDP استاندارد</option><option value="tcp" {{'selected' if wireguard_transport=='tcp' else ''}}>TCP درخواست‌شده</option></select><small class="hint">هسته WireGuard به‌صورت استاندارد UDP است.</small></label>
+<label>L2TP/IPsec Transport<select name="l2tp_transport"><option value="udp" selected>UDP استاندارد</option><option value="tcp" {{'selected' if l2tp_transport=='tcp' else ''}}>TCP درخواست‌شده</option></select><small class="hint">L2TP/IPsec استاندارد روی UDP 500/4500/1701 است.</small></label>
+<label>پورت پنل<input name="port_panel" type="number" value="{{ports.panel}}"></label><label>OpenVPN UDP<input name="port_openvpn_udp" type="number" value="{{ports.openvpn_udp}}"></label><label>OpenVPN TCP<input name="port_openvpn_tcp" type="number" value="{{ports.openvpn_tcp}}"></label><label>Ocserv TCP<input name="port_ocserv_tcp" type="number" value="{{ports.ocserv_tcp}}"></label><label>Ocserv UDP<input name="port_ocserv_udp" type="number" value="{{ports.ocserv_udp}}"></label><label>PPTP TCP<input name="port_pptp_tcp" type="number" value="{{ports.pptp_tcp}}"></label><label>Hysteria2 UDP<input name="port_hysteria2_udp" type="number" value="{{ports.hysteria2_udp}}"></label><label>L2TP UDP<input name="port_l2tp_udp" type="number" value="{{ports.l2tp_udp}}"></label><label>IPsec IKE UDP<input name="port_ipsec_ike" type="number" value="{{ports.ipsec_ike}}"></label><label>IPsec NAT-T UDP<input name="port_ipsec_nat" type="number" value="{{ports.ipsec_nat}}"></label><label>WireGuard UDP<input name="port_wireguard_udp" type="number" value="{{ports.wireguard_udp}}"></label><label>Telegram Proxy base TCP<input name="port_telegram_proxy_base" type="number" value="{{ports.telegram_proxy_base}}"><small class="hint">All users connect to this shared MTProto port; per-user accounting is based on the user secret.</small></label><label>SSH TCP<input name="port_ssh_tcp" type="number" value="{{ports.ssh_tcp}}"><small class="hint">Default: 422/tcp. Existing admin SSH ports are preserved by repair.</small></label>
+<label>WireGuard MTU<input name="wireguard_mtu" type="number" min="576" max="1500" value="{{settings.get('wireguard_mtu','1280')}}"><small class="hint">Default 1280 for better mobile/CGNAT compatibility.</small></label>
+<label>WireGuard PersistentKeepalive<input name="wireguard_persistent_keepalive" type="number" min="0" max="120" value="{{settings.get('wireguard_persistent_keepalive','25')}}"><small class="hint">25 seconds is recommended for NAT and mobile networks.</small></label><label>WireGuard DNS<input class="wireguard-dns-mirror" name="wireguard_dns" value="{{settings.get('wireguard_dns','1.1.1.1')}}" placeholder="1.1.1.1, 8.8.8.8"><small class="hint">These DNS servers are written into generated WireGuard configs.</small></label><label>Xray TCP<input name="port_xray_tcp" type="number" value="{{ports.xray_tcp}}"></label><label>Xray API Local<input name="port_xray_api" type="number" value="{{ports.xray_api}}"></label>
+
+<label>Hysteria2 Upload Hint<input name="hysteria2_up_mbps" value="{{settings.get('hysteria2_up_mbps','100 mbps')}}"><small class="hint">مثلاً 100 mbps. برای اتصال لازم نیست دقیق باشد اما برای کنترل سرعت بهتر است.</small></label>
+<label>Hysteria2 Download Hint<input name="hysteria2_down_mbps" value="{{settings.get('hysteria2_down_mbps','300 mbps')}}"><small class="hint">مثلاً 300 mbps. پورت Hysteria2 باید UDP باشد.</small></label>
+<label>Hysteria2 Cert<input name="hysteria2_tls_cert_file" value="{{settings.get('hysteria2_tls_cert_file','/etc/hysteria/server.crt')}}"><small class="hint">اگر SSL خودکار فعال شود این مسیر به گواهی Let’s Encrypt تغییر می‌کند.</small></label>
+<label>Hysteria2 Key<input name="hysteria2_tls_key_file" value="{{settings.get('hysteria2_tls_key_file','/etc/hysteria/server.key')}}"></label>
+</div></details>
+<details class="wide advanced-inline"><summary>تنظیمات تلگرام</summary><div class="form grid-form nested-form"><label>Telegram Bot Token<input name="telegram_bot_token" value="{{settings.get('telegram_bot_token','')}}"></label><label>Telegram Chat ID<input name="telegram_chat_id" value="{{settings.get('telegram_chat_id','')}}"></label><label>Notify Login<select name="notify_login"><option value="1">فعال</option><option value="0" {{'selected' if settings.get('notify_login')=='0' else ''}}>غیرفعال</option></select></label><label>Notify Expiry<select name="notify_expiry"><option value="1">فعال</option><option value="0" {{'selected' if settings.get('notify_expiry')=='0' else ''}}>غیرفعال</option></select></label></div></details>
+<button class="wide">ذخیره و اعمال تنظیمات</button></form><form method="post" action="/notifications/test"><button class="btn ghost">ارسال پیام تست تلگرام</button></form><p class="hint">بعد از تغییر پورت پنل، سرویس را با <code>sudo bash /opt/ironpanel/upgrade.sh --restart-only</code> ری‌استارت کن.</p></section>
+<script>
+document.querySelectorAll('.dns-preset-chip').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    var val = btn.getAttribute('data-dns') || '';
+    var main = document.getElementById('wireguardDnsInput');
+    if(main){ main.value = val; main.focus(); }
+    document.querySelectorAll('.wireguard-dns-mirror').forEach(function(inp){ inp.value = val; });
+    document.querySelectorAll('.dns-preset-chip').forEach(function(x){ x.classList.remove('selected'); });
+    btn.classList.add('selected');
+  });
+});
+var mainDns = document.getElementById('wireguardDnsInput');
+if(mainDns){
+  mainDns.addEventListener('input', function(){
+    document.querySelectorAll('.wireguard-dns-mirror').forEach(function(inp){ inp.value = mainDns.value; });
+  });
+}
+</script>
+{% endblock %}
