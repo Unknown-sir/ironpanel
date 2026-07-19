@@ -1,0 +1,20 @@
+{% extends 'base.html' %}{% block heading %}Edit Node{% endblock %}{% block content %}
+<section class="card">
+  <div class="section-head responsive-head"><div><span class="eyebrow">NODE MANAGEMENT</span><h3>ویرایش نود {{ node.name }}</h3><p class="hint">بعد از تغییر Host، پروتکل‌ها یا وزن، بهتر است Sync/Health را از صفحه نودها اجرا کنی.</p></div><a class="btn ghost" href="{{ url_for('web.nodes') }}">بازگشت</a></div>
+  <form method="post" class="form-grid">
+    <label>Name<input name="name" value="{{ node.name }}" required></label>
+    <label>Host/IP<input name="host" value="{{ node.host }}" required></label>
+    <label>Location<input name="location" value="{{ node.location or '' }}" placeholder="Germany / Iran / ..."></label>
+    <label>Weight<input name="weight" type="number" min="1" max="10000" value="{{ node.weight or 100 }}"><small>عدد بیشتر یعنی سهم بیشتر در Auto Balance</small></label>
+    <label>Max Online Users<input name="max_users" type="number" min="0" value="{{ node.max_users or 0 }}"><small>0 یعنی بدون سقف</small></label>
+    <label class="check"><input type="checkbox" name="gateway_enabled" value="1" {% if node.gateway_enabled %}checked{% endif %}> قابل استفاده در Gateway/Auto Balance</label>
+    <div class="wide protocol-box"><b>پروتکل‌های قابل اجرا روی این نود</b>{% set selected = (node.protocols or '').split(',') %}{% for p in active_protocols() %}<label><input type="checkbox" name="protocols" value="{{p}}" {% if p in selected %}checked{% endif %}> {{p}}</label>{% endfor %}</div>
+    <button>Save changes</button>
+  </form>
+</section>
+<section class="card danger-zone">
+  <h3>حذف نود</h3>
+  <p class="hint">با حذف نود، کاربران وابسته به این نود به حالت Auto/Local برمی‌گردند و jobهای صف‌شده آن پاک می‌شود.</p>
+  <form method="post" action="{{ url_for('web.node_delete', node_id=node.id) }}" onsubmit="return confirm('این نود حذف شود؟');"><button class="btn danger">Delete node</button></form>
+</section>
+{% endblock %}
