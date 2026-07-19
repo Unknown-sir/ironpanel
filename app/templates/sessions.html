@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block heading %}کاربران آنلاین و نشست‌ها{% endblock %}
+{% block content %}
+<section class="card">
+  <div class="section-head">
+    <div>
+      <h3>نشست‌های فعال</h3>
+      <p class="hint">این لیست از OpenVPN status، WireGuard handshake، occtl و PPP hooks خوانده می‌شود.</p>
+    </div>
+    <a class="btn ghost" href="/sessions">Refresh</a>
+  </div>
+  {% if online_error %}<div class="alert danger">آخرین خطای تشخیص آنلاین: <code>{{ online_error }}</code></div>{% endif %}
+  <table>
+    <tr><th>کاربر</th><th>پروتکل</th><th>IP</th><th>کشور</th><th>Device</th><th>شروع</th><th>آخرین مشاهده</th><th></th></tr>
+    {% for s in sessions %}
+    <tr>
+      <td><b>{{s.username}}</b></td>
+      <td><span class="badge ok">{{s.protocol}}</span></td>
+      <td>{{s.remote_ip or '-'}}</td>
+      <td>{{s.country or '-'}}</td>
+      <td><small>{{s.device_id or '-'}}</small></td>
+      <td>{{s.connected_at}}</td>
+      <td>{{s.last_seen}}</td>
+      <td><form method="post" action="/sessions/{{s.id}}/kick" onsubmit="return confirm('این نشست قطع شود؟')"><button class="btn small danger">Kick</button></form></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8" class="muted">در حال حاضر نشست فعالی شناسایی نشده است. اگر کاربر متصل است، یک بار usage sync را اجرا کن یا سرویس مربوطه را restart کن تا hookها فعال شوند.</td></tr>
+    {% endfor %}
+  </table>
+</section>
+<section class="card">
+  <h3>دستورات تست</h3>
+  <pre>sudo systemctl status ironpanel-usage-sync.timer
+sudo journalctl -u ironpanel-usage-sync.service -n 100 --no-pager
+sudo cat /var/log/openvpn/status.log
+sudo wg show wg0 dump
+sudo occtl show users</pre>
+</section>
+{% endblock %}
