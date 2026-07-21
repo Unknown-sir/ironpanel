@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>{{ theme.brand_name }} | {{ user.username }} Subscription</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="public sub-v6" style="--sub-accent: {{ theme.theme_color }}">
+<main class="sub-v6-shell">
+  <section class="sub-v6-hero">
+    <div class="sub-v6-orb o1"></div><div class="sub-v6-orb o2"></div><div class="sub-v6-orb o3"></div>
+    <div class="sub-v6-copy">
+      <span class="sub-v6-pill">{{ theme.brand_name }} · Clean Subscription</span>
+      <h1>{{ user.username }}</h1>
+      <p>{{ theme.notice }}</p>
+      <div class="sub-v6-linkbox">
+        <small>Subscription URL</small>
+        <code>{{ subscription_url }}</code>
+        <button type="button" data-copy-text="{{ subscription_url }}">Copy</button>
+      </div>
+      <div class="sub-v6-cta">
+        <a class="primary" href="{{ subscription_base_url }}/s/{{ user.subscription_token }}/download-all.zip">Download all</a>
+        {% if theme.support_url %}<a href="{{ theme.support_url }}" target="_blank" rel="noopener">Support</a>{% endif %}
+      </div>
+    </div>
+    <aside class="sub-v6-qr">
+      <div class="sub-v6-qr-frame"><img src="{{ subscription_base_url }}/qr/subscription/{{ user.subscription_token }}.png" alt="Subscription QR"></div>
+      <b>Scan to import</b><span>{{ subscription_base_url }}</span>
+    </aside>
+  </section>
+
+  <section class="sub-v6-stats">
+    <article class="{{ 'ok' if user.enabled else 'bad' }}"><small>Status</small><b>{{ 'Active' if user.enabled else 'Disabled' }}</b><span>Access</span></article>
+    <article><small>Quota</small><b>{{ usage.total_human }}</b><span>Total traffic</span></article>
+    <article><small>Used</small><b>{{ usage.used_human }}</b><span>{% if usage.traffic_multiplier_enabled %}{{ usage.traffic_multiplier_label }} · raw {{ usage.raw_used_human }}{% else %}{{ usage.upload_human }} ↑ · {{ usage.download_human }} ↓{% endif %}</span></article>
+    <article><small>Left</small><b>{{ usage.remaining_human }}</b><span>Remaining</span></article>
+    <article><small>Expiry</small><b>{{ '∞' if usage.unlimited_time else usage.remaining_days ~ 'd' }}</b><span>{{ 'Unlimited' if usage.unlimited_time else usage.expires_at.strftime('%Y-%m-%d') }}</span></article>
+  </section>
+
+  <section class="sub-v6-heading">
+    <span class="sub-v6-pill soft">Profiles</span>
+    <h2>کانفیگ‌ها بر اساس سرور</h2>
+    <p>کانفیگ‌های سرور اصلی ابتدا نمایش داده می‌شوند و سپس هر نود با پرچم لوکیشن، نام سرور و فایل‌های مخصوص همان نود قرار می‌گیرد.</p>
+  </section>
+
+  <div class="sub-v6-location-stack">
+    {% for section in sections %}
+      {% set section_index = loop.index %}
+      <section class="sub-v6-location {{ 'is-main' if section.kind == 'main' else 'is-node' }}">
+        <header class="sub-v6-location-head">
+          <span class="sub-v6-location-flag" aria-hidden="true">{{ section.flag }}</span>
+          <div class="sub-v6-location-copy">
+            <small>{{ 'Main server' if section.kind == 'main' else 'Node location' }}</small>
+            <h3>{{ section.title }}</h3>
+            <p>
+              {% if section.kind == 'node' and section.server_name and section.server_name != section.title %}<b>{{ section.server_name }}</b> · {% endif %}
+              {% if section.location and section.location != section.title %}{{ section.location }} · {% endif %}
+              <span dir="ltr">{{ section.host }}</span>
+            </p>
+          </div>
+          <span class="sub-v6-location-count">{{ section.configs|length }} config</span>
+        </header>
+
+        <div class="sub-v6-protocol-grid" aria-label="{{ section.title }} configs">
+          {% for item in section.configs %}
+            {% set modal_id = 'cfg-modal-' ~ section_index ~ '-' ~ loop.index %}
+            <button type="button" class="sub-v6-protocol-card" data-open-modal="{{ modal_id }}" style="--i:{{ loop.index0 }}">
+              <span class="sub-v6-protocol-icon">{{ item.icon }}</span>
+              <span class="sub-v6-protocol-text">
+                <b>{{ item.title }}</b>
+                <small>{% if item.download_only %}دانلود فایل{% elif item.copy_only %}کپی لینک{% else %}کپی / دانلود{% endif %}</small>
+              </span>
+              <span class="sub-v6-protocol-arrow">↗</span>
+            </button>
+          {% else %}
+            <div class="sub-v6-empty">No active config is available for this server.</div>
+          {% endfor %}
+        </div>
+      </section>
+    {% else %}
+      <div class="sub-v6-empty">No active config is available for this account.</div>
+    {% endfor %}
+  </div>
+
+  {% for section in sections %}
+    {% set section_index = loop.index %}
+    {% for item in section.configs %}
+      {% set modal_id = 'cfg-modal-' ~ section_index ~ '-' ~ loop.index %}
+      {% set title_id = 'cfg-title-' ~ section_index ~ '-' ~ loop.index %}
+      {% set body_id = 'cfg-body-' ~ section_index ~ '-' ~ loop.index %}
+      {% set qr_url = subscription_base_url ~ '/s/' ~ user.subscription_token ~ '/xray-qr.png' if section.kind == 'main' and item.name == 'xray.txt' else subscription_base_url ~ '/s/' ~ user.subscription_token ~ '/hysteria2-qr.png' if section.kind == 'main' and item.name == 'hysteria2.txt' else '' %}
+      <div class="sub-v6-modal" id="{{ modal_id }}" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="{{ title_id }}">
+        <div class="sub-v6-modal-backdrop" data-close-modal></div>
+        <section class="sub-v6-modal-panel">
+          <header class="sub-v6-modal-head">
+            <div class="sub-v6-modal-title">
+              <span>{{ item.icon }}</span>
+              <div><small>{{ section.flag }} {{ section.title }} · {{ item.title }}</small><h3 id="{{ title_id }}">{{ download_names.get(item.name, item.name) }}</h3></div>
+            </div>
+            <button type="button" class="sub-v6-modal-close" data-close-modal aria-label="Close">×</button>
+          </header>
+          {% if qr_url and not item.download_only %}
+            <div class="sub-v6-modal-qr"><img src="{{ qr_url }}" alt="{{ item.title }} QR"><p>برای import سریع، QR را اسکن کنید یا کانفیگ را کپی/دانلود کنید.</p></div>
+          {% endif %}
+          <div class="sub-v6-modal-actions">
+            {% if not item.download_only %}<button type="button" class="primary" data-copy-target="{{ body_id }}">Copy</button>{% endif %}
+            {% if item.name != 'ACCOUNT_STATUS.txt' and not item.copy_only %}<a class="{{ 'primary' if item.download_only else '' }}" href="{{ subscription_base_url }}/s/{{ user.subscription_token }}/download/{{ item.name }}">Download file</a>{% endif %}
+            {% if qr_url and not item.download_only %}<a href="{{ qr_url }}" target="_blank" rel="noopener">Open QR</a>{% endif %}
+          </div>
+          {% if item.download_only %}
+            <div class="sub-v6-note">این پروتکل به‌صورت فایل آماده تحویل داده می‌شود. برای جلوگیری از کپی ناقص، گزینه دانلود در دسترس است.</div>
+            <pre class="sub-v6-code sub-v6-hidden-copy" id="{{ body_id }}">{{ item.body }}</pre>
+          {% else %}
+            <pre class="sub-v6-code" id="{{ body_id }}">{{ item.body }}</pre>
+          {% endif %}
+        </section>
+      </div>
+    {% endfor %}
+  {% endfor %}
+</main>
+<div class="sub-v6-toast" id="copyToast">Copied</div>
+<script>
+(function(){
+  const toast=document.getElementById('copyToast');
+  let lastFocus=null;
+  function showToast(t){ if(!toast) return; toast.textContent=t||'Copied'; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'),1600); }
+  function openModal(id){ const m=document.getElementById(id); if(!m) return; lastFocus=document.activeElement; m.classList.add('open'); m.setAttribute('aria-hidden','false'); document.documentElement.classList.add('sub-v6-lock'); const close=m.querySelector('[data-close-modal]'); if(close) close.focus({preventScroll:true}); }
+  function closeModal(m){ if(!m) return; m.classList.remove('open'); m.setAttribute('aria-hidden','true'); document.documentElement.classList.remove('sub-v6-lock'); if(lastFocus && lastFocus.focus) lastFocus.focus({preventScroll:true}); }
+  document.addEventListener('click',async function(e){
+    const opener=e.target.closest('[data-open-modal]');
+    if(opener){ openModal(opener.getAttribute('data-open-modal')); return; }
+    const closer=e.target.closest('[data-close-modal]');
+    if(closer){ closeModal(e.target.closest('.sub-v6-modal')); return; }
+    const direct=e.target.closest('[data-copy-text]');
+    const target=e.target.closest('[data-copy-target]');
+    let text='';
+    if(direct) text=direct.getAttribute('data-copy-text')||'';
+    if(target){ const el=document.getElementById(target.getAttribute('data-copy-target')); text=el?el.innerText:''; }
+    if(!text) return;
+    try{ await navigator.clipboard.writeText(text.trim()); showToast('Copied'); }catch(err){ showToast('Copy manually'); }
+  });
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape'){ document.querySelectorAll('.sub-v6-modal.open').forEach(closeModal); } });
+})();
+</script>
+</body></html>
