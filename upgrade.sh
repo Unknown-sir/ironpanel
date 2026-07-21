@@ -1,0 +1,424 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# v19.9.12 GitHub upgrade: migrations, critical auth repair, node sync, and optional full core reconciliation.
+FULL_SERVICE_SYNC=${IRONPANEL_FULL_SERVICE_SYNC:-0}
+DEFER_RESTART=${IRONPANEL_DEFER_RESTART:-0}
+SKIP_CORE_REPAIR=${IRONPANEL_SKIP_CORE_REPAIR:-0}
+if [[ "${1:-}" == "--github-full-sync" ]]; then FULL_SERVICE_SYNC=1; shift || true; fi
+if [[ "${1:-}" == "--github-fast" ]]; then FULL_SERVICE_SYNC=0; SKIP_CORE_REPAIR=1; DEFER_RESTART=1; shift || true; fi
+if [[ $EUID -ne 0 ]]; then echo "Run as root: sudo bash upgrade.sh"; exit 1; fi
+APP_DIR=/opt/ironpanel
+ETC_DIR=/etc/ironpanel
+SRC_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+run_upgrade_db_safe(){
+  if [[ -x "$APP_DIR/scripts/upgrade_db_safe.sh" ]]; then
+    # In fast web-update mode, keep the current panel process alive while retrying.
+    if [[ "$DEFER_RESTART" == "1" ]]; then
+      IRONPANEL_DB_UPGRADE_KEEP_PANEL=1 bash "$APP_DIR/scripts/upgrade_db_safe.sh"
+    else
+      bash "$APP_DIR/scripts/upgrade_db_safe.sh"
+    fi
+  else
+    "$APP_DIR/.venv/bin/flask" --app run.py upgrade-db
+  fi
+}
+if [[ "${1:-}" == "--restart-only" ]]; then
+  chmod +x "$APP_DIR/scripts/"*.sh "$APP_DIR/scripts/"*.py 2>/dev/null || true
+chmod +x "$APP_DIR/scripts/update_from_github.sh" "$APP_DIR/scripts/safe_update.sh" 2>/dev/null || true
+
+# v15.5: force OpenVPN server config refresh to remove old auth-user-pass/user drop remnants.
+if [[ -f /etc/openvpn/server/server.conf ]]; then
+  sed -i '/^auth-user-pass-verify/d;/^client-cert-not-required/d;/^verify-client-cert none/d;/^username-as-common-name/d;/^plugin .*openvpn-plugin-auth-pam/d;/^user nobody/d;/^group nogroup/d' /etc/openvpn/server/server.conf || true
+fi
+if [[ -f "$APP_DIR/scripts/repair_xray.sh" ]]; then bash "$APP_DIR/scripts/repair_xray.sh" >/dev/null 2>&1 || true; fi
+# v16.1: repair Xray runtime permissions before restarting services
+
+# v19.9.8: self-healing watchdog for panel down/crash states.
+if [[ -f "$APP_DIR/scripts/ironpanel_watchdog.sh" ]]; then chmod +x "$APP_DIR/scripts/ironpanel_watchdog.sh" || true; fi
+cp -f "$APP_DIR/scripts/ironpanel-watchdog.service" /etc/systemd/system/ironpanel-watchdog.service 2>/dev/null || true
+cp -f "$APP_DIR/scripts/ironpanel-watchdog.timer" /etc/systemd/system/ironpanel-watchdog.timer 2>/dev/null || true
+systemctl daemon-reload
+systemctl enable --now ironpanel-watchdog.timer >/dev/null 2>&1 || true
+  if [[ "$DEFER_RESTART" != "1" ]]; then systemctl restart ironpanel; fi
+if [[ "$DEFER_RESTART" != "1" ]]; then systemctl restart ironpanel-sales-bot >/dev/null 2>&1 || true; fi
+if [[ "$DEFER_RESTART" != "1" ]]; then systemctl restart ironpanel-admin-bot >/dev/null 2>&1 || true; fi
+if [[ "$DEFER_RESTART" != "1" ]]; then systemctl restart xray >/dev/null 2>&1 || true; fi
+  echo "Ironpanel restarted."
+  exit 0
+fi
+mkdir -p "$APP_DIR" "$ETC_DIR"
+apt-get update >/dev/null 2>&1 || true
+DEBIAN_FRONTEND=noninteractive apt-get install -y sqlite3 snapd ca-certificates python3-venv python3-pip >/dev/null 2>&1 || true
+if [[ -f "$SRC_DIR/scripts/repair_certbot.sh" ]]; then bash "$SRC_DIR/scripts/repair_certbot.sh" >/dev/null 2>&1 || true; fi
+if [[ "$DEFER_RESTART" != "1" ]]; then systemctl stop ironpanel 2>/dev/null || true; fi
+rsync -a --delete --exclude '.venv' --exclude 'ironpanel.db' "$SRC_DIR/" "$APP_DIR/"
+python3 -m venv "$APP_DIR/.venv"
+"$APP_DIR/.venv/bin/pip" install --upgrade pip wheel >/dev/null
+"$APP_DIR/.venv/bin/pip" install -r "$APP_DIR/requirements.txt"
+if [[ ! -f "$ETC_DIR/ironpanel.env" ]]; then
+  SECRET=$(openssl rand -hex 32); API_KEY=$(openssl rand -hex 32)
+  PUBLIC_HOST=$(curl -fsS4 https://api.ipify.org || hostname -I | awk '{print $1}')
+  cat > "$ETC_DIR/ironpanel.env" <<ENV
+IRONPANEL_SECRET_KEY=$SECRET
+IRONPANEL_API_KEY=$API_KEY
+IRONPANEL_PUBLIC_HOST=$PUBLIC_HOST
+IRONPANEL_PORT=8080
+IRONPANEL_CONFIG_ROOT=$ETC_DIR
+DATABASE_URL=sqlite:///$ETC_DIR/ironpanel.db
+ENV
+fi
+set -a; . "$ETC_DIR/ironpanel.env"; set +a
+cd "$APP_DIR"
+run_upgrade_db_safe
+PANEL_PORT_DB=$("$APP_DIR/.venv/bin/python" - <<'PY' || true
+import os, sqlite3
+p=os.environ.get('DATABASE_URL','')
+if p.startswith('sqlite:///'):
+    db=p.replace('sqlite:///','',1)
+    try:
+        con=sqlite3.connect(db); cur=con.cursor()
+        cur.execute("select value from app_setting where key='port_panel'")
+        row=cur.fetchone(); print(row[0] if row else '')
+    except Exception: pass
+PY
+)
+if [[ -n "${PANEL_PORT_DB:-}" ]]; then
+  if grep -q '^IRONPANEL_PORT=' "$ETC_DIR/ironpanel.env"; then sed -i "s/^IRONPANEL_PORT=.*/IRONPANEL_PORT=$PANEL_PORT_DB/" "$ETC_DIR/ironpanel.env"; else echo "IRONPANEL_PORT=$PANEL_PORT_DB" >> "$ETC_DIR/ironpanel.env"; fi
+fi
+
+PORT_EXPORTS=$("$APP_DIR/.venv/bin/python" - <<'PY' || true
+import os, sqlite3
+p=os.environ.get('DATABASE_URL','')
+vals={'OPENVPN_UDP':'1194','OPENVPN_TCP':'1195','OPENVPN_PROTO':'udp','OCSERV_PORT':'8445','OCSERV_TCP':'8445','OCSERV_UDP':'8445','WIREGUARD_PORT':'51820','IRONPANEL_WIREGUARD_MTU':'1280','WIREGUARD_MTU':'1280','IRONPANEL_WIREGUARD_KEEPALIVE':'25','XRAY_PORT':'443','XRAY_API_PORT':'10085','PPTP_PORT':'1723','HYSTERIA2_PORT':'4433','TELEGRAM_PROXY_BASE':'6969','OCSERV_TRANSPORT':'tcp_udp','WIREGUARD_TRANSPORT':'udp','L2TP_TRANSPORT':'udp'}
+mapk={'OPENVPN_UDP':'port_openvpn_udp','OPENVPN_TCP':'port_openvpn_tcp','OPENVPN_PROTO':'openvpn_transport','OCSERV_PORT':'port_ocserv_tcp','OCSERV_TCP':'port_ocserv_tcp','OCSERV_UDP':'port_ocserv_udp','WIREGUARD_PORT':'port_wireguard_udp','IRONPANEL_WIREGUARD_MTU':'wireguard_mtu','WIREGUARD_MTU':'wireguard_mtu','IRONPANEL_WIREGUARD_KEEPALIVE':'wireguard_persistent_keepalive','XRAY_PORT':'port_xray_tcp','XRAY_API_PORT':'port_xray_api','PPTP_PORT':'port_pptp_tcp','HYSTERIA2_PORT':'port_hysteria2_udp','TELEGRAM_PROXY_BASE':'port_telegram_proxy_base','SSH_PORT':'port_ssh_tcp','IRONPANEL_SSH_PORT':'port_ssh_tcp','OCSERV_TRANSPORT':'ocserv_transport','WIREGUARD_TRANSPORT':'wireguard_transport','L2TP_TRANSPORT':'l2tp_transport'}
+if p.startswith('sqlite:///'):
+    db=p.replace('sqlite:///','',1)
+    try:
+        con=sqlite3.connect(db); cur=con.cursor()
+        for env,k in mapk.items():
+            cur.execute('select value from app_setting where key=?',(k,)); row=cur.fetchone()
+            if row and row[0]: vals[env]=str(row[0])
+    except Exception: pass
+print(' '.join(f'{k}={v}' for k,v in vals.items()))
+PY
+)
+export ETC_DIR IRONPANEL_PUBLIC_HOST
+if [[ "$SKIP_CORE_REPAIR" != "1" ]]; then
+  if [[ -x "$APP_DIR/scripts/install_vpn_core.sh" ]]; then
+    env $PORT_EXPORTS ETC_DIR="$ETC_DIR" PUBLIC_HOST="${IRONPANEL_PUBLIC_HOST:-}" bash "$APP_DIR/scripts/install_vpn_core.sh" || true
+  fi
+  if [[ -f "$APP_DIR/scripts/repair_xray.sh" ]]; then bash "$APP_DIR/scripts/repair_xray.sh" || true; fi
+  if [[ -f "$APP_DIR/scripts/repair_wireguard.sh" ]]; then bash "$APP_DIR/scripts/repair_wireguard.sh" || true; fi
+  if [[ -f "$APP_DIR/scripts/repair_ocserv.sh" ]]; then env $PORT_EXPORTS ETC_DIR="$ETC_DIR" PUBLIC_HOST="${IRONPANEL_PUBLIC_HOST:-}" IRONPANEL_PUBLIC_HOST="${IRONPANEL_PUBLIC_HOST:-}" bash "$APP_DIR/scripts/repair_ocserv.sh" || true; fi
+  if [[ -f "$APP_DIR/scripts/repair_l2tp.sh" ]]; then bash "$APP_DIR/scripts/repair_l2tp.sh" || true; fi
+  if [[ -f "$APP_DIR/scripts/repair_pptp.sh" ]]; then bash "$APP_DIR/scripts/repair_pptp.sh" || true; fi
+  if [[ -f "$APP_DIR/scripts/repair_hysteria2.sh" ]]; then bash "$APP_DIR/scripts/repair_hysteria2.sh" || true; fi
+  if [[ -f "$APP_DIR/scripts/repair_telegram_proxy.sh" ]]; then bash "$APP_DIR/scripts/repair_telegram_proxy.sh" --sync || true; fi
+  if [[ -f "$APP_DIR/scripts/repair_ssh.sh" ]]; then bash "$APP_DIR/scripts/repair_ssh.sh" --sync || true; fi
+  if [[ -f "$APP_DIR/scripts/apply_speed_limits.sh" ]]; then bash "$APP_DIR/scripts/apply_speed_limits.sh" --install-service || true
+    if [[ -f "$APP_DIR/scripts/apply_node_gateway.sh" ]]; then bash "$APP_DIR/scripts/apply_node_gateway.sh" --install-service || true; fi; fi
+  "$APP_DIR/.venv/bin/python" - <<'PYSYNC' || true
+from app import create_app
+from app.services.provisioning import sync_all_users
+app=create_app()
+with app.app_context():
+    sync_all_users(restart=True)
+PYSYNC
+  if [[ -x "$APP_DIR/scripts/repair_cisco_auth.sh" ]]; then timeout 180 bash "$APP_DIR/scripts/repair_cisco_auth.sh" || true; fi
+else
+  echo "Fast update: skipped full VPN core reinstall, but critical Cisco auth repair still runs."
+  if [[ -x "$APP_DIR/scripts/repair_cisco_auth.sh" ]]; then
+    timeout 180 bash "$APP_DIR/scripts/repair_cisco_auth.sh" || true
+  elif [[ -x "$APP_DIR/scripts/repair_ocserv.sh" ]]; then
+    env $PORT_EXPORTS ETC_DIR="$ETC_DIR" PUBLIC_HOST="${IRONPANEL_PUBLIC_HOST:-}" IRONPANEL_PUBLIC_HOST="${IRONPANEL_PUBLIC_HOST:-}" timeout 120 bash "$APP_DIR/scripts/repair_ocserv.sh" || true
+  fi
+  if [[ -f "$APP_DIR/scripts/apply_speed_limits.sh" ]]; then bash "$APP_DIR/scripts/apply_speed_limits.sh" --install-service || true
+    if [[ -f "$APP_DIR/scripts/apply_node_gateway.sh" ]]; then bash "$APP_DIR/scripts/apply_node_gateway.sh" --install-service || true; fi; fi
+fi
+cat > /etc/systemd/system/ironpanel.service <<SERVICE
+[Unit]
+Description=Ironpanel VPN Management Panel
+StartLimitIntervalSec=0
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=$APP_DIR
+EnvironmentFile=$ETC_DIR/ironpanel.env
+ExecStart=/bin/bash -lc 'CERT="\${IRONPANEL_SSL_CERT:-}"; KEY="\${IRONPANEL_SSL_KEY:-}"; SSL_ARGS=""; if [ -n "\$CERT" ] && [ -n "\$KEY" ] && [ -f "\$CERT" ] && [ -f "\$KEY" ]; then SSL_ARGS="--certfile \$CERT --keyfile \$KEY"; fi; exec $APP_DIR/.venv/bin/gunicorn -k gthread -w 2 -b 0.0.0.0:\${IRONPANEL_PORT} \$SSL_ARGS run:app'
+Restart=always
+RestartSec=2
+TimeoutStopSec=20
+KillMode=mixed
+User=root
+
+[Install]
+WantedBy=multi-user.target
+SERVICE
+
+cat > /etc/systemd/system/ironpanel-usage-sync.service <<USAGESERVICE
+[Unit]
+Description=Ironpanel VPN Traffic Usage Sync
+After=network.target ironpanel.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=$APP_DIR
+EnvironmentFile=$ETC_DIR/ironpanel.env
+ExecStart=$APP_DIR/.venv/bin/flask --app run.py sync-usage
+User=root
+USAGESERVICE
+
+cat > /etc/systemd/system/ironpanel-usage-sync.timer <<USAGETIMER
+[Unit]
+Description=Run Ironpanel VPN Traffic Usage Sync every minute
+
+[Timer]
+OnBootSec=60s
+OnUnitActiveSec=60s
+AccuracySec=10s
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+USAGETIMER
+
+
+cat > /etc/systemd/system/ironpanel-license-heartbeat.service <<HEARTBEATSERVICE
+[Unit]
+Description=IronPanel LicensePanel Install Heartbeat
+After=network-online.target ironpanel.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=$APP_DIR
+EnvironmentFile=$ETC_DIR/ironpanel.env
+ExecStart=$APP_DIR/.venv/bin/flask --app run.py license-heartbeat
+User=root
+HEARTBEATSERVICE
+
+cat > /etc/systemd/system/ironpanel-license-heartbeat.timer <<HEARTBEATTIMER
+[Unit]
+Description=Report IronPanel install/active/online status to LicensePanel
+
+[Timer]
+OnBootSec=120s
+OnUnitActiveSec=300s
+AccuracySec=30s
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+HEARTBEATTIMER
+
+cat > /etc/systemd/system/ironpanel-job-worker.service <<JOBWORKERSERVICE
+[Unit]
+Description=IronPanel Local Job Worker
+After=network-online.target ironpanel.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=$APP_DIR
+EnvironmentFile=$ETC_DIR/ironpanel.env
+ExecStart=$APP_DIR/.venv/bin/flask --app run.py process-jobs
+User=root
+JOBWORKERSERVICE
+
+cat > /etc/systemd/system/ironpanel-job-worker.timer <<JOBWORKERTIMER
+[Unit]
+Description=Run IronPanel local job worker every minute
+
+[Timer]
+OnBootSec=90s
+OnUnitActiveSec=60s
+AccuracySec=10s
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+JOBWORKERTIMER
+
+cat > /etc/systemd/system/ironpanel-sales-bot.service <<SALESBOTSERVICE
+[Unit]
+Description=IronPanel Telegram Sales Bot
+After=network.target ironpanel.service
+
+[Service]
+Type=simple
+WorkingDirectory=$APP_DIR
+EnvironmentFile=$ETC_DIR/ironpanel.env
+ExecStart=$APP_DIR/.venv/bin/python -m bot.main
+Restart=on-failure
+RestartSec=10
+User=root
+
+[Install]
+WantedBy=multi-user.target
+SALESBOTSERVICE
+
+cat > /etc/systemd/system/ironpanel-admin-bot.service <<ADMINBOTSERVICE
+[Unit]
+Description=IronPanel Telegram Admin Bot
+After=network.target ironpanel.service
+
+[Service]
+Type=simple
+WorkingDirectory=$APP_DIR
+EnvironmentFile=$ETC_DIR/ironpanel.env
+ExecStart=$APP_DIR/.venv/bin/python -m bot.admin
+Restart=on-failure
+RestartSec=10
+User=root
+
+[Install]
+WantedBy=multi-user.target
+ADMINBOTSERVICE
+
+cat > /etc/systemd/system/ironpanel-sales-reminders.service <<SALESREMINDERSERVICE
+[Unit]
+Description=IronPanel Sales Bot Expiry and Traffic Reminders
+After=network.target ironpanel.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=$APP_DIR
+EnvironmentFile=$ETC_DIR/ironpanel.env
+ExecStart=$APP_DIR/.venv/bin/python -m bot.reminders
+User=root
+SALESREMINDERSERVICE
+
+cat > /etc/systemd/system/ironpanel-sales-reminders.timer <<SALESREMINDERTIMER
+[Unit]
+Description=Run IronPanel Sales Bot reminders daily
+
+[Timer]
+OnBootSec=180s
+OnCalendar=*-*-* 10:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+SALESREMINDERTIMER
+
+chmod +x "$APP_DIR/scripts/"*.sh "$APP_DIR/scripts/"*.py 2>/dev/null || true
+chmod +x "$APP_DIR/scripts/update_from_github.sh" "$APP_DIR/scripts/safe_update.sh" 2>/dev/null || true
+systemctl daemon-reload
+for obsolete in ironpanel-legacy-bot ironpanel-simple-install ironpanel-old-updater ironpanel-v14-bot; do
+  systemctl disable --now "$obsolete" >/dev/null 2>&1 || true
+done
+systemctl enable ironpanel >/dev/null 2>&1 || true
+if [[ "$DEFER_RESTART" != "1" ]]; then systemctl restart ironpanel; fi
+systemctl enable --now ironpanel-usage-sync.timer >/dev/null 2>&1 || true
+systemctl enable --now ironpanel-license-heartbeat.timer >/dev/null 2>&1 || true
+systemctl enable --now ironpanel-job-worker.timer >/dev/null 2>&1 || true
+systemctl enable --now ironpanel-sales-bot >/dev/null 2>&1 || true
+bash /opt/ironpanel/scripts/sync_sales_bots.sh >/dev/null 2>&1 || true
+systemctl enable --now ironpanel-admin-bot >/dev/null 2>&1 || true
+systemctl enable --now ironpanel-admin-report.timer >/dev/null 2>&1 || true
+systemctl enable --now ironpanel-sales-reminders.timer >/dev/null 2>&1 || true
+# v17 scheduled full backup timer
+cat > /etc/systemd/system/ironpanel-admin-report.service <<ADMINREPORTSERVICE
+[Unit]
+Description=IronPanel Telegram Admin Daily Report
+After=network.target ironpanel.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=$APP_DIR
+EnvironmentFile=$ETC_DIR/ironpanel.env
+ExecStart=$APP_DIR/.venv/bin/python $APP_DIR/scripts/admin_telegram_report.py
+User=root
+ADMINREPORTSERVICE
+cat > /etc/systemd/system/ironpanel-admin-report.timer <<ADMINREPORTTIMER
+[Unit]
+Description=Run IronPanel Telegram admin report daily
+
+[Timer]
+OnBootSec=240s
+OnCalendar=*-*-* 09:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+ADMINREPORTTIMER
+
+cat > /etc/systemd/system/ironpanel-backup-v17.service <<'V17BACKUPSERVICE'
+[Unit]
+Description=IronPanel v17 Full Backup
+After=network.target ironpanel.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/ironpanel
+EnvironmentFile=/etc/ironpanel/ironpanel.env
+ExecStart=/opt/ironpanel/.venv/bin/flask --app run.py backup-v17
+User=root
+V17BACKUPSERVICE
+cat > /etc/systemd/system/ironpanel-backup-v17.timer <<'V17BACKUPTIMER'
+[Unit]
+Description=Run IronPanel v17 backup daily
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+V17BACKUPTIMER
+cp -f "$APP_DIR/scripts/ironpanel_backup.service" /etc/systemd/system/ironpanel-safe-backup.service 2>/dev/null || true
+cp -f "$APP_DIR/scripts/ironpanel_backup.timer" /etc/systemd/system/ironpanel-safe-backup.timer 2>/dev/null || true
+systemctl daemon-reload
+systemctl enable --now ironpanel-backup-v17.timer ironpanel-safe-backup.timer >/dev/null 2>&1 || true
+systemctl enable --now ironpanel-admin-report.timer >/dev/null 2>&1 || true
+if [[ "$DEFER_RESTART" != "1" ]]; then systemctl restart ironpanel; fi
+if [[ "$DEFER_RESTART" != "1" ]]; then systemctl restart ironpanel-sales-bot >/dev/null 2>&1 || true; fi
+if [[ "$DEFER_RESTART" != "1" ]]; then systemctl restart ironpanel-admin-bot >/dev/null 2>&1 || true; fi
+if [[ "$SKIP_CORE_REPAIR" != "1" ]]; then
+  if [[ -f "$APP_DIR/scripts/repair_xray.sh" ]]; then bash "$APP_DIR/scripts/repair_xray.sh" || true; fi
+  if [[ -f "$APP_DIR/scripts/repair_wireguard.sh" ]]; then bash "$APP_DIR/scripts/repair_wireguard.sh" || true; fi
+  if [[ -f "$APP_DIR/scripts/repair_ocserv.sh" ]]; then env $PORT_EXPORTS ETC_DIR="$ETC_DIR" PUBLIC_HOST="${IRONPANEL_PUBLIC_HOST:-}" IRONPANEL_PUBLIC_HOST="${IRONPANEL_PUBLIC_HOST:-}" bash "$APP_DIR/scripts/repair_ocserv.sh" || true; fi
+  if [[ -f "$APP_DIR/scripts/repair_l2tp.sh" ]]; then bash "$APP_DIR/scripts/repair_l2tp.sh" || true; fi
+  if [[ -f "$APP_DIR/scripts/repair_pptp.sh" ]]; then bash "$APP_DIR/scripts/repair_pptp.sh" || true; fi
+  if [[ -f "$APP_DIR/scripts/repair_hysteria2.sh" ]]; then bash "$APP_DIR/scripts/repair_hysteria2.sh" || true; fi
+  if [[ -f "$APP_DIR/scripts/repair_telegram_proxy.sh" ]]; then bash "$APP_DIR/scripts/repair_telegram_proxy.sh" --sync || true; fi
+  if [[ -f "$APP_DIR/scripts/repair_ssh.sh" ]]; then bash "$APP_DIR/scripts/repair_ssh.sh" --sync || true; fi
+  if [[ -f "$APP_DIR/scripts/apply_speed_limits.sh" ]]; then bash "$APP_DIR/scripts/apply_speed_limits.sh" --install-service || true
+    if [[ -f "$APP_DIR/scripts/apply_node_gateway.sh" ]]; then bash "$APP_DIR/scripts/apply_node_gateway.sh" --install-service || true; fi; fi
+  if [[ "$DEFER_RESTART" != "1" ]]; then systemctl restart xray >/dev/null 2>&1 || true; fi
+  if [[ "$FULL_SERVICE_SYNC" == "1" && -x "$APP_DIR/scripts/ironpanel_doctor.sh" ]]; then
+    bash "$APP_DIR/scripts/ironpanel_doctor.sh" --repair >/dev/null 2>&1 || true
+  fi
+  # Repairs must finish before the final credential rebuild. This guarantees
+  # ocpasswd/chap-secrets are populated after every update and queues fresh node bundles.
+  "$APP_DIR/.venv/bin/python" - <<'PYSYNCFINAL' || true
+from app import create_app
+from app.services.provisioning import sync_all_users
+app=create_app()
+with app.app_context():
+    sync_all_users(restart=True)
+PYSYNCFINAL
+else
+  echo "Fast update: full core reinstall skipped; running critical runtime/auth repair."
+  if [[ -f "$APP_DIR/scripts/repair_ocserv.sh" ]]; then
+    if ! env $PORT_EXPORTS ETC_DIR="$ETC_DIR" PUBLIC_HOST="${IRONPANEL_PUBLIC_HOST:-}" IRONPANEL_PUBLIC_HOST="${IRONPANEL_PUBLIC_HOST:-}" bash "$APP_DIR/scripts/repair_ocserv.sh"; then
+      echo "WARNING: lightweight ocserv repair failed; see /var/log/ironpanel-ocserv-repair.log" >&2
+    fi
+  fi
+  # This is intentionally lightweight: it rebuilds local auth/config files and
+  # queues complete config/user refreshes for every node, without apt/core reinstall.
+  "$APP_DIR/.venv/bin/python" - <<'PYSYNCFAST' || true
+from app import create_app
+from app.services.provisioning import sync_all_users
+app=create_app()
+with app.app_context():
+    sync_all_users(restart=True)
+PYSYNCFAST
+fi
+cat <<INFO
+Ironpanel upgraded.
+VPN cores installed/updated: OpenVPN, WireGuard, Ocserv/Cisco AnyConnect, StrongSwan/IPsec, xl2tpd/L2TP, Xray Core, Hysteria2, Telegram MTProto Proxy.
+Panel port: ${PANEL_PORT_DB:-$IRONPANEL_PORT}
+Open: http://${IRONPANEL_PUBLIC_HOST}:${PANEL_PORT_DB:-$IRONPANEL_PORT}
+INFO
