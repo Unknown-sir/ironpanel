@@ -1,0 +1,10 @@
+[Unit]
+Description=IronPanel scheduled safe backup
+After=network-online.target ironpanel.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/ironpanel
+EnvironmentFile=/etc/ironpanel/ironpanel.env
+ExecStart=/opt/ironpanel/.venv/bin/flask --app run.py safe-backup
+User=root
