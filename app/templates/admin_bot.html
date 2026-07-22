@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block heading %}ربات مدیریتی تلگرام{% endblock %}
+{% block content %}
+<section class="clean-hero admin-hero">
+  <div>
+    <p class="eyebrow">ADMIN BOT CONTROL CENTER</p>
+    <h3>ربات مدیریتی IronPanel</h3>
+    <p>این صفحه ساده‌تر شد: مدیرهای مجاز، پیام خوش‌آمد، گزارش روزانه، بکاپ و هشدارها همه در یک مسیر مشخص هستند.</p>
+  </div>
+  <div class="clean-status-grid mini">
+    <div><span>Telegram</span><b class="{{'ok-text' if settings.telegram_configured else 'off-text'}}">{{'آماده' if settings.telegram_configured else 'نیازمند تنظیم'}}</b></div>
+    <div><span>ربات</span><b>{{'فعال' if settings.enabled else 'غیرفعال'}}</b></div>
+    <div><span>گزارش</span><b>{{'فعال' if settings.daily_report else 'خاموش'}}</b></div>
+    <div><span>بکاپ</span><b>{{'فعال' if settings.backup_enabled else 'خاموش'}}</b></div>
+  </div>
+</section>
+
+<section class="clean-grid two">
+  <div class="card clean-card">
+    <div class="clean-card-head"><div><p class="eyebrow">ACCESS</p><h3>دسترسی مدیر و پیام /start</h3></div><span class="pill">فقط مدیرها</span></div>
+    <form method="post" class="clean-form">
+      <input type="hidden" name="action" value="save">
+      <label class="switch-row"><input type="checkbox" name="admin_bot_enabled" value="1" {{'checked' if settings.enabled else ''}}><span>ربات مدیریتی فعال باشد</span></label>
+      <label>Telegram ID مدیرهای مجاز<input name="admin_bot_admin_ids" value="{{settings.admin_bot_admin_ids or settings.admin_ids}}" placeholder="123456,987654"></label>
+      <label>پیام خوش‌آمد /start<textarea name="admin_bot_welcome_text" rows="3" placeholder="به ربات مدیریتی IronPanel خوش آمدید...">{{settings.admin_bot_welcome_text or ''}}</textarea></label>
+      <div class="bot-preview">
+        <b>دکمه‌های شیشه‌ای ربات</b>
+        <div><span>👥 کاربران آنلاین</span><span>👤 اطلاعات کاربران</span><span>🗄 درخواست بکاپ</span><span>📊 گزارش پنل</span></div>
+      </div>
+      <button class="btn primary wide">ذخیره و ری‌استارت ربات</button>
+    </form>
+  </div>
+
+  <div class="card clean-card">
+    <div class="clean-card-head"><div><p class="eyebrow">AUTOMATION</p><h3>گزارش، بکاپ و هشدارها</h3></div><span class="pill soft">روزانه</span></div>
+    <form method="post" class="clean-form">
+      <input type="hidden" name="action" value="save">
+      <input type="hidden" name="admin_bot_admin_ids" value="{{settings.admin_bot_admin_ids or settings.admin_ids}}">
+      <input type="hidden" name="admin_bot_welcome_text" value="{{settings.admin_bot_welcome_text or ''}}">
+      <label class="switch-row"><input type="checkbox" name="admin_bot_enabled" value="1" {{'checked' if settings.enabled else ''}}><span>ربات فعال بماند</span></label>
+      <div class="inline-checks stacked">
+        <label><input type="checkbox" name="admin_bot_daily_report" value="1" {{'checked' if settings.daily_report else ''}}> گزارش روزانه مصرف و سرویس‌ها</label>
+        <label><input type="checkbox" name="admin_bot_backup_enabled" value="1" {{'checked' if settings.backup_enabled else ''}}> ساخت بکاپ روزانه</label>
+        <label><input type="checkbox" name="admin_bot_backup_send_file" value="1" {{'checked' if settings.backup_send_file else ''}}> ارسال فایل بکاپ روزانه</label>
+        <label><input type="checkbox" name="admin_bot_login_alerts" value="1" {{'checked' if settings.login_alerts else ''}}> هشدار ورود مدیر</label>
+      </div>
+      <div class="mini-grid">
+        <label>هشدار مصرف در درصد<input name="admin_bot_usage_warning_percent" type="number" value="{{settings.admin_bot_usage_warning_percent}}"></label>
+        <label>هشدار انقضا قبل از چند روز<input name="admin_bot_expiry_warning_days" type="number" value="{{settings.admin_bot_expiry_warning_days}}"></label>
+      </div>
+      <button class="btn ghost wide">ذخیره تنظیمات هشدار</button>
+    </form>
+  </div>
+</section>
+
+<section class="card clean-card">
+  <div class="clean-card-head"><div><p class="eyebrow">TEST REPORT</p><h3>پیش‌نمایش گزارش مدیریتی</h3></div><form method="post"><input type="hidden" name="action" value="test"><button class="btn ghost">ارسال گزارش تست</button></form></div>
+  <pre class="report-box">{{report}}</pre>
+  <p class="muted">اگر /start را در ربات بزنید، پیام خوش‌آمد همراه با دکمه‌های شیشه‌ای کاربران آنلاین، اطلاعات کاربران، درخواست بکاپ و گزارش پنل نمایش داده می‌شود.</p>
+</section>
+{% endblock %}
