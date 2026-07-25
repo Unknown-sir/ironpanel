@@ -4,7 +4,7 @@
 
 ### پنل حرفه‌ای مدیریت VPN، Proxy، کاربران، نودها و تونل‌های چندسروری
 
-![IronPanel](https://s34.picofile.com/file/8490877984/Ironpanel.png)
+![IronPanel](https://s34.picofile.com/file/8490877984/IronpanelN.png)
 
 **IronPanel** برای مدیریت متمرکز سرویس‌های VPN/Proxy، کاربران، سابسکریپشن‌ها، نمایندگان، نودها، SSL، DNS، محدودیت سرعت، مانیتورینگ و عملیات نگهداری سرور طراحی شده است.
 
