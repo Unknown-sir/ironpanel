@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="{{ current_language() }}" dir="{{ language_dir() }}" data-theme="{{ current_theme() }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0f172a">
+  <title>{% block title %}IronPanel{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="theme-{{ current_theme() }} lang-{{ current_language() }} iron-ui-v19926">
+{% set simple_ui = is_simple_ui() if current_user.is_authenticated else true %}
+{% set is_admin = current_user.is_authenticated and current_user.role == 'main_admin' %}
+{% set adv_paths = ['/xray','/geofiles','/outbound','/outbound/v2','/routing-rules','/speed-limits','/subscription-manager','/traffic-multiplier','/ip-limit','/admin-bot','/telegram','/backups','/monitoring','/live-logs','/wizards','/security','/api-tokens','/logs','/nodes','/cluster','/firewall','/dns','/domains','/billing','/plans','/wallet','/sales-bot','/resellers','/tickets','/updates','/appearance','/ssl'] %}
+<div class="shell app-shell {{ 'simple-shell' if simple_ui else 'advanced-shell' }}">
+  <button class="mobile-menu-toggle mobile-nav-button" type="button" aria-label="باز کردن منو" aria-expanded="false"><span></span><span></span><span></span></button>
+  <div class="sidebar-backdrop" aria-hidden="true"></div>
+
+  <aside class="sidebar app-sidebar" aria-label="منوی اصلی IronPanel">
+    <div class="sidebar-header">
+      <a class="brand brand-pro" href="/dashboard" aria-label="IronPanel Dashboard">
+        <span class="logo brand-mark">IP</span>
+        <span class="brand-copy">
+          <b>IronPanel</b>
+          <small>{{ 'پنل ساده' if simple_ui else 'پنل حرفه‌ای' }}</small>
+        </span>
+      </a>
+      <span class="status-pill"><i></i>{{ license_type()|upper if not is_free_edition() else 'FREE' }}</span>
+    </div>
+
+    <div class="sidebar-user-card">
+      <span class="avatar">{{ (current_user.username[:1]|upper) if current_user.is_authenticated else 'G' }}</span>
+      <div>
+        <b>{{ current_user.username if current_user.is_authenticated else 'Guest' }}</b>
+        <small>{{ 'مدیر اصلی' if is_admin else ('نماینده' if current_user.is_authenticated and current_user.role == 'reseller' else 'کاربر') }}</small>
+      </div>
+    </div>
+
+    <nav class="side-nav nav-modern" aria-label="IronPanel Navigation">
+      <p class="nav-label">شروع سریع</p>
+      <a href="/dashboard" class="nav-item {{ 'active' if request.path == '/dashboard' else '' }}"><span>🏠</span><b>داشبورد</b><small>Overview</small></a>
+      <a href="/quick-create" class="nav-item primary-link {{ 'active' if request.path == '/quick-create' else '' }}"><span>⚡</span><b>ساخت سریع</b><small>New User</small></a>
+      <a href="/users" class="nav-item {{ 'active' if request.path.startswith('/users') else '' }}"><span>👥</span><b>کاربران</b><small>Users & Configs</small></a>
+      <a href="/sessions" class="nav-item {{ 'active' if request.path == '/sessions' else '' }}"><span>🟢</span><b>آنلاین‌ها</b><small>Live Sessions</small></a>
+      <a href="/usage" class="nav-item {{ 'active' if request.path == '/usage' else '' }}"><span>📊</span><b>مصرف</b><small>Usage Reports</small></a>
+
+      {% if is_admin %}
+      <details class="menu-section nav-group" data-menu="infra" {% if request.path in ['/health','/settings','/appearance','/xray','/geofiles','/outbound','/outbound/v2','/routing-rules','/speed-limits','/ssl','/subscription-manager','/telegram-proxy','/monitoring','/live-logs','/wizards'] %}open{% endif %}>
+        <summary><span>🛡️</span><b>زیرساخت و پروتکل‌ها</b><em>Core</em></summary>
+        <div class="menu-items nav-subgrid">
+          <a href="/health" class="{{ 'active' if request.path.startswith('/health') else '' }}">🧰 سلامت و تعمیر</a>
+          <a href="/settings" class="{{ 'active' if request.path == '/settings' else '' }}">⚙️ تنظیمات هسته</a>
+          <a href="/appearance" class="{{ 'active' if request.path == '/appearance' else '' }}">🎨 ظاهر پنل</a>
+          <a href="/xray" class="{{ 'active' if request.path == '/xray' else '' }}">🧬 Xray Builder</a>
+          <a href="/outbound" class="{{ 'active' if request.path == '/outbound' else '' }}">🧭 Outbound</a>
+          <a href="/routing-rules" class="{{ 'active' if request.path == '/routing-rules' else '' }}">🛣️ Routing Rules</a>
+          <a href="/speed-limits" class="{{ 'active' if request.path == '/speed-limits' else '' }}">🚦 محدودیت سرعت</a>
+          <a href="/subscription-manager" class="{{ 'active' if request.path == '/subscription-manager' else '' }}">🔗 صفحه ساب</a>
+          <a href="/telegram-proxy" class="{{ 'active' if request.path == '/telegram-proxy' else '' }}">✈️ Telegram Proxy</a>
+          <a href="/ssl" class="{{ 'active' if request.path == '/ssl' else '' }}">🔒 SSL خودکار</a>
+          <a href="/geofiles" class="{{ 'active' if request.path == '/geofiles' else '' }}">🌍 GeoFile</a>
+          <a href="/monitoring" class="{{ 'active' if request.path == '/monitoring' else '' }}">📡 مانیتورینگ</a>
+          <a href="/live-logs" class="{{ 'active' if request.path == '/live-logs' else '' }}">📜 لاگ زنده</a>
+          <a href="/wizards" class="{{ 'active' if request.path == '/wizards' else '' }}">🪄 راه‌اندازها</a>
+          <a href="/backups" class="{{ 'active' if request.path.startswith('/backups') else '' }}">💾 بکاپ</a>
+        </div>
+      </details>
+
+      {% if feature_allowed('nodes') %}
+      <details class="menu-section nav-group" data-menu="nodes" {% if request.path.startswith('/nodes') or request.path == '/cluster' %}open{% endif %}>
+        <summary><span>🌐</span><b>نودها و کلاستر</b><em>Nodes</em></summary>
+        <div class="menu-items nav-subgrid">
+          <a href="/nodes" class="{{ 'active' if request.path == '/nodes' else '' }}">🖥️ مدیریت نودها</a>
+          <a href="/cluster" class="{{ 'active' if request.path == '/cluster' else '' }}">🔁 Cluster / HA</a>
+        </div>
+      </details>
+      {% endif %}
+
+      {% if feature_allowed('network') %}
+      <details class="menu-section nav-group" data-menu="network" {% if request.path in ['/firewall','/dns','/domains'] %}open{% endif %}>
+        <summary><span>🌍</span><b>شبکه و دامنه</b><em>Network</em></summary>
+        <div class="menu-items nav-subgrid">
+          <a href="/firewall" class="{{ 'active' if request.path == '/firewall' else '' }}">🧱 Firewall</a>
+          <a href="/dns" class="{{ 'active' if request.path == '/dns' else '' }}">🧾 DNS Manager</a>
+          <a href="/domains" class="{{ 'active' if request.path == '/domains' else '' }}">🌐 Domain Manager</a>
+        </div>
+      </details>
+      {% endif %}
+
+      {% if feature_allowed('billing') or feature_allowed('sales_bot') %}
+      <details class="menu-section nav-group" data-menu="business" {% if request.path in ['/billing','/plans','/wallet','/sales-bot','/resellers','/tickets'] %}open{% endif %}>
+        <summary><span>💼</span><b>فروش و نمایندگان</b><em>Business</em></summary>
+        <div class="menu-items nav-subgrid">
+          {% if feature_allowed('billing') %}<a href="/billing" class="{{ 'active' if request.path == '/billing' else '' }}">💳 مالی</a><a href="/plans" class="{{ 'active' if request.path == '/plans' else '' }}">🧾 پلن‌ها</a><a href="/wallet" class="{{ 'active' if request.path == '/wallet' else '' }}">👛 کیف پول</a>{% endif %}
+          {% if feature_allowed('sales_bot') %}<a href="/sales-bot" class="{{ 'active' if request.path == '/sales-bot' else '' }}">🤖 ربات فروش</a>{% endif %}
+          <a href="/resellers" class="{{ 'active' if request.path == '/resellers' else '' }}">🤝 نمایندگان</a>
+          <a href="/tickets" class="{{ 'active' if request.path == '/tickets' else '' }}">🎫 تیکت‌ها</a>
+        </div>
+      </details>
+      {% endif %}
+
+      <details class="menu-section nav-group" data-menu="security" {% if request.path in ['/security','/security/2fa','/login-history','/api-tokens','/logs','/telegram','/updates','/admin-bot'] %}open{% endif %}>
+        <summary><span>🔐</span><b>امنیت و ابزارها</b><em>Secure</em></summary>
+        <div class="menu-items nav-subgrid">
+          <a href="/security" class="{{ 'active' if request.path == '/security' else '' }}">🛡️ مرکز امنیت</a>
+          <a href="/security/2fa" class="{{ 'active' if request.path == '/security/2fa' else '' }}">🔢 2FA</a>
+          <a href="/login-history" class="{{ 'active' if request.path == '/login-history' else '' }}">🕓 تاریخچه ورود</a>
+          <a href="/api-tokens" class="{{ 'active' if request.path == '/api-tokens' else '' }}">🔑 API Tokens</a>
+          <a href="/logs" class="{{ 'active' if request.path == '/logs' else '' }}">📚 لاگ‌ها</a>
+          <a href="/telegram" class="{{ 'active' if request.path == '/telegram' else '' }}">💬 تلگرام</a>
+          <a href="/admin-bot" class="{{ 'active' if request.path == '/admin-bot' else '' }}">🤖 ربات ادمین</a>
+          <a href="/updates" class="{{ 'active' if request.path == '/updates' else '' }}">⬆️ آپدیت</a>
+        </div>
+      </details>
+
+      <a href="/upgrade" class="nav-item upgrade-link {{ 'active' if request.path == '/upgrade' else '' }}"><span>💎</span><b>لایسنس</b><small>{{ license_type()|upper }}</small></a>
+      {% endif %}
+
+      <a href="/account" class="nav-item {{ 'active' if request.path == '/account' else '' }}"><span>👤</span><b>حساب من</b><small>Profile</small></a>
+      <a href="/logout" class="nav-item nav-danger"><span>🚪</span><b>خروج</b><small>Logout</small></a>
+    </nav>
+
+    {% if current_user.is_authenticated %}
+    <form method="post" action="/ui-mode/{{ 'advanced' if simple_ui else 'simple' }}" class="mode-switch ui-mode-card">
+      <button type="submit">{{ 'نمایش همه بخش‌ها' if simple_ui else 'حالت ساده' }}</button>
+      <small>{{ 'برای مدیریت کامل، پنل حرفه‌ای را فعال کن.' if simple_ui else 'برای کار روزمره، حالت ساده خلوت‌تر است.' }}</small>
+    </form>
+    {% endif %}
+  </aside>
+
+  <main class="content app-main">
+    <header class="topbar app-topbar">
+      <div class="page-title-wrap">
+        <p class="eyebrow">{{ 'Control Center' if not simple_ui else 'Quick Workspace' }}</p>
+        <h2>{% block heading %}IronPanel{% endblock %}</h2>
+      </div>
+      <div class="top-actions">
+        <a class="btn small ghost" href="/quick-create">⚡ ساخت سریع</a>
+        <a class="btn small ghost" href="/users">👥 کاربران</a>
+        <a class="btn small ghost" href="/appearance">🎨 {{ current_theme()|capitalize }}</a>
+        <a class="user-pill" href="/account">{{ current_user.username if current_user.is_authenticated else 'Guest' }}</a>
+      </div>
+    </header>
+
+    {% with messages=get_flashed_messages() %}
+      {% for m in messages %}<div class="toast app-toast">{{m}}</div>{% endfor %}
+    {% endwith %}
+
+    <section class="page-content">
+      {% block content %}{% endblock %}
+    </section>
+  </main>
+</div>
+<script src="/static/js/app.js"></script>
+</body>
+</html>
