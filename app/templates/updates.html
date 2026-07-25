@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+{% block heading %}Update Manager{% endblock %}
+{% block content %}
+<div class="modern-page updates-modern-page">
+  <section class="card modern-hero update-modern-hero split-hero compact inline-updater" data-current-step="0">
+    <div class="hero-copy">
+      <p class="eyebrow">Inline GitHub Upgrade</p>
+      <h3>آپدیت زنده، مرحله‌ای و قابل پیگیری</h3>
+      <p class="hint">درصد پیشرفت، مرحله فعلی و لاگ اجرا داخل همین صفحه نمایش داده می‌شود. طراحی جدید لاگ‌ها و فرم‌های داخلی را خلوت‌تر کرده است.</p>
+      <div class="hero-pill-row"><span>Current: {{current_version}}</span><span>GitHub: {{github.latest if github and github.ok else 'نامشخص'}}</span><span>{{'آپدیت موجود است' if github and github.update_available else 'به‌روز / نامشخص'}}</span></div>
+    </div>
+    <div class="hero-action-card update-start-card">
+      <small>آخرین وضعیت</small>
+      <b id="inlineUpdateState">{{ step_status.message if step_status else 'Ready' }}</b>
+      <button id="inlineUpdateStart" type="button">⬆️ شروع آپدیت و نصب خودکار</button>
+    </div>
+  </section>
+
+  <section class="modern-kpi-grid update-kpis">
+    <article class="card modern-kpi"><small>نسخه نصب‌شده</small><b>{{current_version}}</b></article>
+    <article class="card modern-kpi"><small>آخرین نسخه GitHub</small><b>{{github.latest if github and github.ok else 'نامشخص'}}</b></article>
+    <article class="card modern-kpi"><small>وضعیت نسخه</small><b>{{'آپدیت موجود است' if github and github.update_available else 'به‌روز / نامشخص'}}</b></article>
+    <article class="card modern-kpi"><small>Progress</small><b id="inlineUpdatePercent">0%</b></article>
+  </section>
+
+  <section class="card update-console-card">
+    <div class="update-progress-wrap modern-progress-wrap">
+      <div class="update-progress-meta"><span id="inlineUpdateMessage">Ready</span><strong>Live</strong></div>
+      <div class="update-progress"><i id="inlineUpdateBar" style="width:0%"></i></div>
+    </div>
+    <div class="update-actions-row modern-actions-row">
+      <form method="post" class="update-fallback-form"><button class="btn ghost" name="action" value="github_update">شروع از مسیر POST / fallback</button></form>
+      <button id="inlineUpdateRestart" class="btn ghost" type="button" disabled>Restart Panel</button>
+      <a class="btn ghost" href="/updates">Refresh</a>
+    </div>
+    <details class="modern-details" open>
+      <summary><span>📜</span><b>لاگ آپدیت زنده</b><em>/var/log/ironpanel-github-upgrade.log</em></summary>
+      <pre id="inlineUpdateLog" class="log-output live-log details-body">{{ github_log }}</pre>
+    </details>
+    <p class="hint">آپدیت امن از ترمینال: <code>sudo bash /opt/ironpanel/scripts/safe_update.sh</code></p>
+  </section>
+
+  <details class="card modern-details release-details">
+    <summary><span>🏷️</span><b>ثبت Release داخلی</b><em>اختیاری</em></summary>
+    <div class="details-body">
+      <form method="post" class="form modern-grid three"><input name="version" placeholder="19.9.2"><select name="channel"><option>stable</option><option>beta</option><option>nightly</option></select><input name="download_url" placeholder="URL"><textarea class="wide" name="changelog" placeholder="تغییرات"></textarea><button>ثبت Release</button></form>
+      <form method="post" class="inline-form"><button class="btn ghost" name="action" value="process_jobs">پردازش Jobهای محلی</button></form>
+    </div>
+  </details>
+
+  <section class="update-data-grid">
+    <article class="card table-card modern-list-card">
+      <div class="section-head modern-section-head"><div><p class="eyebrow">Releases</p><h3>Releaseها</h3></div></div>
+      <div class="responsive-table modern-table-wrap"><table><thead><tr><th>Version</th><th>Channel</th><th>URL</th><th>Time</th></tr></thead><tbody>{% for r in releases %}<tr><td data-label="Version">{{r.version}}</td><td data-label="Channel">{{r.channel}}</td><td data-label="URL">{{r.download_url}}</td><td data-label="Time">{{r.created_at}}</td></tr>{% else %}<tr><td colspan="4">Release داخلی ثبت نشده است.</td></tr>{% endfor %}</tbody></table></div>
+    </article>
+    <article class="card table-card modern-list-card">
+      <div class="section-head modern-section-head"><div><p class="eyebrow">Jobs</p><h3>Jobهای آپدیت</h3></div></div>
+      <div class="responsive-table modern-table-wrap"><table><thead><tr><th>ID</th><th>Action</th><th>Status</th><th>Output</th></tr></thead><tbody>{% for j in jobs %}<tr><td data-label="ID">{{j.id}}</td><td data-label="Action">{{j.action}}</td><td data-label="Status"><span class="badge {{'ok' if j.status == 'done' else 'off' if j.status == 'failed' else ''}}">{{j.status}}</span></td><td data-label="Output"><pre>{{j.output}}</pre></td></tr>{% else %}<tr><td colspan="4">Job فعالی وجود ندارد.</td></tr>{% endfor %}</tbody></table></div>
+    </article>
+  </section>
+</div>
+<script>
+(function(){
+  const start = document.getElementById('inlineUpdateStart');
+  const restart = document.getElementById('inlineUpdateRestart');
+  const bar = document.getElementById('inlineUpdateBar');
+  const pct = document.getElementById('inlineUpdatePercent');
+  const msg = document.getElementById('inlineUpdateMessage');
+  const state = document.getElementById('inlineUpdateState');
+  const log = document.getElementById('inlineUpdateLog');
+  let inlineAutoStart = {{ 'true' if request.args.get('autostart') == '1' else 'false' }};
+  function setProgress(v, m){ v = Math.max(0, Math.min(100, Number(v)||0)); bar.style.width = v + '%'; pct.textContent = v + '%'; if(m){ msg.textContent = m; state.textContent = m; } }
+  async function readUpdateStatus(){ const r=await fetch('/updates/github-status?ts='+Date.now(), {cache:'no-store'}); const d=await r.json(); if(d.log){ log.textContent=d.log; log.scrollTop=log.scrollHeight; } if(d.status){ setProgress(d.status.progress||0, d.status.message||'Checking update status'); return d.status; } return {}; }
+  async function scheduleRestart(){
+    try{ const r=await fetch('/updates/github-restart',{method:'POST'}); const d=await r.json(); msg.textContent=d.message||'Restart scheduled'; setTimeout(()=>location.reload(),7000); }catch(e){ msg.textContent='Automatic restart request failed; use Restart Panel button.'; restart.disabled=false; }
+  }
+  async function runStep(step, retry){
+    retry = retry || 0;
+    let data;
+    try{
+      const res = await fetch('/updates/github-step', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({step}), cache:'no-store'});
+      data = await res.json();
+    }catch(e){
+      if(retry < 8){
+        msg.textContent = 'Connection interrupted, checking update status...';
+        try{ const st=await readUpdateStatus(); if(st.done || Number(st.progress||0)>=100){ setProgress(100, st.message || 'Update completed'); restart.disabled=false; return; } }catch(_e){}
+        await new Promise(r=>setTimeout(r, 1800 + retry*700));
+        return runStep(step, retry+1);
+      }
+      start.disabled=false; start.textContent='Retry update';
+      throw new Error('Connection lost while update is running. Status endpoint did not confirm completion yet; refresh /updates to continue.');
+    }
+    setProgress(data.progress, data.message || 'Running');
+    if(data.log){ log.textContent = data.log; log.scrollTop = log.scrollHeight; }
+    if(!data.ok){ start.disabled=false; start.textContent='Retry update'; throw new Error(data.message || 'Update failed'); }
+    if(data.done){ start.disabled=true; restart.disabled=false; restart.textContent='Restart Panel'; msg.textContent='Upgrade completed. Restarting panel automatically...'; await scheduleRestart(); return; }
+    await new Promise(r=>setTimeout(r, data.poll_delay_ms || 900));
+    return runStep(data.next_step || (step+1), 0);
+  }
+  start && start.addEventListener('click', async ()=>{ if(!inlineAutoStart && !confirm('Start GitHub update now?')) return; inlineAutoStart=false; start.disabled=true; restart.disabled=true; start.textContent='Updating...'; log.textContent=''; setProgress(1,'Starting update...'); try{ await runStep(0); }catch(e){ msg.textContent=e.message; }});
+  restart && restart.addEventListener('click', async ()=>{ restart.disabled=true; restart.textContent='Restarting...'; await scheduleRestart(); });
+  {% if request.args.get('autostart') == '1' %}
+  setTimeout(()=>{ if(start && !start.disabled) start.click(); }, 700);
+  {% endif %}
+})();
+</script>
+{% endblock %}
