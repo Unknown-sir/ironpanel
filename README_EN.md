@@ -4,7 +4,7 @@
 
 ### A multi-protocol VPN/proxy control panel with users, subscriptions, nodes, relays and safe operations
 
-![IronPanel](https://s34.picofile.com/file/8490877984/Ironpanel.png)
+![IronPanel](https://s34.picofile.com/file/8491039084/IronpanelN.png)
 
 **IronPanel** is designed to manage VPN/proxy users, subscriptions, resellers, SSL, DNS, speed limits, routing rules, node gateways and maintenance workflows from one central dashboard.
 
