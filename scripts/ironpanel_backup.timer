@@ -1,0 +1,10 @@
+[Unit]
+Description=Run IronPanel safe backup daily
+
+[Timer]
+OnCalendar=*-*-* 04:15:00
+Persistent=true
+AccuracySec=10m
+
+[Install]
+WantedBy=timers.target
