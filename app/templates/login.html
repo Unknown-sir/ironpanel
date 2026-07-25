@@ -1,0 +1,56 @@
+<!doctype html>
+{% set login_messages = get_flashed_messages() %}
+<html lang="fa" dir="rtl" data-theme="{{ current_theme() if current_theme is defined else 'dark' }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#111827">
+  <title>ورود به IronPanel</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="login-body office-login-body login-v19927{% if login_messages %} login-has-error{% endif %}">
+  <main class="office-login-shell" aria-label="ورود IronPanel">
+    <section class="office-login-card{% if login_messages %} login-shake{% endif %}">
+      <div class="office-login-brand">
+        <span class="office-login-mark">{{ 'RP' if reseller is defined and reseller else 'IP' }}</span>
+        <div>
+          <small>IronPanel Management Console</small>
+          <h1>{% if reseller is defined and reseller %}ورود نماینده{% else %}ورود به پنل مدیریت{% endif %}</h1>
+        </div>
+      </div>
+
+      <div class="office-login-intro">
+        <h2>{% if reseller is defined and reseller %}مدیریت کاربران نمایندگی{% else %}مدیریت امن کاربران، نودها و سرویس‌ها{% endif %}</h2>
+        <p>اطلاعات حساب خود را وارد کنید. در صورت فعال بودن احراز هویت دو مرحله‌ای، کد مربوطه را نیز ثبت کنید.</p>
+      </div>
+
+      {% if reseller_url is defined %}
+      <p class="muted center reseller-url"><code>{{ reseller_url }}</code></p>
+      {% endif %}
+
+      {% if login_messages %}
+        {% for m in login_messages %}<div class="toast login-toast">{{m}}</div>{% endfor %}
+      {% endif %}
+
+      <form method="post" class="form office-login-form" autocomplete="on">
+        <label><span>نام کاربری</span>
+          <input name="username" required autofocus autocomplete="username" placeholder="مثلاً admin">
+        </label>
+        <label><span>رمز عبور</span>
+          <input name="password" type="password" required autocomplete="current-password" placeholder="رمز عبور">
+        </label>
+        <label><span>کد 2FA یا Recovery Code</span>
+          <input name="totp" inputmode="numeric" autocomplete="one-time-code" placeholder="در صورت فعال بودن وارد کنید">
+        </label>
+        <button class="office-login-submit" type="submit">ورود امن</button>
+      </form>
+
+      <div class="office-login-footer">
+        <span>نسخه سازمانی</span>
+        <span>Responsive UI</span>
+        <span>Multi Protocol</span>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

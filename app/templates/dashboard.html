@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+{% block heading %}داشبورد مدیریتی{% endblock %}
+{% block content %}
+{% set services = services|default({}) %}
+{% set total_users = users|length %}
+{% set active_users = users|selectattr('enabled')|list|length %}
+{% set online_count = online_sessions|length %}
+{% set license_days_safe = license_days if license_days is defined else none %}
+{% set license_paid = license_result.valid and license_result.paid %}
+{% set license_label = license_days_safe if license_paid and license_days_safe is not none else ('ACTIVE' if license_paid else 'FREE') %}
+{% set core_names = [('xray','Xray'),('openvpn-server@server','OpenVPN'),('wg-quick@wg0','WireGuard'),('ocserv','Cisco / Ocserv'),('hysteria-server','Hysteria2'),('ironpanel-tgproxy','Telegram Proxy')] %}
+
+<section class="dashboard-v2 office-dashboard">
+  {% if current_user.role == 'main_admin' and github is defined and github.update_available %}
+  <section class="card update-banner office-update-banner">
+    <div class="update-copy">
+      <span class="badge warn">Update available</span>
+      <h3>آپدیت IronPanel {{ github.current }} → {{ github.latest }}</h3>
+      <p>برای مشاهده جزئیات، لاگ و اجرای امن آپدیت وارد Update Manager شوید.</p>
+      <small>{{ github.url }}{% if github.checked_at %} · {{ github.checked_at }}{% endif %}</small>
+    </div>
+    <form method="post" action="{{ url_for('web.dashboard_quick_upgrade') }}" onsubmit="return confirm('آپگرید سریع از GitHub شروع شود؟ بکاپ خودکار پیش‌فرض غیرفعال است.');">
+      <button class="btn" type="submit">شروع آپدیت</button>
+      <a class="btn ghost" href="/updates">جزئیات</a>
+    </form>
+  </section>
+  {% endif %}
+
+  <section class="office-dashboard-hero card">
+    <div class="office-dashboard-copy">
+      <span class="office-overline">System overview</span>
+      <h2>مرکز کنترل عملیات IronPanel</h2>
+      <p>وضعیت کاربران، سرویس‌ها، نودها و منابع سرور در یک نمای اداری، واضح و قابل تصمیم‌گیری نمایش داده می‌شود.</p>
+      <div class="office-hero-actions">
+        <a class="btn" href="/quick-create">ساخت کاربر</a>
+        <a class="btn ghost" href="/health">سلامت سیستم</a>
+        {% if feature_allowed('nodes') %}<a class="btn ghost" href="/nodes">نودها</a>{% endif %}
+      </div>
+    </div>
+    <div class="office-license-card">
+      <small>وضعیت لایسنس</small>
+      <b>{{ 'Beginner Free' if is_free_edition() else license_type()|upper }}</b>
+      <span>{{ 'رایگان و بدون تاریخ انقضا' if is_free_edition() else ((license_days_safe|string ~ ' روز باقی‌مانده') if license_days_safe is not none else 'لایسنس فعال') }}</span>
+    </div>
+  </section>
+
+  <section class="office-kpi-grid">
+    <article class="office-kpi-card card"><small>کل کاربران</small><b>{{ total_users }}</b><em>{{ active_users }} فعال</em></article>
+    <article class="office-kpi-card card"><small>نشست‌های آنلاین</small><b>{{ online_count }}</b><em>اتصال فعال</em></article>
+    <article class="office-kpi-card card"><small>لایسنس</small><b>{{ license_label }}</b><em>{{ license_result.license_type|upper if license_paid else 'Beginner' }}</em></article>
+    {% if nodes is defined %}<article class="office-kpi-card card"><small>نودها</small><b>{{ nodes|length }}</b><em>Direct Runtime</em></article>{% endif %}
+  </section>
+
+  <section class="system-monitor card monitor-board office-monitor-board">
+    <div class="monitor-head office-section-head"><div><h3>منابع سرور</h3><p>نمای لحظه‌ای مصرف منابع اصلی</p></div><a class="btn small ghost" href="/monitoring">نمای کامل</a></div>
+    <div class="ring-card" data-metric="cpu"><div class="ring"><span id="cpu_percent">{{ system_stats.cpu_percent|default(0)|round|int if system_stats is defined else 0 }}%</span></div><b>CPU</b><small id="cpu_sub">{{ system_stats.cpu_sub|default('در حال دریافت') if system_stats is defined else 'در حال دریافت' }}</small></div>
+    <div class="ring-card" data-metric="ram"><div class="ring"><span id="ram_percent">{{ system_stats.ram_percent|default(0)|round|int if system_stats is defined else 0 }}%</span></div><b>RAM</b><small id="ram_sub">{{ system_stats.ram_sub|default('در حال دریافت') if system_stats is defined else 'در حال دریافت' }}</small></div>
+    <div class="ring-card" data-metric="swap"><div class="ring"><span id="swap_percent">{{ system_stats.swap_percent|default(0)|round|int if system_stats is defined else 0 }}%</span></div><b>Swap</b><small id="swap_sub">{{ system_stats.swap_sub|default('در حال دریافت') if system_stats is defined else 'در حال دریافت' }}</small></div>
+    <div class="ring-card" data-metric="disk"><div class="ring warning"><span id="disk_percent">{{ system_stats.disk_percent|default(0)|round|int if system_stats is defined else 0 }}%</span></div><b>Disk</b><small id="disk_sub">{{ system_stats.disk_sub|default('در حال دریافت') if system_stats is defined else 'در حال دریافت' }}</small></div>
+  </section>
+
+  <section class="office-dashboard-grid">
+    <section class="card services-board office-services-board">
+      <div class="section-head office-section-head"><div><h3>وضعیت سرویس‌ها</h3><p>هر سرویس بر اساس وضعیت systemd بررسی می‌شود.</p></div><a class="btn small ghost" href="/health">تعمیر</a></div>
+      <div class="service-list-pro office-service-list">
+        {% for unit,label in core_names %}
+        {% set state = services.get(unit, 'unknown') if services else 'unknown' %}
+        <div class="service-row-pro office-service-row">
+          <span class="service-dot {{ 'ok' if state == 'active' else 'off' }}"></span>
+          <div><b>{{ label }}</b><small>{{ unit }}</small></div>
+          <em>{{ 'Running' if state == 'active' else state }}</em>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="card quick-board office-quick-board">
+      <div class="section-head office-section-head"><div><h3>دسترسی‌های پرکاربرد</h3><p>مسیرهای اصلی برای عملیات روزمره</p></div></div>
+      <div class="quick-action-grid office-action-grid">
+        <a href="/users">کاربران و کانفیگ‌ها</a>
+        <a href="/sessions">نشست‌های آنلاین</a>
+        <a href="/subscription-manager">Subscription</a>
+        <a href="/xray">Xray Builder</a>
+        <a href="/ssl">گواهی SSL</a>
+        {% if feature_allowed('sales_bot') %}<a href="/sales-bot">ربات فروش</a>{% endif %}
+        {% if feature_allowed('nodes') %}<a href="/nodes">نودها</a>{% endif %}
+        <a href="/updates">مدیریت آپدیت</a>
+      </div>
+    </section>
+  </section>
+</section>
+{% endblock %}
