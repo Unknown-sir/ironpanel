@@ -1,0 +1,42 @@
+{% extends 'base.html' %}{% block heading %}محدودیت سرعت{% endblock %}{% block content %}
+<section class="card speed-hero-card">
+  <div class="section-head responsive-head">
+    <div>
+      <span class="eyebrow">PER-USER · PER-PROTOCOL SPEED LIMIT</span>
+      <h3>محدودیت سرعت برای هر کاربر روی هر پروتکل</h3>
+      <p class="muted">از این نسخه، مقدار هر پروتکل یعنی سقف سرعت هر کاربر روی همان پروتکل؛ مثلاً WireGuard = 20 Mbps یعنی هر کاربر WireGuard جداگانه 20 Mbps دارد، نه کل پروتکل.</p>
+    </div>
+    <form method="post"><input type="hidden" name="action" value="apply"><button class="btn primary">اعمال روی سرور</button></form>
+  </div>
+  <div class="notice soft">برای پروتکل‌هایی که IP/Session فعال دارند، rule دقیق‌تر ساخته می‌شود. اگر کاربر هنوز وصل نشده باشد، محدودیت او بعد از refresh/apply بعدی و دیده شدن session اعمال می‌شود.</div>
+</section>
+<form method="post">
+  <input type="hidden" name="action" value="save_apply">
+  <section class="card"><div class="section-head"><h3>مقدار پیش‌فرض هر پروتکل برای هر کاربر</h3><button class="btn primary">ذخیره و اعمال</button></div>
+  <section class="speed-grid">
+    {% for row in rows %}
+    <article class="card speed-card {{ 'is-disabled' if not row.active else '' }}">
+      <div class="speed-card-head"><span class="speed-icon">{{ row.icon }}</span><div><b>{{ row.label }}</b><small>{{ row.protocol }}</small></div></div>
+      <p class="muted">{{ row.help }}</p>
+      <div class="speed-ports"><span>پورت‌ها</span><b>{{ row.ports_text }}</b></div>
+      <label class="speed-input"><span>Mbps برای هر کاربر</span><input type="number" min="0" max="100000" step="1" name="speed_limit_{{ row.protocol }}_mbps" value="{{ row.mbps }}" placeholder="0"></label>
+      <div class="speed-state {{ 'ok' if row.enabled else 'off' }}">{{ row.mbps ~ ' Mbps برای هر کاربر' if row.enabled else 'بدون محدودیت' }}</div>
+      <small class="muted">کاربران دارای این پروتکل: {{ row.user_count }}</small>
+    </article>
+    {% endfor %}
+  </section></section>
+  <section class="card"><div class="section-head"><h3>Override اختصاصی کاربران</h3><p class="muted">خالی یعنی استفاده از مقدار پیش‌فرض پروتکل. عدد 0 یعنی برای همان کاربر و همان پروتکل بدون محدودیت.</p></div>
+    <div class="user-speed-list">
+      {% for item in user_matrix %}
+      <article class="user-speed-card"><div class="user-speed-title"><b>{{ item.user.username }}</b><small>ID {{ item.user.id }}</small></div><div class="user-speed-cells">
+        {% for c in item.cells %}
+        <label><span>{{ c.icon }} {{ c.label }}</span><input type="number" min="0" max="100000" step="1" name="user_speed_{{ item.user.id }}_{{ c.protocol }}" value="{{ c.override }}" placeholder="پیش‌فرض: {{ c.default }}"><em>فعلی: {{ c.effective }} Mbps</em></label>
+        {% endfor %}
+      </div></article>
+      {% else %}<div class="empty-state">کاربری وجود ندارد.</div>{% endfor %}
+    </div>
+  </section>
+  <div class="sticky-actions"><button class="btn primary">ذخیره و اعمال محدودیت‌ها</button><a class="btn ghost" href="/settings">تنظیم پورت‌ها</a></div>
+</form>
+<section class="card"><h3>وضعیت Runtime روی سرور</h3><pre class="log-output">{{ status or 'هنوز rule فعالی گزارش نشده است.' }}</pre></section>
+{% endblock %}
