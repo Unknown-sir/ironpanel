@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block heading %}Safe Backup / Restore{% endblock %}
+{% block content %}
+<section class="card backup-hero">
+  <div class="section-head responsive-head">
+    <div>
+      <span class="eyebrow">SAFE BACKUP</span>
+      <h3>بکاپ و ریستور حرفه‌ای IronPanel</h3>
+      <p class="muted">قبل از هر ریستور، یک بکاپ محافظ ساخته می‌شود. فایل بکاپ شامل دیتابیس، تنظیمات، پروفایل‌ها، SSL، systemd و در صورت انتخاب، سورس پنل است.</p>
+    </div>
+    <form method="post" class="actions-wrap">
+      <input type="hidden" name="action" value="create">
+      <label class="checkline"><input type="checkbox" name="include_source" value="1" checked> شامل سورس پنل</label>
+      <button>ساخت بکاپ امن</button>
+    </form>
+  </div>
+  <div class="backup-grid">
+    <form method="post" enctype="multipart/form-data" class="mini-card">
+      <h4>ریستور از فایل آپلودی</h4>
+      <input type="hidden" name="action" value="restore_upload">
+      <input type="file" name="restore_file" accept=".gz,.tgz,.tar.gz" required>
+      <label class="checkline"><input type="checkbox" name="restore_source" value="1"> ریستور سورس پنل هم انجام شود</label>
+      <button class="btn danger" onclick="return confirm('قبل از ریستور بکاپ محافظ ساخته می‌شود. ادامه می‌دهی؟')">ریستور</button>
+    </form>
+    <div class="mini-card">
+      <h4>دستور ترمینال</h4>
+      <p class="muted">برای بکاپ دستی روی سرور:</p>
+      <code>cd /opt/ironpanel && sudo /opt/ironpanel/.venv/bin/flask --app run.py safe-backup</code>
+    </div>
+  </div>
+  {% if restore_output %}<pre class="log-output">{{ restore_output }}</pre>{% endif %}
+</section>
+
+<section class="card table-card">
+  <h3>بکاپ‌ها</h3>
+  <div class="backup-list">
+  {% for f in files %}
+    <div class="backup-row">
+      <div><b>{{ f.name }}</b><small>{{ f.created_at }} · {{ (f.size/1024/1024)|round(2) }} MB · {{ f.kind }} {{ f.version }}</small>{% if f.note %}<p>{{ f.note }}</p>{% endif %}</div>
+      <div class="actions-wrap">
+        <a class="btn ghost small" href="/backups/{{ f.name }}">دانلود</a>
+        <form method="post"><input type="hidden" name="action" value="restore_existing"><input type="hidden" name="filename" value="{{ f.name }}"><button class="btn danger small" onclick="return confirm('ریستور این بکاپ انجام شود؟')">ریستور</button></form>
+      </div>
+    </div>
+  {% else %}
+    <div class="alert">هنوز بکاپی ساخته نشده است.</div>
+  {% endfor %}
+  </div>
+</section>
+{% endblock %}
