@@ -1,2 +1,0 @@
-{% extends 'base.html' %}{% block heading %}Two-Factor Authentication{% endblock %}{% block content %}<section class="card"><h3>۲FA</h3><p>Secret: <code>{{tf.secret}}</code></p><p>URI: <code>{{uri}}</code></p><form method="post"><input name="code" placeholder="کد ۶ رقمی"><button name="action" value="enable">فعال‌سازی</button><button name="action" value="disable">غیرفعال</button><button name="action" value="recovery">ساخت Recovery Code</button></form>{% if recovery %}<h4>Recovery Codes</h4><pre>{{ recovery|join('
-') }}</pre>{% endif %}</section>{% endblock %}
