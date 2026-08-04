@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -e
+case "${1:-menu}" in
+  status) systemctl status ironpanel --no-pager ;;
+  restart) systemctl restart ironpanel ;;
+  logs) journalctl -u ironpanel -f ;;
+  info) cat /etc/ironpanel/ironpanel.env ;;
+  doctor) cd /opt/ironpanel && /opt/ironpanel/.venv/bin/flask --app run.py doctor ;;
+  repair) cd /opt/ironpanel && /opt/ironpanel/.venv/bin/flask --app run.py doctor --repair ;;
+  backup) cd /opt/ironpanel && /opt/ironpanel/.venv/bin/flask --app run.py safe-backup ;;
+  safe-update) bash /opt/ironpanel/scripts/safe_update.sh ;;
+  *) echo "Usage: ironpanelctl {status|restart|logs|info|doctor|repair|backup|safe-update}" ;;
+esac
