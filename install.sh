@@ -507,7 +507,7 @@ mkdir -p "$APP_DIR" "$ETC_DIR" "$ETC_DIR/profiles"
 backup_existing
 
 info "Installing base dependencies"
-apt_install python3 python3-venv python3-pip nginx snapd openssl curl rsync sqlite3 qrencode iptables-persistent ca-certificates lsof net-tools iproute2 ufw unzip
+apt_install python3 python3-venv python3-pip nginx snapd openssl curl rsync sqlite3 qrencode ca-certificates lsof net-tools iproute2 ufw unzip
 
 info "Copying project files"
 if [[ "$SCRIPT_DIR" != "$APP_DIR" ]]; then
