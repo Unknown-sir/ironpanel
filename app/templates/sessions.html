@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block heading %}کاربران آنلاین و نشست‌ها{% endblock %}
+{% block content %}
+<div class="modern-page sessions-modern-page">
+  <section class="card modern-hero split-hero compact">
+    <div class="hero-copy">
+      <p class="eyebrow">Online Users</p>
+      <h3>نشست‌های فعال با طراحی کارتی و قابل لمس</h3>
+      <p class="hint">این لیست از OpenVPN status، WireGuard handshake، occtl و PPP hooks خوانده می‌شود.</p>
+    </div>
+    <div class="hero-action-card mini"><small>نشست فعال</small><b>{{ sessions|length }}</b><a class="btn ghost" href="/sessions">Refresh</a></div>
+  </section>
+
+  {% if online_error %}<div class="alert danger modern-alert">آخرین خطای تشخیص آنلاین: <code>{{ online_error }}</code></div>{% endif %}
+
+  <section class="online-session-grid">
+    {% for s in sessions %}
+    <article class="card online-session-card">
+      <header>
+        <div><small>کاربر</small><h3>{{s.username}}</h3></div>
+        <span class="badge ok">{{s.protocol}}</span>
+      </header>
+      <div class="modern-grid two session-meta-grid">
+        <div><small>IP</small><b>{{s.remote_ip or '-'}}</b></div>
+        <div><small>کشور</small><b>{{s.country or '-'}}</b></div>
+        <div><small>Device</small><b>{{s.device_id or '-'}}</b></div>
+        <div><small>آخرین مشاهده</small><b>{{s.last_seen}}</b></div>
+      </div>
+      <footer>
+        <small>شروع: {{s.connected_at}}</small>
+        <form method="post" action="/sessions/{{s.id}}/kick" onsubmit="return confirm('این نشست قطع شود؟')"><button class="btn small danger">Kick</button></form>
+      </footer>
+    </article>
+    {% else %}
+    <div class="card empty-state modern-empty">در حال حاضر نشست فعالی شناسایی نشده است. اگر کاربر متصل است، یک بار usage sync را اجرا کن یا سرویس مربوطه را restart کن تا hookها فعال شوند.</div>
+    {% endfor %}
+  </section>
+
+  <details class="card modern-details command-details">
+    <summary><span>🧪</span><b>دستورات تست دستی</b><em>Terminal</em></summary>
+    <pre class="details-body">sudo systemctl status ironpanel-usage-sync.timer
+sudo journalctl -u ironpanel-usage-sync.service -n 100 --no-pager
+sudo cat /var/log/openvpn/status.log
+sudo wg show wg0 dump
+sudo occtl show users</pre>
+  </details>
+</div>
+{% endblock %}
