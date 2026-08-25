@@ -1,8 +1,19 @@
+# v19.10.27 - Reseller Config Domain and Authoritative Protocol Checkboxes
+
+- Quick Create presets no longer override the manual protocol checkboxes. Previously the default "all protocols" preset ignored unchecked boxes, so removing e.g. SSH still created its runtime account and advertised it on the user subscription page; now unchecking any protocol always excludes it, with presets acting as a filter over the checked set.
+- Added per-reseller custom config domains. A reseller (or the main admin, from the reseller edit form) can save a dedicated domain/IP under a new "My config domain" page (`/my/config-domain`); every config generated for that reseller's own users (OpenVPN remote, WireGuard Endpoint, Ocserv/L2TP/PPTP/SSH/Hysteria2 hosts, Xray link host and Telegram Proxy server) then uses that address. Empty value falls back to the main panel address, other resellers are unaffected, and Node Direct Location configs keep their per-node hosts. Stored as an AppSetting key so no database migration is required.
+- Eliminated the misleading generic "Details" / "Additional information" placeholders that appeared on buttons, labels and hints across every page in non-Persian UI modes. 30+ context-correct English mappings were registered for legacy Persian literals (e.g. Select all / Clear selection, From number / To number, Letters & digits / Numbers only, Submit, Unit, Body, Limit, Start:, Important:, Every hour, Supported actions, Quick preset, Per-user speed limit (Mbps), MirzaBot-compatible API, e.g. examples, Go to Auto SSL, Release registered., ...). The final i18n fallback now keeps the original text instead of inventing a wrong generic label, so unknown phrases can never show a semantically incorrect English word again.
+# v19.10.26 - Responsive Panel: Background Status, 4 Workers, Pagination, Blueprint Split
+
+- Split the monolithic `app/web.py` (~3,000 lines, 120+ routes) into a `app/web/` package with domain modules (auth, dashboard, users, resellers, subscriptions, nodes, network, billing, ops, system, bots) that all register on the same `web` blueprint. All existing `url_for('web.*')` endpoints, templates and external links keep working unchanged.
+- Service status checks no longer run inside web requests. The systemctl probe moved to a shared JSON snapshot under CONFIG_ROOT refreshed by the existing 15s usage-sync timer (`refresh_service_status_cache`); pages serve cached data instantly and only spawn a throttled non-blocking background refresh when data goes stale. A completely cold start performs one synchronous probe so the first render is correct.
+- Gunicorn now runs 4 gthread workers with 2 threads each (installer, upgrade unit rewrite and SSL TLS drop-in), so slow runtime operations can no longer queue every panel request behind two workers.
+- Added server-side pagination to Users, Activity Logs and Login History (shared `_pagination.html` include + `.pager` styles). Filters and search terms are preserved across pages; per-page size is clamped between sane bounds instead of loading hundreds of rows per view.
 # v19.10.25 - Full Migration Backup / Restore
 
 - Replaced partial backups with a migration-grade archive that preserves the complete SQLite state plus protocol/server identities required for moving IronPanel to another server without rotating existing client credentials.
 - SQLite backups now use the SQLite backup API and run `integrity_check`, avoiding inconsistent direct copies while WAL/background usage writes are active.
-- Backup now includes OpenVPN PKI/tls-crypt, WireGuard server identity, Let’s Encrypt/SSL, Ocserv, L2TP/IKEv2/strongSwan, PPTP/PPP, Xray, Hysteria2, Telegram Proxy state, IronPanel environment/secrets and systemd units.
+- Backup now includes OpenVPN PKI/tls-crypt, WireGuard server identity, Letâ€™s Encrypt/SSL, Ocserv, L2TP/IKEv2/strongSwan, PPTP/PPP, Xray, Hysteria2, Telegram Proxy state, IronPanel environment/secrets and systemd units.
 - Restore validates archive paths, links, database checksum/schema and critical identity fingerprints before/after copying.
 - Restore creates a complete rollback backup first, upgrades the restored DB with current code, rebuilds all user runtime configs with restored identities, and reapplies firewall/speed/node-gateway rules.
 - Existing backup callers (panel, CLI, scheduled v17 backup, admin bot and compatibility `backup_now`) now use the same full migration engine.
@@ -241,7 +252,7 @@
 
 ## 19.9.29
 - UI refresh inspired by modern proxy panels: cleaner spacing, stable sidebar, responsive cards/tables/forms and a more professional login surface.
-- Hardened Telegram admin checks: normalizes Persian/Arabic digits and mixed separators, silently ignores unauthorized callback noise, and avoids random "⛔ دسترسی مجاز نیست" messages to admins/users when Telegram IDs are configured with spaces or localized digits.
+- Hardened Telegram admin checks: normalizes Persian/Arabic digits and mixed separators, silently ignores unauthorized callback noise, and avoids random "â›” ط¯ط³طھط±ط³غŒ ظ…ط¬ط§ط² ظ†غŒط³طھ" messages to admins/users when Telegram IDs are configured with spaces or localized digits.
 - Sales bot admin list parsing now matches admin bot parsing for reliable permissions across both bots.
 
 ## 19.9.24
@@ -312,7 +323,7 @@
 - Added direct-port data to `ensure_protocols` jobs so node core repair never falls back to main-server ports.
 - Telegram Proxy health now checks the real configured TCP listener instead of reporting systemd Active alone.
 
-## 19.9.12 — Cisco Plain-Auth Path Hotfix
+## 19.9.12 â€” Cisco Plain-Auth Path Hotfix
 
 - Fixed the real Cisco/ocserv authentication regression visible as `plain-auth: error authenticating user ...` while `ocserv.service` was active.
 - `generate_profiles()` no longer rewrites `/etc/ocserv/ocserv.conf` to a per-user path like `/etc/ironpanel/profiles/<username>/ocpasswd`.
@@ -321,7 +332,7 @@
 - Added `scripts/repair_cisco_auth.sh` to rebuild Cisco users, repair ocserv, restart the service, and print the active auth path/user count.
 - Node Agent Cisco auth now uses the same canonical `/etc/ocserv/ocpasswd` path and mirrors the compact legacy hash file for compatibility.
 
-## 19.9.10 — Cisco Authentication + Node Connectivity Full Repair
+## 19.9.10 â€” Cisco Authentication + Node Connectivity Full Repair
 
 - Fixed the Cisco/ocserv repair path that truncated `/etc/ironpanel/ocpasswd`, causing every valid username/password to be rejected after repair or update.
 - Rebuilt ocserv configuration atomically, validated it before replacement, preserved managed TLS certificates, opened TCP/UDP firewall rules, enabled forwarding/NAT, and verified the real listening port.
@@ -340,7 +351,7 @@
 - Main-server Cisco health now checks `ocserv -t`, real TCP/UDP listeners, the configured password file, and actual auth-user count instead of reporting systemd Active as healthy.
 - Direct OpenVPN node profiles now use the port matching the selected TCP/UDP transport, and node config jobs fail when a service is active but its real runtime/listener is unhealthy.
 
-## 19.9.9 — Verified Node Runtime + Grouped Subscriptions + Fast Updates
+## 19.9.9 â€” Verified Node Runtime + Grouped Subscriptions + Fast Updates
 
 - Fixed a critical job-routing bug where the master worker consumed node-agent jobs and marked them successful without executing them on the remote node.
 - Restricted master and node workers to their own supported action sets; master-only SSH install jobs are never sent to Node Agent.
@@ -354,16 +365,16 @@
 - Xray raw subscriptions now preserve the main link first and append separate direct-node links.
 - Automatic backups are skipped by default during update/reinstall for faster deployment. Set `IRONPANEL_UPDATE_BACKUP=1` or `IRONPANEL_INSTALL_BACKUP=1` to opt in.
 
-## 19.9.8 — Node Direct Location Rebuild + Panel Watchdog
+## 19.9.8 â€” Node Direct Location Rebuild + Panel Watchdog
 
-- بخش Nodes از نو بازنویسی شد و مدل پیش‌فرض آن Direct Location Subscription شد.
-- فرم جدید نود شامل نام سرور، نام نود، آدرس سرور نود، دامنه کانفیگ، پروتکل‌ها و پورت جداگانه هر پروتکل است.
-- هنگام ثبت نود، اطلاعات SSH به‌صورت رمزنگاری‌شده ذخیره و نصب خودکار در صف Job قرار می‌گیرد؛ نصب دیگر داخل request وب اجرا نمی‌شود و باعث Down شدن پنل نمی‌شود.
-- نصب خودکار از طریق SSH هسته‌ها را نصب/Repair می‌کند، Agent نود را وصل می‌کند، کانفیگ پروتکل‌ها و کاربران را Sync می‌کند و Health Check می‌سازد.
-- کانفیگ‌های نود به Subscription اضافه می‌شوند ولی UUID/Password/Identity از پنل اصلی می‌آید؛ مصرف Main و همه نودها روی همان quota مشترک کاربر محاسبه می‌شود.
-- Heartbeat نود گزارش مصرف را ارسال می‌کند و پنل اصلی delta مصرف را روی کاربر اعمال می‌کند.
-- Watchdog جدید اضافه شد تا اگر ironpanel فعال نبود یا /healthz پاسخ نداد، سرویس را خودکار restart کند.
-- systemd پنل harden شد: Restart سریع‌تر، KillMode mixed، TimeoutStopSec و watchdog timer.
+- ط¨ط®ط´ Nodes ط§ط² ظ†ظˆ ط¨ط§ط²ظ†ظˆغŒط³غŒ ط´ط¯ ظˆ ظ…ط¯ظ„ ظ¾غŒط´â€Œظپط±ط¶ ط¢ظ† Direct Location Subscription ط´ط¯.
+- ظپط±ظ… ط¬ط¯غŒط¯ ظ†ظˆط¯ ط´ط§ظ…ظ„ ظ†ط§ظ… ط³ط±ظˆط±طŒ ظ†ط§ظ… ظ†ظˆط¯طŒ ط¢ط¯ط±ط³ ط³ط±ظˆط± ظ†ظˆط¯طŒ ط¯ط§ظ…ظ†ظ‡ ع©ط§ظ†ظپغŒع¯طŒ ظ¾ط±ظˆطھع©ظ„â€Œظ‡ط§ ظˆ ظ¾ظˆط±طھ ط¬ط¯ط§ع¯ط§ظ†ظ‡ ظ‡ط± ظ¾ط±ظˆطھع©ظ„ ط§ط³طھ.
+- ظ‡ظ†ع¯ط§ظ… ط«ط¨طھ ظ†ظˆط¯طŒ ط§ط·ظ„ط§ط¹ط§طھ SSH ط¨ظ‡â€Œطµظˆط±طھ ط±ظ…ط²ظ†ع¯ط§ط±غŒâ€Œط´ط¯ظ‡ ط°ط®غŒط±ظ‡ ظˆ ظ†طµط¨ ط®ظˆط¯ع©ط§ط± ط¯ط± طµظپ Job ظ‚ط±ط§ط± ظ…غŒâ€Œع¯غŒط±ط¯ط› ظ†طµط¨ ط¯غŒع¯ط± ط¯ط§ط®ظ„ request ظˆط¨ ط§ط¬ط±ط§ ظ†ظ…غŒâ€Œط´ظˆط¯ ظˆ ط¨ط§ط¹ط« Down ط´ط¯ظ† ظ¾ظ†ظ„ ظ†ظ…غŒâ€Œط´ظˆط¯.
+- ظ†طµط¨ ط®ظˆط¯ع©ط§ط± ط§ط² ط·ط±غŒظ‚ SSH ظ‡ط³طھظ‡â€Œظ‡ط§ ط±ط§ ظ†طµط¨/Repair ظ…غŒâ€Œع©ظ†ط¯طŒ Agent ظ†ظˆط¯ ط±ط§ ظˆطµظ„ ظ…غŒâ€Œع©ظ†ط¯طŒ ع©ط§ظ†ظپغŒع¯ ظ¾ط±ظˆطھع©ظ„â€Œظ‡ط§ ظˆ ع©ط§ط±ط¨ط±ط§ظ† ط±ط§ Sync ظ…غŒâ€Œع©ظ†ط¯ ظˆ Health Check ظ…غŒâ€Œط³ط§ط²ط¯.
+- ع©ط§ظ†ظپغŒع¯â€Œظ‡ط§غŒ ظ†ظˆط¯ ط¨ظ‡ Subscription ط§ط¶ط§ظپظ‡ ظ…غŒâ€Œط´ظˆظ†ط¯ ظˆظ„غŒ UUID/Password/Identity ط§ط² ظ¾ظ†ظ„ ط§طµظ„غŒ ظ…غŒâ€Œط¢غŒط¯ط› ظ…طµط±ظپ Main ظˆ ظ‡ظ…ظ‡ ظ†ظˆط¯ظ‡ط§ ط±ظˆغŒ ظ‡ظ…ط§ظ† quota ظ…ط´طھط±ع© ع©ط§ط±ط¨ط± ظ…ط­ط§ط³ط¨ظ‡ ظ…غŒâ€Œط´ظˆط¯.
+- Heartbeat ظ†ظˆط¯ ع¯ط²ط§ط±ط´ ظ…طµط±ظپ ط±ط§ ط§ط±ط³ط§ظ„ ظ…غŒâ€Œع©ظ†ط¯ ظˆ ظ¾ظ†ظ„ ط§طµظ„غŒ delta ظ…طµط±ظپ ط±ط§ ط±ظˆغŒ ع©ط§ط±ط¨ط± ط§ط¹ظ…ط§ظ„ ظ…غŒâ€Œع©ظ†ط¯.
+- Watchdog ط¬ط¯غŒط¯ ط§ط¶ط§ظپظ‡ ط´ط¯ طھط§ ط§ع¯ط± ironpanel ظپط¹ط§ظ„ ظ†ط¨ظˆط¯ غŒط§ /healthz ظ¾ط§ط³ط® ظ†ط¯ط§ط¯طŒ ط³ط±ظˆغŒط³ ط±ط§ ط®ظˆط¯ع©ط§ط± restart ع©ظ†ط¯.
+- systemd ظ¾ظ†ظ„ harden ط´ط¯: Restart ط³ط±غŒط¹â€Œطھط±طŒ KillMode mixedطŒ TimeoutStopSec ظˆ watchdog timer.
 
 
 ## 19.9.7 - Node Page 500 Fix
@@ -382,7 +393,7 @@
 
 # Changelog
 
-## 19.9.5 — Direct Location Subscriptions
+## 19.9.5 â€” Direct Location Subscriptions
 - Add Direct Location delivery mode for nodes: relay/direct/both/disabled.
 - Nodes can appear as separate locations in subscriptions with their own host and per-protocol public ports.
 - Master-generated identity is reused on every location, so one user can have many configs while traffic quota remains shared.
@@ -405,20 +416,20 @@
 
 ## v19.9.2 - Modern Pages UI Refresh
 
-- بازطراحی بصری صفحات Quick Create، Users & Configs، Usage & Reports، Online Users، حساب من، Core Settings، Firewall و Update Manager.
-- اضافه شدن hero cardهای مدرن، کارت‌های KPI، فرم‌های خلوت‌تر، آکاردئون برای تنظیمات پیشرفته و action grid ریسپانسیو.
-- صفحه Users & Configs کارت‌بندی شد و فرم ساخت کاربر داخل بخش کشویی قرار گرفت تا لیست کاربران شلوغ نباشد.
-- صفحه Core Settings به کارت‌های جداگانه و بخش‌های کشویی برای پورت‌ها، WireGuard/Hysteria2 و Telegram تقسیم شد.
-- صفحه Firewall و Update Manager با جدول‌های responsive، کارت‌های امن‌تر و لاگ/پیشرفت خواناتر به‌روزرسانی شدند.
-- بهبود تجربه موبایل با breakpointهای جدید، کارت‌های قابل لمس و فرم‌های تک‌ستونه در صفحه‌های کوچک.
+- ط¨ط§ط²ط·ط±ط§ط­غŒ ط¨طµط±غŒ طµظپط­ط§طھ Quick CreateطŒ Users & ConfigsطŒ Usage & ReportsطŒ Online UsersطŒ ط­ط³ط§ط¨ ظ…ظ†طŒ Core SettingsطŒ Firewall ظˆ Update Manager.
+- ط§ط¶ط§ظپظ‡ ط´ط¯ظ† hero cardظ‡ط§غŒ ظ…ط¯ط±ظ†طŒ ع©ط§ط±طھâ€Œظ‡ط§غŒ KPIطŒ ظپط±ظ…â€Œظ‡ط§غŒ ط®ظ„ظˆطھâ€Œطھط±طŒ ط¢ع©ط§ط±ط¯ط¦ظˆظ† ط¨ط±ط§غŒ طھظ†ط¸غŒظ…ط§طھ ظ¾غŒط´ط±ظپطھظ‡ ظˆ action grid ط±غŒط³ظ¾ط§ظ†ط³غŒظˆ.
+- طµظپط­ظ‡ Users & Configs ع©ط§ط±طھâ€Œط¨ظ†ط¯غŒ ط´ط¯ ظˆ ظپط±ظ… ط³ط§ط®طھ ع©ط§ط±ط¨ط± ط¯ط§ط®ظ„ ط¨ط®ط´ ع©ط´ظˆغŒغŒ ظ‚ط±ط§ط± ع¯ط±ظپطھ طھط§ ظ„غŒط³طھ ع©ط§ط±ط¨ط±ط§ظ† ط´ظ„ظˆط؛ ظ†ط¨ط§ط´ط¯.
+- طµظپط­ظ‡ Core Settings ط¨ظ‡ ع©ط§ط±طھâ€Œظ‡ط§غŒ ط¬ط¯ط§ع¯ط§ظ†ظ‡ ظˆ ط¨ط®ط´â€Œظ‡ط§غŒ ع©ط´ظˆغŒغŒ ط¨ط±ط§غŒ ظ¾ظˆط±طھâ€Œظ‡ط§طŒ WireGuard/Hysteria2 ظˆ Telegram طھظ‚ط³غŒظ… ط´ط¯.
+- طµظپط­ظ‡ Firewall ظˆ Update Manager ط¨ط§ ط¬ط¯ظˆظ„â€Œظ‡ط§غŒ responsiveطŒ ع©ط§ط±طھâ€Œظ‡ط§غŒ ط§ظ…ظ†â€Œطھط± ظˆ ظ„ط§ع¯/ظ¾غŒط´ط±ظپطھ ط®ظˆط§ظ†ط§طھط± ط¨ظ‡â€Œط±ظˆط²ط±ط³ط§ظ†غŒ ط´ط¯ظ†ط¯.
+- ط¨ظ‡ط¨ظˆط¯ طھط¬ط±ط¨ظ‡ ظ…ظˆط¨ط§غŒظ„ ط¨ط§ breakpointظ‡ط§غŒ ط¬ط¯غŒط¯طŒ ع©ط§ط±طھâ€Œظ‡ط§غŒ ظ‚ط§ط¨ظ„ ظ„ظ…ط³ ظˆ ظپط±ظ…â€Œظ‡ط§غŒ طھع©â€Œط³طھظˆظ†ظ‡ ط¯ط± طµظپط­ظ‡â€Œظ‡ط§غŒ ع©ظˆع†ع©.
 
 # 19.9.1 - README Refresh
 
-- README اصلی بازنویسی و مرتب شد.
-- تاریخچه طولانی نسخه‌ها از README حذف شد و به CHANGELOG/docs ارجاع داده شد.
-- معرفی امکانات IronPanel، Node Gateway، Transparent Relay، Auto SSH Node Installer، پلن‌ها و دستورات کاربردی شفاف‌تر شد.
+- README ط§طµظ„غŒ ط¨ط§ط²ظ†ظˆغŒط³غŒ ظˆ ظ…ط±طھط¨ ط´ط¯.
+- طھط§ط±غŒط®ع†ظ‡ ط·ظˆظ„ط§ظ†غŒ ظ†ط³ط®ظ‡â€Œظ‡ط§ ط§ط² README ط­ط°ظپ ط´ط¯ ظˆ ط¨ظ‡ CHANGELOG/docs ط§ط±ط¬ط§ط¹ ط¯ط§ط¯ظ‡ ط´ط¯.
+- ظ…ط¹ط±ظپغŒ ط§ظ…ع©ط§ظ†ط§طھ IronPanelطŒ Node GatewayطŒ Transparent RelayطŒ Auto SSH Node InstallerطŒ ظ¾ظ„ظ†â€Œظ‡ط§ ظˆ ط¯ط³طھظˆط±ط§طھ ع©ط§ط±ط¨ط±ط¯غŒ ط´ظپط§ظپâ€Œطھط± ط´ط¯.
 
-# 19.9.0 — Node Auto SSH Installer
+# 19.9.0 â€” Node Auto SSH Installer
 
 - Added Pro/Admin-only Auto SSH Installer for nodes.
 - Supports encrypted saved SSH password/private-key credentials.
@@ -444,10 +455,10 @@
 - Add node TCP port probes and more complete Gateway NAT/FORWARD/POSTROUTING logs.
 - Keep node core/config/user sync flow from 19.8.19.
 
-## v19.8.19 — Node Auto Sync
-- نصب نود بعد از بالا آمدن Agent، نصب هسته‌ها، Sync کانفیگ پروتکل‌ها و Sync کاربران را همان لحظه درخواست و اجرا می‌کند.
-- هر چند دقیقه، بر اساس `node_auto_sync_interval_sec`، کانفیگ پروتکل‌های Force شده و کاربران فعال دوباره روی نود Sync می‌شوند.
-- هنگام Force کردن پروتکل به نود، full sync شامل core/config/users صف می‌شود تا نود فقط پورت فوروارد نداشته باشد و واقعاً آماده اتصال باشد.
+## v19.8.19 â€” Node Auto Sync
+- ظ†طµط¨ ظ†ظˆط¯ ط¨ط¹ط¯ ط§ط² ط¨ط§ظ„ط§ ط¢ظ…ط¯ظ† AgentطŒ ظ†طµط¨ ظ‡ط³طھظ‡â€Œظ‡ط§طŒ Sync ع©ط§ظ†ظپغŒع¯ ظ¾ط±ظˆطھع©ظ„â€Œظ‡ط§ ظˆ Sync ع©ط§ط±ط¨ط±ط§ظ† ط±ط§ ظ‡ظ…ط§ظ† ظ„ط­ط¸ظ‡ ط¯ط±ط®ظˆط§ط³طھ ظˆ ط§ط¬ط±ط§ ظ…غŒâ€Œع©ظ†ط¯.
+- ظ‡ط± ع†ظ†ط¯ ط¯ظ‚غŒظ‚ظ‡طŒ ط¨ط± ط§ط³ط§ط³ `node_auto_sync_interval_sec`طŒ ع©ط§ظ†ظپغŒع¯ ظ¾ط±ظˆطھع©ظ„â€Œظ‡ط§غŒ Force ط´ط¯ظ‡ ظˆ ع©ط§ط±ط¨ط±ط§ظ† ظپط¹ط§ظ„ ط¯ظˆط¨ط§ط±ظ‡ ط±ظˆغŒ ظ†ظˆط¯ Sync ظ…غŒâ€Œط´ظˆظ†ط¯.
+- ظ‡ظ†ع¯ط§ظ… Force ع©ط±ط¯ظ† ظ¾ط±ظˆطھع©ظ„ ط¨ظ‡ ظ†ظˆط¯طŒ full sync ط´ط§ظ…ظ„ core/config/users طµظپ ظ…غŒâ€Œط´ظˆط¯ طھط§ ظ†ظˆط¯ ظپظ‚ط· ظ¾ظˆط±طھ ظپظˆط±ظˆط§ط±ط¯ ظ†ط¯ط§ط´طھظ‡ ط¨ط§ط´ط¯ ظˆ ظˆط§ظ‚ط¹ط§ظ‹ ط¢ظ…ط§ط¯ظ‡ ط§طھطµط§ظ„ ط¨ط§ط´ط¯.
 
 ## 19.8.19 - Node Gateway Direct DNAT + Node Egress Fix
 - Make Node Gateway DNAT rules match incoming protocol traffic directly and exclude node-source loops.
@@ -619,10 +630,10 @@
 
 ## v17.1.2 - Account Settings + WireGuard DNS
 
-- صفحه **حساب من** برای تغییر نام کاربری و رمز عبور خود ادمین/نماینده اضافه شد.
-- ادمین اصلی می‌تواند نماینده را حذف کند؛ کاربران زیرمجموعه به‌صورت پیش‌فرض حذف نمی‌شوند و فقط از نماینده جدا می‌شوند.
-- تنظیم **WireGuard DNS** به پنل اضافه شد و DNS کانفیگ‌های WireGuard دیگر ثابت نیست.
-- جدول امکانات و لایسنس‌ها در README حفظ و به‌روزرسانی شد.
+- طµظپط­ظ‡ **ط­ط³ط§ط¨ ظ…ظ†** ط¨ط±ط§غŒ طھط؛غŒغŒط± ظ†ط§ظ… ع©ط§ط±ط¨ط±غŒ ظˆ ط±ظ…ط² ط¹ط¨ظˆط± ط®ظˆط¯ ط§ط¯ظ…غŒظ†/ظ†ظ…ط§غŒظ†ط¯ظ‡ ط§ط¶ط§ظپظ‡ ط´ط¯.
+- ط§ط¯ظ…غŒظ† ط§طµظ„غŒ ظ…غŒâ€Œطھظˆط§ظ†ط¯ ظ†ظ…ط§غŒظ†ط¯ظ‡ ط±ط§ ط­ط°ظپ ع©ظ†ط¯ط› ع©ط§ط±ط¨ط±ط§ظ† ط²غŒط±ظ…ط¬ظ…ظˆط¹ظ‡ ط¨ظ‡â€Œطµظˆط±طھ ظ¾غŒط´â€Œظپط±ط¶ ط­ط°ظپ ظ†ظ…غŒâ€Œط´ظˆظ†ط¯ ظˆ ظپظ‚ط· ط§ط² ظ†ظ…ط§غŒظ†ط¯ظ‡ ط¬ط¯ط§ ظ…غŒâ€Œط´ظˆظ†ط¯.
+- طھظ†ط¸غŒظ… **WireGuard DNS** ط¨ظ‡ ظ¾ظ†ظ„ ط§ط¶ط§ظپظ‡ ط´ط¯ ظˆ DNS ع©ط§ظ†ظپغŒع¯â€Œظ‡ط§غŒ WireGuard ط¯غŒع¯ط± ط«ط§ط¨طھ ظ†غŒط³طھ.
+- ط¬ط¯ظˆظ„ ط§ظ…ع©ط§ظ†ط§طھ ظˆ ظ„ط§غŒط³ظ†ط³â€Œظ‡ط§ ط¯ط± README ط­ظپط¸ ظˆ ط¨ظ‡â€Œط±ظˆط²ط±ط³ط§ظ†غŒ ط´ط¯.
 
 ## 17.1.1 - Subscription Popup UI
 
@@ -630,7 +641,7 @@
 - Added per-protocol modal popup for config preview, copy, QR and download.
 - Improved mobile readability by hiding raw config clutter until user opens a protocol.
 
-# 17.1.0 — Matrix Login + Login Alerts
+# 17.1.0 â€” Matrix Login + Login Alerts
 
 - Matrix animated login page.
 - Login failure shake animation and clear error message.
@@ -638,18 +649,18 @@
 - Preserved custom Telegram Proxy port during update/repair.
 - README tables refreshed.
 
-# 17.0.1 — Login UI + Simple Update Manager
+# 17.0.1 â€” Login UI + Simple Update Manager
 
 - Redesigned the login page with a modern glass/aurora visual style and responsive login layout.
 - Added Update Manager as a direct item in the Simple UI menu for main admins.
 - Updated project README/README_FA with the new UI and update-manager notes.
 
-# 17.0.0 — SSH Protocol
+# 17.0.0 â€” SSH Protocol
 
 - Added SSH Tunnel / SSH Proxy protocol with default port `422/tcp`.
 - Added OpenSSH repair/install script, Settings UI, user config delivery and README/docs updates.
 
-# v18.6.11 — Telegram Proxy Service Crash Fix
+# v18.6.11 â€” Telegram Proxy Service Crash Fix
 
 - Hardened `ironpanel-tgproxy.service` startup after reports of `status=1/FAILURE`.
 - Rebuilt `repair_telegram_proxy.sh` to validate/rebuild `config.json`, stop legacy per-user units, kill orphan proxy wrappers, choose the real NodeJS binary, check wrapper syntax, open firewall, and write clear diagnostics.
@@ -658,7 +669,7 @@
 - Kept the shared-port/per-user-secret accounting model; users still connect to one port, while usage is written per user ID to `usage.json`.
 - Updated README/README_FA and version docs.
 
-# v18.6.10 — Telegram Proxy Core + Update Fetch Fix
+# v18.6.10 â€” Telegram Proxy Core + Update Fetch Fix
 
 - Installed and enabled the shared Telegram MTProto proxy core during install/upgrade.
 - Added robust `repair_telegram_proxy.sh --sync` behavior for service, runtime config, firewall, and user secret sync.
@@ -666,7 +677,7 @@
 - Fixed Update Manager `failed fetch` near 45% by tracking the long upgrade phase via a visible pollable task.
 - Updated README documentation.
 
-## v18.6.9 — Shared Telegram Proxy Fix
+## v18.6.9 â€” Shared Telegram Proxy Fix
 - Changed Telegram Proxy from per-user ports to a single shared port with per-user secrets.
 - Added IronPanel MTProto wrapper with per-secret accounting.
 - Fixed non-working delivered Telegram proxy links caused by per-user port/service mode.
@@ -681,7 +692,7 @@
 - Re-sync/stop per-user Telegram Proxy services when users hit quota.
 
 
-## v18.6.7 — Telegram Proxy + WireGuard MTU 1280
+## v18.6.7 â€” Telegram Proxy + WireGuard MTU 1280
 - Default WireGuard MTU changed to 1280.
 - Added per-user Telegram MTProto proxy protocol powered by JSMTProxy-style instances.
 - Added per-user Telegram proxy links and downloads in subscription profiles.
@@ -750,7 +761,7 @@
 - Hardened GitHub quick upgrade to run full DB/service/systemd/VPN synchronization.
 - Redesigned the public subscription page with modern cards, QR actions and responsive layout.
 
-## 18.5.8 — DB Migration Fix
+## 18.5.8 â€” DB Migration Fix
 - Fixed installer/init-db crash on upgraded SQLite databases missing `admin.enabled`.
 - Runs lightweight SQLite migration before the first Admin ORM query.
 - Keeps reseller portal columns backward-compatible during reinstall/upgrade.
@@ -774,26 +785,26 @@
 - Inline glass-button menus are shown on /start.
 - Admin bot buttons remain restricted to allowed Telegram admin IDs.
 
-# 18.5.4 — GitHub Update Alert & Quick Upgrade
+# 18.5.4 â€” GitHub Update Alert & Quick Upgrade
 
-- اضافه شدن اعلان نسخه جدید GitHub در داشبورد main admin.
-- اضافه شدن دکمه «آپگرید سریع» برای اجرای upgrade از داخل پنل.
-- اجرای آپگرید در پس‌زمینه برای جلوگیری از قطع شدن request هنگام restart پنل.
-- کش کردن نتیجه بررسی VERSION و مقایسه عددی نسخه‌ها.
-- مقاوم‌تر شدن scripts/update_from_github.sh با بکاپ source و /etc/ironpanel قبل از آپگرید.
-- اضافه شدن لاگ /var/log/ironpanel-github-upgrade.log.
+- ط§ط¶ط§ظپظ‡ ط´ط¯ظ† ط§ط¹ظ„ط§ظ† ظ†ط³ط®ظ‡ ط¬ط¯غŒط¯ GitHub ط¯ط± ط¯ط§ط´ط¨ظˆط±ط¯ main admin.
+- ط§ط¶ط§ظپظ‡ ط´ط¯ظ† ط¯ع©ظ…ظ‡ آ«ط¢ظ¾ع¯ط±غŒط¯ ط³ط±غŒط¹آ» ط¨ط±ط§غŒ ط§ط¬ط±ط§غŒ upgrade ط§ط² ط¯ط§ط®ظ„ ظ¾ظ†ظ„.
+- ط§ط¬ط±ط§غŒ ط¢ظ¾ع¯ط±غŒط¯ ط¯ط± ظ¾ط³â€Œط²ظ…غŒظ†ظ‡ ط¨ط±ط§غŒ ط¬ظ„ظˆع¯غŒط±غŒ ط§ط² ظ‚ط·ط¹ ط´ط¯ظ† request ظ‡ظ†ع¯ط§ظ… restart ظ¾ظ†ظ„.
+- ع©ط´ ع©ط±ط¯ظ† ظ†طھغŒط¬ظ‡ ط¨ط±ط±ط³غŒ VERSION ظˆ ظ…ظ‚ط§غŒط³ظ‡ ط¹ط¯ط¯غŒ ظ†ط³ط®ظ‡â€Œظ‡ط§.
+- ظ…ظ‚ط§ظˆظ…â€Œطھط± ط´ط¯ظ† scripts/update_from_github.sh ط¨ط§ ط¨ع©ط§ظ¾ source ظˆ /etc/ironpanel ظ‚ط¨ظ„ ط§ط² ط¢ظ¾ع¯ط±غŒط¯.
+- ط§ط¶ط§ظپظ‡ ط´ط¯ظ† ظ„ط§ع¯ /var/log/ironpanel-github-upgrade.log.
 
 ## 18.5.2
-- نصب به یک مسیر واحد `install.sh` تبدیل شد؛ سؤال‌های اصلی پرسیده می‌شوند و مقدار پیش‌فرض امن دارند.
-- دستور نصب مستقیم از GitHub به README اضافه شد.
-- Hysteria2 auth command، fallback certificate، server config و client output اصلاح شد.
-- شلوغی متن‌ها و نام‌های منو کمتر شد.
+- ظ†طµط¨ ط¨ظ‡ غŒع© ظ…ط³غŒط± ظˆط§ط­ط¯ `install.sh` طھط¨ط¯غŒظ„ ط´ط¯ط› ط³ط¤ط§ظ„â€Œظ‡ط§غŒ ط§طµظ„غŒ ظ¾ط±ط³غŒط¯ظ‡ ظ…غŒâ€Œط´ظˆظ†ط¯ ظˆ ظ…ظ‚ط¯ط§ط± ظ¾غŒط´â€Œظپط±ط¶ ط§ظ…ظ† ط¯ط§ط±ظ†ط¯.
+- ط¯ط³طھظˆط± ظ†طµط¨ ظ…ط³طھظ‚غŒظ… ط§ط² GitHub ط¨ظ‡ README ط§ط¶ط§ظپظ‡ ط´ط¯.
+- Hysteria2 auth commandطŒ fallback certificateطŒ server config ظˆ client output ط§طµظ„ط§ط­ ط´ط¯.
+- ط´ظ„ظˆط؛غŒ ظ…طھظ†â€Œظ‡ط§ ظˆ ظ†ط§ظ…â€Œظ‡ط§غŒ ظ…ظ†ظˆ ع©ظ…طھط± ط´ط¯.
 
 
-## 18.5.1 سابق
-- نصب ساده و مقاوم‌تر با `install.sh` و لاگ نصب.
-- حالت پیش‌فرض رابط کاربری ساده شد و گزینه‌های تخصصی در Advanced جمع شدند.
-- ابزار Doctor برای بررسی و ترمیم سریع سرویس‌ها اضافه شد.
+## 18.5.1 ط³ط§ط¨ظ‚
+- ظ†طµط¨ ط³ط§ط¯ظ‡ ظˆ ظ…ظ‚ط§ظˆظ…â€Œطھط± ط¨ط§ `install.sh` ظˆ ظ„ط§ع¯ ظ†طµط¨.
+- ط­ط§ظ„طھ ظ¾غŒط´â€Œظپط±ط¶ ط±ط§ط¨ط· ع©ط§ط±ط¨ط±غŒ ط³ط§ط¯ظ‡ ط´ط¯ ظˆ ع¯ط²غŒظ†ظ‡â€Œظ‡ط§غŒ طھط®طµطµغŒ ط¯ط± Advanced ط¬ظ…ط¹ ط´ط¯ظ†ط¯.
+- ط§ط¨ط²ط§ط± Doctor ط¨ط±ط§غŒ ط¨ط±ط±ط³غŒ ظˆ طھط±ظ…غŒظ… ط³ط±غŒط¹ ط³ط±ظˆغŒط³â€Œظ‡ط§ ط§ط¶ط§ظپظ‡ ط´ط¯.
 
 ## 18.5.0 - 3x-ui Parity UX Pack
 - Quick Create User, Xray Pro Builder, IP Limit, GeoFile Manager, Subscription Theme Manager and Admin Telegram Bot settings.
@@ -812,14 +823,14 @@
 
 ## v18.4.2 - Auto SSL protocol matrix
 - Clarified that Hysteria2 and Ocserv/AnyConnect require domain TLS certificates and are wired automatically after Auto SSL issuance.
-- Added an Auto SSL service matrix so admins can see which protocols use Let’s Encrypt and which protocols use their own crypto model.
+- Added an Auto SSL service matrix so admins can see which protocols use Letâ€™s Encrypt and which protocols use their own crypto model.
 - Made Xray TLS switching optional; Reality remains the default because it does not require a public TLS certificate.
 
 # Changelog
 
 ## 18.4.1
 - Added Auto SSL center available to all license tiers.
-- Automatically issues Let’s Encrypt certificates, stores them under /etc/ironpanel/ssl, and wires them to panel TLS, Ocserv, Hysteria2 and Xray TLS settings.
+- Automatically issues Letâ€™s Encrypt certificates, stores them under /etc/ironpanel/ssl, and wires them to panel TLS, Ocserv, Hysteria2 and Xray TLS settings.
 - Added renewal hook and regenerated runtime configs after SSL changes.
 
 ## 18.4
@@ -851,6 +862,6 @@
 
 ## v19.10.12
 
-- اضافه شدن ساخت عمده کاربر از صفحه کاربران با نام پایه + بازه شماره.
-- امکان تعیین طول رمز حداقل 3 کاراکتر و نوع رمز: فقط عدد، فقط حرف، یا حرف و عدد.
-- کاربران عمده به صورت تک‌کاربره ساخته می‌شوند؛ حجم 0 و روز 0 به معنی نامحدود است.
+- ط§ط¶ط§ظپظ‡ ط´ط¯ظ† ط³ط§ط®طھ ط¹ظ…ط¯ظ‡ ع©ط§ط±ط¨ط± ط§ط² طµظپط­ظ‡ ع©ط§ط±ط¨ط±ط§ظ† ط¨ط§ ظ†ط§ظ… ظ¾ط§غŒظ‡ + ط¨ط§ط²ظ‡ ط´ظ…ط§ط±ظ‡.
+- ط§ظ…ع©ط§ظ† طھط¹غŒغŒظ† ط·ظˆظ„ ط±ظ…ط² ط­ط¯ط§ظ‚ظ„ 3 ع©ط§ط±ط§ع©طھط± ظˆ ظ†ظˆط¹ ط±ظ…ط²: ظپظ‚ط· ط¹ط¯ط¯طŒ ظپظ‚ط· ط­ط±ظپطŒ غŒط§ ط­ط±ظپ ظˆ ط¹ط¯ط¯.
+- ع©ط§ط±ط¨ط±ط§ظ† ط¹ظ…ط¯ظ‡ ط¨ظ‡ طµظˆط±طھ طھع©â€Œع©ط§ط±ط¨ط±ظ‡ ط³ط§ط®طھظ‡ ظ…غŒâ€Œط´ظˆظ†ط¯ط› ط­ط¬ظ… 0 ظˆ ط±ظˆط² 0 ط¨ظ‡ ظ…ط¹ظ†غŒ ظ†ط§ظ…ط­ط¯ظˆط¯ ط§ط³طھ.

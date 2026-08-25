@@ -570,7 +570,16 @@ def register_commands(app):
                 speed_refresh = 'unchanged' if speed_out == 'unchanged' else ('applied' if speed_ok else 'error')
         except Exception:
             speed_refresh = 'error'
-        click.echo(f'Ironpanel usage sync completed. Updated users: {count}. Stopped users: {stopped}. Online sessions: {online}. Speed limits: {speed_refresh}')
+        # v19.10.26: keep the shared service-status snapshot fresh so web pages
+        # never run the systemctl probe inside a request.
+        status_refresh = 'error'
+        try:
+            from .services.provisioning import refresh_service_status_cache
+            refresh_service_status_cache()
+            status_refresh = 'refreshed'
+        except Exception:
+            pass
+        click.echo(f'Ironpanel usage sync completed. Updated users: {count}. Stopped users: {stopped}. Online sessions: {online}. Speed limits: {speed_refresh}. Service status cache: {status_refresh}')
 
 
 

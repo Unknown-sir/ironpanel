@@ -17,4 +17,5 @@
   </form>
 </section>
 <section class="card table-card"><table><tr><th>Time</th><th>Actor</th><th>Action</th><th>Target</th><th>Details</th></tr>{% for l in logs %}<tr><td>{{l.created_at}}</td><td>{{l.actor}}</td><td><span class="badge">{{l.action}}</span></td><td>{{l.target}}</td><td><pre class="inline-pre">{{l.details}}</pre></td></tr>{% endfor %}</table></section>
+{% include '_pagination.html' %}
 {% endblock %}

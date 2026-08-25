@@ -250,7 +250,7 @@ def _install_panel_tls_dropin(cert: str, key: str) -> None:
     dropin_dir = Path('/etc/systemd/system/ironpanel.service.d')
     dropin_dir.mkdir(parents=True, exist_ok=True)
     dropin = dropin_dir / 'ssl.conf'
-    dropin.write_text(f"""[Service]\nEnvironment=IRONPANEL_SSL_CERT={cert}\nEnvironment=IRONPANEL_SSL_KEY={key}\nExecStart=\nExecStart=/bin/bash -lc 'CERT="${{IRONPANEL_SSL_CERT:-}}"; KEY="${{IRONPANEL_SSL_KEY:-}}"; SSL_ARGS=""; if [ -n "$CERT" ] && [ -n "$KEY" ] && [ -f "$CERT" ] && [ -f "$KEY" ]; then SSL_ARGS="--certfile $CERT --keyfile $KEY"; fi; exec /opt/ironpanel/.venv/bin/gunicorn -k gthread -w 2 -b 0.0.0.0:${{IRONPANEL_PORT}} $SSL_ARGS run:app'\n""", encoding='utf-8')
+    dropin.write_text(f"""[Service]\nEnvironment=IRONPANEL_SSL_CERT={cert}\nEnvironment=IRONPANEL_SSL_KEY={key}\nExecStart=\nExecStart=/bin/bash -lc 'CERT="${{IRONPANEL_SSL_CERT:-}}"; KEY="${{IRONPANEL_SSL_KEY:-}}"; SSL_ARGS=""; if [ -n "$CERT" ] && [ -n "$KEY" ] && [ -f "$CERT" ] && [ -f "$KEY" ]; then SSL_ARGS="--certfile $CERT --keyfile $KEY"; fi; exec /opt/ironpanel/.venv/bin/gunicorn -k gthread -w 4 --threads 2 -b 0.0.0.0:${{IRONPANEL_PORT}} $SSL_ARGS run:app'\n""", encoding='utf-8')
     run_cmd(['systemctl', 'daemon-reload'])
 
 

@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0b1220">
   <title>{% block title %}IronPanel{% endblock %}</title>
-  <link rel="stylesheet" href="/static/css/style.css?v=19.10.25">
+  <link rel="stylesheet" href="/static/css/style.css?v=19.10.27">
 </head>
 <body class="theme-{{ current_theme() }} lang-{{ lang }} iron-stable-v19103 iron-mobile-fix-v19104">
 {% set simple_ui = is_simple_ui() if current_user.is_authenticated else true %}
@@ -56,6 +56,9 @@
         {{ nav_link('/users', request.path.startswith('/users'), '03', 'کاربران و کانفیگ‌ها', 'Users & configs', 'ویرایش، تمدید و خروجی‌ها', 'Manage accounts and configs') }}
         {{ nav_link('/sessions', request.path == '/sessions', '04', 'اتصالات آنلاین', 'Online sessions', 'کاربران متصل', 'Connected clients') }}
         {{ nav_link('/usage', request.path == '/usage', '05', 'گزارش مصرف', 'Usage report', 'ترافیک و آمار مصرف', 'Traffic and usage') }}
+        {% if current_user.is_authenticated and current_user.role == 'sub_admin' %}
+        {{ nav_link('/my/config-domain', request.path == '/my/config-domain', '06', 'دامنه کانفیگ‌های من', 'My config domain', 'دامنه اختصاصی کانفیگ مشتریان', 'Custom domain for your users') }}
+        {% endif %}
       </div>
 
       {% if is_admin %}
@@ -160,6 +163,6 @@
     </section>
   </main>
 </div>
-<script src="/static/js/app.js?v=19.10.25"></script>
+<script src="/static/js/app.js?v=19.10.27"></script>
 </body>
 </html>

@@ -848,6 +848,12 @@ def xray_link(user: VpnUser, settings: Dict[str, str] | None = None) -> str:
     profile = XRAY_PROFILE_TYPES[settings.get('xray_profile_type', 'vless-reality')]
     protocol = profile['protocol']
     host = _public_host(settings)
+    # v19.10.27: honor the owning reseller's custom config domain (empty = default).
+    try:
+        from .provisioning import reseller_config_domain_for
+        host = reseller_config_domain_for(user) or host
+    except Exception:
+        pass
     port = int(settings.get('xray_port') or 443)
     # v19.10.11: config display name should be only the username.
     # Do not prefix Xray share links with IronPanel/xray_remark.

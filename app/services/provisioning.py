@@ -1,6 +1,7 @@
 import re
 import shutil
 import subprocess
+import threading
 from datetime import datetime
 from pathlib import Path
 import math
@@ -150,6 +151,37 @@ def _profile_host_only(raw: str | None, fallback: str = '127.0.0.1') -> str:
         host = value.split('/')[0].split(':')[0].strip('[]')
     return (host or fallback).strip()
 
+
+# v19.10.27: per-reseller endpoint domain for generated client configs.
+RESELLER_CONFIG_DOMAIN_KEY = 'reseller_config_domain_owner_{owner_id}'
+
+
+def reseller_config_domain_for(user: VpnUser | None) -> str:
+    """Return the owning reseller's custom config domain ('' = panel default).
+
+    A reseller can serve its own customers through a dedicated domain stored in
+    AppSetting under ``reseller_config_domain_owner_<id>`` so no DB migration is
+    needed. Users without an owner (main admin's customers) always use the main
+    panel address, and Node Direct Locations keep their own per-node hosts.
+    """
+    try:
+        owner_id = int(getattr(user, 'owner_id', 0) or 0)
+    except Exception:
+        owner_id = 0
+    if not owner_id:
+        return ''
+    raw = _get_setting_raw(RESELLER_CONFIG_DOMAIN_KEY.format(owner_id=owner_id), '')
+    return _profile_host_only(raw, fallback='')
+
+
+def set_reseller_config_domain(admin_id, raw_value):
+    """Store/clear one reseller's custom config domain; returns sanitized value."""
+    key = RESELLER_CONFIG_DOMAIN_KEY.format(owner_id=int(admin_id or 0))
+    clean = _profile_host_only(str(raw_value or '').strip(), fallback='')
+    _put_setting_raw(key, clean)
+    return clean
+
+
 def _ensure_openvpn_tcp_port_available():
     """Prevent OpenVPN TCP from sharing one listen port with Ocserv.
 
@@ -289,7 +321,8 @@ def _gateway_endpoint_for(protocol: str, default_host: str, default_port: int | 
 
 def telegram_proxy_link_for(user: VpnUser) -> str:
     from urllib.parse import quote
-    host = _telegram_proxy_server_host()
+    # v19.10.27: honor the owning reseller's custom config domain.
+    host = reseller_config_domain_for(user) or _telegram_proxy_server_host()
     port = telegram_proxy_base_port()
     host, port = _gateway_endpoint_for('telegram_proxy', host, port)
     secret = telegram_proxy_secret_for(user)
@@ -2159,6 +2192,9 @@ def generate_profiles(user: VpnUser):
     root = current_app.config['CONFIG_ROOT'] / 'profiles' / user.username
     root.mkdir(parents=True, exist_ok=True)
     host = _profile_host_only(get_public_host())
+    # v19.10.27: resellers can deliver their own users' configs through a custom
+    # domain; node Direct Locations keep their own per-node addresses.
+    host = reseller_config_domain_for(user) or host
 
     def remove_files(*names):
         for name in names:
@@ -2961,37 +2997,133 @@ def user_usage_summary(user: VpnUser):
     }
 
 _SERVICE_STATUS_CACHE = {'ts': 0.0, 'data': {}}
+_SERVICE_STATUS_REFRESH_LOCK = threading.Lock()
+_SERVICE_STATUS_LAST_REFRESH_TS = 0.0
+# v19.10.26: the 15s usage-sync timer and this default stay in sync so web
+# requests never have to run the probe themselves.
+SERVICE_STATUS_MAX_AGE_DEFAULT = 60
+_SERVICE_STATUS_UNITS = ['openvpn-server@server', 'xray', 'ocserv', 'strongswan-starter', 'xl2tpd', 'wg-quick@wg0', 'pptpd', 'hysteria-server', 'ironpanel', 'ssh']
 
-def service_status(max_age=5):
-    """Fast service status for dashboard/API.
 
-    The dashboard called systemctl for every service on every page load. On small
-    VPSs and while repairs were running this made the web panel feel heavy. Cache
-    the result for a few seconds; Health Doctor still performs deeper checks.
-    """
+def _service_status_cache_path():
+    """Shared on-disk cache so gunicorn workers and CLI timers see one snapshot."""
     try:
-        now = time.time()
-        if max_age and _SERVICE_STATUS_CACHE.get('data') and now - float(_SERVICE_STATUS_CACHE.get('ts') or 0) < max_age:
-            return dict(_SERVICE_STATUS_CACHE['data'])
+        root = Path(current_app.config['CONFIG_ROOT'])
+    except Exception:
+        root = Path(os.environ.get('IRONPANEL_CONFIG_ROOT', '/etc/ironpanel'))
+    return root / 'service_status_cache.json'
+
+
+def _read_service_status_cache():
+    try:
+        raw = json.loads(_service_status_cache_path().read_text(encoding='utf-8'))
+        data = raw.get('data')
+        ts = float(raw.get('ts') or 0)
+        if isinstance(data, dict) and data:
+            return ts, dict(data)
     except Exception:
         pass
-    services = ['openvpn-server@server', 'xray', 'ocserv', 'strongswan-starter', 'xl2tpd', 'wg-quick@wg0', 'pptpd', 'hysteria-server', 'ironpanel', 'ssh']
+    return None, None
+
+
+def probe_service_status():
+    """Run the systemctl probe once and persist it for every other process."""
     result = {}
     # Query in one shell call instead of spawning systemctl repeatedly.
-    quoted = ' '.join(shlex.quote(svc) for svc in services)
+    quoted = ' '.join(shlex.quote(svc) for svc in _SERVICE_STATUS_UNITS)
     script = f'for s in {quoted}; do printf "%s=" "$s"; systemctl is-active "$s" 2>/dev/null || true; done'
     p = run_cmd(['bash', '-lc', script], timeout=8)
     for line in (p.stdout or '').splitlines():
         if '=' in line:
             k, v = line.split('=', 1)
             result[k] = v.strip() or 'unknown'
-    for svc in services:
+    for svc in _SERVICE_STATUS_UNITS:
         result.setdefault(svc, 'unknown')
+    payload = {'ts': time.time(), 'data': dict(result)}
     try:
-        _SERVICE_STATUS_CACHE['ts'] = time.time(); _SERVICE_STATUS_CACHE['data'] = dict(result)
+        _service_status_cache_path().parent.mkdir(parents=True, exist_ok=True)
+        tmp = _service_status_cache_path().with_suffix('.json.tmp')
+        tmp.write_text(json.dumps(payload), encoding='utf-8')
+        os.replace(tmp, _service_status_cache_path())
+    except Exception:
+        pass
+    try:
+        _SERVICE_STATUS_CACHE['ts'] = payload['ts']
+        _SERVICE_STATUS_CACHE['data'] = dict(result)
     except Exception:
         pass
     return result
+
+
+def refresh_service_status_cache():
+    """CLI/timer entry point: refresh the shared status snapshot."""
+    return probe_service_status()
+
+
+def _spawn_service_status_refresh():
+    """Kick off one throttled background probe; never blocks the caller."""
+    global _SERVICE_STATUS_LAST_REFRESH_TS
+    now = time.time()
+    if now - _SERVICE_STATUS_LAST_REFRESH_TS < 20:
+        return False
+    if not _SERVICE_STATUS_REFRESH_LOCK.acquire(blocking=False):
+        return False
+    _SERVICE_STATUS_LAST_REFRESH_TS = now
+    try:
+        app = current_app._get_current_object()
+    except Exception:
+        _SERVICE_STATUS_REFRESH_LOCK.release()
+        return False
+
+    def _worker():
+        try:
+            with app.app_context():
+                probe_service_status()
+        except Exception:
+            pass
+        finally:
+            _SERVICE_STATUS_REFRESH_LOCK.release()
+
+    threading.Thread(target=_worker, name='ironpanel-service-status', daemon=True).start()
+    return True
+
+
+def service_status(max_age=None):
+    """Fast service status for dashboard/API without blocking web requests.
+
+    v19.10.26: the dashboard used to run systemctl synchronously whenever the
+    few-second memory cache expired, which made the panel feel heavy while
+    repairs were running or on busy small VPSs. The probe now lives in the
+    background timers (usage-sync refreshes it every 15s via
+    ``refresh_service_status_cache``) and is shared between workers through a
+    JSON file under CONFIG_ROOT. Web requests only serve cached data and at
+    most spawn a non-blocking background refresh; only a completely cold start
+    performs one synchronous probe so the first render is correct.
+    """
+    now = time.time()
+    if max_age is None:
+        max_age = SERVICE_STATUS_MAX_AGE_DEFAULT
+    mem_ts = float(_SERVICE_STATUS_CACHE.get('ts') or 0)
+    mem_data = _SERVICE_STATUS_CACHE.get('data')
+    if mem_data and (not max_age or now - mem_ts < max_age):
+        return dict(mem_data)
+    file_ts, file_data = _read_service_status_cache()
+    if file_data:
+        if not mem_data or (file_ts or 0) > mem_ts:
+            try:
+                _SERVICE_STATUS_CACHE['ts'] = file_ts or 0
+                _SERVICE_STATUS_CACHE['data'] = dict(file_data)
+            except Exception:
+                pass
+            mem_ts, mem_data = file_ts or 0, file_data
+        if not max_age or now - mem_ts < max_age:
+            return dict(mem_data)
+    # Serve slightly stale data immediately while refreshing in the background.
+    if mem_data or file_data:
+        _spawn_service_status_refresh()
+        return dict(mem_data if mem_data else file_data)
+    # Cold start (no cache at all): one synchronous probe keeps the first render honest.
+    return probe_service_status()
 
 def apply_runtime_configs():
     """Rewrite daemon config files to match saved ports. Safe to run repeatedly."""

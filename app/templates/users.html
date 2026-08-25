@@ -116,7 +116,7 @@
         </div>
 
         <div class="user-metrics-grid modern-metrics-grid">
-          <div><small>مصرف</small><b>{{us.used_human}}</b><em>از {{us.total_human}}</em></div>
+          <div><small>مصرف</small><b>{{us.used_human}}</b><em>{{ ui('از', 'of') }} {{us.total_human}}</em></div>
           <div><small>باقی‌مانده</small><b>{{us.remaining_human}}</b></div>
           <div><small>IP Limit</small><b>{{get_user_ip_limit(u)}}</b><em>فعال: {{us.ip_active_count}}</em></div>
           <div><small>Speed Limit</small><b>{{ (u.speed_limit_mbps|string ~ ' Mbps') if (u.speed_limit_mbps or 0) > 0 else 'پیش‌فرض / نامحدود' }}</b><em>اختصاصی همین کاربر</em></div>
@@ -153,7 +153,8 @@
       {% else %}
       <div class="empty-state modern-empty">کاربری یافت نشد.</div>
       {% endfor %}
-    </div>
-  </section>
+     </div>
+     {% include '_pagination.html' %}
+   </section>
 </div>
 {% endblock %}

@@ -95,6 +95,30 @@ def save_appearance(form) -> None:
 # once is risky, so the renderer applies this conservative phrase map for every
 # non-Persian language before the response is sent.  Persian remains untouched.
 _HARDCODED_FA_TO_EN = {
+    # v19.10.27: context-correct labels for literals that used to fall through to
+    # the generic "Details" / "Additional information" placeholders.
+    'API سازگار با MirzaBot': 'MirzaBot-compatible API',
+    'اکشن\u200cهای پشتیبانی\u200cشده': 'Supported actions',
+    'این API مستقل از API v1/v2 آیرون\u200cپنل است و برای Custom Panel API میرزا\u200cبات طراحی شده است.': 'This API is independent of IronPanel API v1/v2 and is designed for the MirzaBot Custom Panel API.',
+    'Preset ساده': 'Quick preset',
+    'Speed Limit اختصاصی (Mbps)': 'Per-user speed limit (Mbps)',
+    'از شماره': 'From number', 'تا شماره': 'To number',
+    'انتخاب همه': 'Select all', 'لغو انتخاب': 'Clear selection',
+    'ثبت': 'Submit',
+    'حداقل 3 و حداکثر 128 کاراکتر.': 'Between 3 and 128 characters.',
+    'حداقل 3 کاراکتر': 'Minimum 3 characters',
+    'حرف و عدد': 'Letters & digits', 'حروف و اعداد': 'Letters and digits',
+    'فقط اعداد': 'Digits only', 'فقط عدد': 'Numbers only',
+    'فقط حرف': 'Letters only', 'فقط حروف': 'Letters only',
+    'سقف': 'Limit', 'شروع:': 'Start:', 'مهم:': 'Important:',
+    'هر ساعت': 'Every hour', 'واحد': 'Unit',
+    'متن': 'Body',
+    'مثلاً 2,3': 'e.g. 2,3', 'مثلاً ali-30d': 'e.g. ali-30d',
+    'مثلاً reseller321': 'e.g. reseller321',
+    'رفتن به Auto SSL': 'Go to Auto SSL',
+    'مثلاً Germany OpenVPN': 'e.g. Germany OpenVPN',
+    'و بدون SSL باشد، دستور با': 'and without SSL, the command starts with',
+    'Release ثبت شد': 'Release registered.',
     # global actions
     'ذخیره': 'Save', 'ذخیره تنظیمات': 'Save settings', 'ذخیره و اعمال': 'Save and apply',
     'ذخیره و اعمال تنظیمات': 'Save and apply settings', 'ذخیره و ری‌استارت ربات': 'Save and restart bot',
@@ -1203,9 +1227,11 @@ def _guess_legacy_phrase_en(src: str) -> str:
             if text.startswith('ویرایش') and label not in ('Edit',):
                 return 'Edit ' + label.lower()
             return label + suffix
-    if len(text) > 28:
-        return 'Additional information'
-    return 'Details'
+    # v19.10.27: never invent a misleading generic label. Unknown legacy text
+    # stays in Persian (semantically correct for the element) until it gets a
+    # proper mapping; previously this returned "Details" / "Additional
+    # information" which confused non-Persian admins.
+    return text
 
 def _map_for_lang(lang: str) -> dict[str, str]:
     lang = (lang or current_language()).lower()

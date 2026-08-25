@@ -1,0 +1,19 @@
+{% if pagination and pagination.pages > 1 %}
+<nav class="pager" aria-label="Pagination">
+  {% if prev_url %}<a class="btn small ghost" href="{{ prev_url }}">&lsaquo; Prev</a>{% else %}<span class="pager-disabled">&lsaquo; Prev</span>{% endif %}
+  <span class="pager-info">
+    {% set window_start = [pagination.page - 2, 1] | max %}
+    {% set window_end = [window_start + 4, pagination.pages] | min %}
+    {% for num in range(1, pagination.pages + 1) %}
+      {% if num == 1 or num == pagination.pages or (num >= window_start and num <= window_end) %}
+        {% if num == pagination.page %}<span class="pager-current">{{ num }}</span>
+        {% elif num == 2 and window_start > 3 %}<span class="pager-ellipsis">&hellip;</span>
+        {% elif num == pagination.pages - 1 and window_end < pagination.pages - 2 %}<span class="pager-ellipsis">&hellip;</span>
+        {% else %}<a href="{{ page_url(num) }}">{{ num }}</a>{% endif %}
+      {% endif %}
+    {% endfor %}
+    <small>{{ pagination.page }} / {{ pagination.pages }} &middot; {{ pagination.total }} rows</small>
+  </span>
+  {% if next_url %}<a class="btn small ghost" href="{{ next_url }}">Next &rsaquo;</a>{% else %}<span class="pager-disabled">Next &rsaquo;</span>{% endif %}
+</nav>
+{% endif %}

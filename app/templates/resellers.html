@@ -20,6 +20,7 @@
       <label>سقف تعداد کاربر<input name="user_limit" type="number" min="0" value="0"><small>0 یعنی نامحدود</small></label>
       <label>سقف حجم مصرفی GB<input name="traffic_quota_gb" type="number" min="0" value="0"><small>0 یعنی نامحدود</small></label>
       <label>آدرس اختصاصی پنل<input name="panel_path" placeholder="321"><small>نمونه: اگر 321 وارد شود، لینک نماینده /r/321 می‌شود.</small></label>
+      <label>دامنه اختصاصی کانفیگ‌ها<input name="config_domain" placeholder="res.example.com" dir="ltr"><small>اختیاری؛ خالی = آدرس اصلی پنل داخل کانفیگ‌های کاربران این نماینده.</small></label>
       <div class="protocol-box wide"><b>پروتکل‌های مجاز نماینده</b><small class="muted">نماینده هنگام ساخت هر کاربر فقط از بین این موارد انتخاب می‌کند.</small>{% for p in reseller_protocol_choices %}<label class="check"><input type="checkbox" name="reseller_protocols" value="{{p}}" checked> {{p}}</label>{% endfor %}</div>
       <label class="check"><input type="checkbox" name="enabled" value="1" checked> پنل نماینده بعد از ساخت فعال باشد</label>
       <button>ایجاد نماینده و نمایش لینک ورود</button>
@@ -70,6 +71,7 @@
           <label>سقف کاربر<input name="user_limit" type="number" min="0" value="{{ r.user_limit or 0 }}"></label>
           <label>سقف حجم GB<input name="traffic_quota_gb" type="number" min="0" value="{{ r.traffic_quota_gb or 0 }}"></label>
           <label>مسیر پنل<input name="panel_path" value="{{ r.panel_path or '' }}" placeholder="321"></label>
+          <label>دامنه اختصاصی کانفیگ‌ها<input name="config_domain" value="{{ reseller_config_domain(r.id) }}" placeholder="res.example.com" dir="ltr"><small>خالی = آدرس اصلی پنل. نماینده هم می‌تواند از منوی «دامنه کانفیگ‌های من» تغییرش دهد.</small></label>
           <div class="protocol-box wide"><b>پروتکل‌های مجاز</b>{% set selected_protocols = r.allowed_protocol_list() %}{% for p in reseller_protocol_choices %}<label class="check"><input type="checkbox" name="reseller_protocols" value="{{p}}" {% if p in selected_protocols %}checked{% endif %}> {{p}}</label>{% endfor %}</div>
           <label class="check"><input type="checkbox" name="apply_protocols_to_existing" value="1" checked> محدودیت جدید روی کاربران فعلی نماینده هم اعمال شود</label>
           <label class="check"><input type="checkbox" name="enabled" value="1" {% if r.enabled or auto_suspended %}checked{% endif %}> فعال باشد <small class="muted">{% if auto_suspended %}(پس از رفع محدودیت خودکار وصل می‌شود){% endif %}</small></label>
