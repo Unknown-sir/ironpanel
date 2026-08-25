@@ -56,6 +56,13 @@ class VpnUser(db.Model):
     allowed_devices = db.Column(db.Integer, default=0)
     protocol_permissions = db.Column(db.String(120), default='openvpn,ocserv,l2tp,wireguard,xray,pptp,hysteria2,telegram_proxy,ssh')
     expires_at = db.Column(db.DateTime, default=lambda: datetime.utcnow() + timedelta(days=30))
+    # v19.10.28: optional "validity starts on first connection". While
+    # start_on_first_connect is set and first_connected_at is still NULL the
+    # account never expires; the stored pending_expiry_days are applied to
+    # expires_at at the moment of the first successful connection.
+    start_on_first_connect = db.Column(db.Boolean, default=False)
+    pending_expiry_days = db.Column(db.Integer, nullable=True)
+    first_connected_at = db.Column(db.DateTime, nullable=True)
     subscription_token = db.Column(db.String(96), unique=True, default=lambda: secrets.token_urlsafe(48))
     wg_private_key = db.Column(db.Text, nullable=True)
     wg_public_key = db.Column(db.Text, nullable=True)
@@ -88,7 +95,16 @@ class VpnUser(db.Model):
     @property
     def expired(self):
         # None means unlimited / no expiration. A value of 0 days at creation/edit is stored as None.
+        # v19.10.28: accounts waiting for their first connection never expire.
+        if self.start_on_first_connect and not self.first_connected_at:
+            return False
         return bool(self.expires_at and self.expires_at < datetime.utcnow())
+
+    @property
+    def expiry_pending_first_connect(self):
+        """True while the validity countdown has not started yet."""
+        return bool(self.start_on_first_connect and not self.first_connected_at)
+
     def protocol_list(self): return [p for p in (self.protocols or '').split(',') if p]
     def allowed_protocol_list(self): return [p for p in (self.protocol_permissions or self.protocols or '').split(',') if p]
 

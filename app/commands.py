@@ -261,6 +261,9 @@ def _sqlite_light_migration(db):
                 'speed_limits_json': "ALTER TABLE vpn_user ADD COLUMN speed_limits_json TEXT DEFAULT ''",
                 'speed_limit_mbps': "ALTER TABLE vpn_user ADD COLUMN speed_limit_mbps INTEGER DEFAULT 0",
                 'created_at': "ALTER TABLE vpn_user ADD COLUMN created_at DATETIME",
+                'start_on_first_connect': "ALTER TABLE vpn_user ADD COLUMN start_on_first_connect BOOLEAN DEFAULT 0",
+                'pending_expiry_days': "ALTER TABLE vpn_user ADD COLUMN pending_expiry_days INTEGER",
+                'first_connected_at': "ALTER TABLE vpn_user ADD COLUMN first_connected_at DATETIME",
             }
             for col, sql in additions.items():
                 if col not in cols:
@@ -557,11 +560,20 @@ def register_commands(app):
         count = collect_usage_from_runtime()
         stopped = enforce_usage_limits()
         online = 0
+        online_sessions = []
         try:
             from .services.v10 import refresh_online_sessions
-            online = len(refresh_online_sessions())
+            online_sessions = refresh_online_sessions()
+            online = len(online_sessions)
         except Exception:
             online = 0
+        # v19.10.28: start "validity from first connection" clocks for users that
+        # are now seen online (covers every protocol, including node sessions).
+        try:
+            from .services.provisioning import activate_first_connection_expiries
+            activate_first_connection_expiries([getattr(s, 'username', '') for s in online_sessions])
+        except Exception:
+            pass
         speed_refresh = 'off'
         try:
             from .services.speed_limit import speed_limits_configured, refresh_speed_limits_runtime_if_changed

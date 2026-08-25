@@ -26,6 +26,7 @@
         <label>رمز Cisco/Ocserv<input name="cisco_password" placeholder="خالی = همان رمز"></label>
         <label>روز اعتبار<input name="days" type="number" value="30"><small class="hint">0 یعنی نامحدود</small></label>
         <label>حجم MB<input name="data_limit_mb" type="number" value="0"><small class="hint">0 یعنی نامحدود</small></label>
+        <label class="check modern-check"><input type="checkbox" name="start_on_first_connect" value="1"> شروع اعتبار از اولین اتصال <small class="hint">به‌جای زمان ساخت، روزهای اعتبار از لحظه اولین اتصال کاربر حساب می‌شود</small></label>
         <label>اتصال همزمان<input name="connection_limit" type="number" value="1"></label>
         <label>IP Limit<input name="ip_limit" type="number" value="0"><small class="hint">0 یعنی پیش‌فرض/نامحدود</small></label>
         <label>Speed Limit کاربر (Mbps)<input name="speed_limit_mbps" type="number" min="0" max="100000" value="0"><small class="hint">0 = بدون محدودیت اختصاصی؛ عدد واردشده روی همه پروتکل‌های همین کاربر اعمال می‌شود</small></label>
@@ -56,6 +57,7 @@
         <label>طول رمز<input name="bulk_password_length" type="number" min="3" value="{{auto_password_length or 10}}"><small class="hint">حداقل 3 کاراکتر</small></label>
         <label>نوع رمز<select name="bulk_password_mode"><option value="numbers" {{'selected' if auto_password_mode=='numbers' else ''}}>فقط عدد</option><option value="letters" {{'selected' if auto_password_mode=='letters' else ''}}>فقط حرف</option><option value="both" {{'selected' if (auto_password_mode or 'both')=='both' else ''}}>حرف و عدد</option></select></label>
         <label>روز اعتبار<input name="bulk_days" type="number" value="30"><small class="hint">0 یعنی نامحدود</small></label>
+        <label class="check modern-check"><input type="checkbox" name="start_on_first_connect" value="1"> شروع اعتبار از اولین اتصال <small class="hint">هر کاربر مستقل؛ روزهای اعتبار هر کاربر از اولین اتصال خودش حساب می‌شود</small></label>
         <label>حجم MB<input name="bulk_data_limit_mb" type="number" value="0"><small class="hint">0 یعنی نامحدود</small></label>
         <label>IP Limit<input name="bulk_ip_limit" type="number" value="1"><small class="hint">1 یعنی تک IP فعال</small></label>
         <label>Speed Limit هر کاربر (Mbps)<input name="bulk_speed_limit_mbps" type="number" min="0" max="100000" value="0"><small class="hint">0 = بدون محدودیت اختصاصی</small></label>
@@ -118,6 +120,11 @@
         <div class="user-metrics-grid modern-metrics-grid">
           <div><small>مصرف</small><b>{{us.used_human}}</b><em>{{ ui('از', 'of') }} {{us.total_human}}</em></div>
           <div><small>باقی‌مانده</small><b>{{us.remaining_human}}</b></div>
+          {% if u.first_connected_at %}
+          <div><small>اولین اتصال</small><b>{{u.first_connected_at.strftime('%Y-%m-%d %H:%M')}}</b><em>{{ ui('زمان شروع اعتبار', 'validity start moment') }}</em></div>
+          {% elif u.expiry_pending_first_connect %}
+          <div><small>اعتبار</small><b>در انتظار اولین اتصال</b><em>{{u.pending_expiry_days or 0}} {{ ui('روز پس از اولین اتصال', 'days after first connection') }}</em></div>
+          {% endif %}
           <div><small>IP Limit</small><b>{{get_user_ip_limit(u)}}</b><em>فعال: {{us.ip_active_count}}</em></div>
           <div><small>Speed Limit</small><b>{{ (u.speed_limit_mbps|string ~ ' Mbps') if (u.speed_limit_mbps or 0) > 0 else 'پیش‌فرض / نامحدود' }}</b><em>اختصاصی همین کاربر</em></div>
           <div><small>انقضا</small><b>{{u.expires_at.strftime('%Y-%m-%d') if u.expires_at else 'نامحدود'}}</b></div>
@@ -156,5 +163,20 @@
      </div>
      {% include '_pagination.html' %}
    </section>
+
+   {% if current_user.role == 'main_admin' %}
+   <section class="card users-danger-zone">
+     <div class="section-head">
+       <div>
+         <p class="eyebrow">Danger zone</p>
+         <h3>حذف همه کاربران</h3>
+         <p class="hint">تمام {{ pagination.total }} کاربر به‌همراه کانفیگ‌ها، گواهی‌های OpenVPN و هویت‌های WireGuardشان برای همیشه حذف می‌شوند. این عملیات قابل بازگشت نیست؛ قبل از انجام، بکاپ بگیرید.</p>
+       </div>
+       <form method="post" action="/users/delete-all" onsubmit="return confirm('همه {{ pagination.total }} کاربر برای همیشه حذف شوند؟ این عملیات قابل بازگشت نیست!')">
+         <button class="danger">حذف همه کاربران</button>
+       </form>
+     </div>
+   </section>
+   {% endif %}
 </div>
 {% endblock %}

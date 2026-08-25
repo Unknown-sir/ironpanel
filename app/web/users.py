@@ -46,6 +46,7 @@ from ..services.speed_limit import (
 from ..services.password_policy import generate_user_password, normalize_password_policy
 from ..services.license import feature_allowed
 from ..services.v12 import apply_plan
+from ..services.i18n import ui
 from ..services.node_gateway import assign_user_node
 from .common import (
     _allowed_form_protocols,
@@ -99,9 +100,12 @@ def quick_create_user():
         if not ok:
             flash(msg)
             return redirect(url_for('web.quick_create_user'))
-        expires_at = _parse_unlimited_days(request.form.get('days'), 30)
+        # v19.10.28: validity can start on the user's first connection instead of creation time.
+        start_first = request.form.get('start_on_first_connect') == '1'
+        days_value = int(request.form.get('days') or 30)
+        expires_at = None if start_first else _parse_unlimited_days(days_value, 30)
         node_mode, preferred_node_id = _node_selection_from_form()
-        u = VpnUser(username=username, l2tp_password=password, cisco_password=password, data_limit_mb=data_limit_mb, connection_limit=int(request.form.get('connection_limit') or 1), protocols=','.join(protocols), protocol_permissions=','.join(protocols), allowed_devices=0, expires_at=expires_at, owner_id=current_user.id if current_user.role=='sub_admin' else None, node_mode=node_mode, preferred_node_id=preferred_node_id, speed_limit_mbps=normalize_speed_limit_mbps(request.form.get('speed_limit_mbps', '0')))
+        u = VpnUser(username=username, l2tp_password=password, cisco_password=password, data_limit_mb=data_limit_mb, connection_limit=int(request.form.get('connection_limit') or 1), protocols=','.join(protocols), protocol_permissions=','.join(protocols), allowed_devices=0, expires_at=expires_at, start_on_first_connect=start_first, pending_expiry_days=days_value if start_first else None, owner_id=current_user.id if current_user.role=='sub_admin' else None, node_mode=node_mode, preferred_node_id=preferred_node_id, speed_limit_mbps=normalize_speed_limit_mbps(request.form.get('speed_limit_mbps', '0')))
         u.set_password(password)
         db.session.add(u); db.session.commit()
         set_user_ip_limit(u, request.form.get('ip_limit', '0'))
@@ -109,7 +113,7 @@ def quick_create_user():
         if int(getattr(u, 'speed_limit_mbps', 0) or 0) > 0:
             apply_speed_limits_runtime()
         log(current_user.username,'quick_create_user',u.username, ','.join(protocols))
-        flash(f'کاربر ساخته شد. رمز: {password}')
+        flash(f'کاربر ساخته شد. رمز: {password}' + (' | اعتبار از اولین اتصال شروع می‌شود.' if start_first else ''))
         return redirect(url_for('web.user_configs', user_id=u.id))
     return render_template('quick_create.html', available=available_protocols_for_current_user())
 
@@ -137,14 +141,17 @@ def users():
         if not ok:
             flash(msg)
             return redirect(url_for('web.users'))
-        expires_at = _parse_unlimited_days(request.form.get('days'), 30)
+        # v19.10.28: validity can start on the user's first connection instead of creation time.
+        start_first = request.form.get('start_on_first_connect') == '1'
+        days_value = int(request.form.get('days') or 30)
+        expires_at = None if start_first else _parse_unlimited_days(days_value, 30)
         node_mode, preferred_node_id = _node_selection_from_form()
-        u = VpnUser(username=username, l2tp_password=request.form.get('l2tp_password') or password, cisco_password=request.form.get('cisco_password') or password, data_limit_mb=data_limit_mb, connection_limit=int(request.form.get('connection_limit') or 1), protocols=','.join(protocols), protocol_permissions=','.join(protocols), allowed_devices=int(request.form.get('allowed_devices') or 0), expires_at=expires_at, owner_id=current_user.id if current_user.role=='sub_admin' else None, node_mode=node_mode, preferred_node_id=preferred_node_id, speed_limit_mbps=normalize_speed_limit_mbps(request.form.get('speed_limit_mbps', '0')))
+        u = VpnUser(username=username, l2tp_password=request.form.get('l2tp_password') or password, cisco_password=request.form.get('cisco_password') or password, data_limit_mb=data_limit_mb, connection_limit=int(request.form.get('connection_limit') or 1), protocols=','.join(protocols), protocol_permissions=','.join(protocols), allowed_devices=int(request.form.get('allowed_devices') or 0), expires_at=expires_at, start_on_first_connect=start_first, pending_expiry_days=days_value if start_first else None, owner_id=current_user.id if current_user.role=='sub_admin' else None, node_mode=node_mode, preferred_node_id=preferred_node_id, speed_limit_mbps=normalize_speed_limit_mbps(request.form.get('speed_limit_mbps', '0')))
         u.set_password(password); db.session.add(u); db.session.commit(); set_user_ip_limit(u, request.form.get('ip_limit','0')); sync_user(u, restart=False, changed_protocols=protocols, ensure_runtime=True);
         if int(getattr(u, 'speed_limit_mbps', 0) or 0) > 0:
             apply_speed_limits_runtime()
         log(current_user.username,'create_user',u.username)
-        flash(f'کاربر ساخته شد. رمز: {password} | روز اعتبار 0 یعنی نامحدود، حجم 0 یعنی نامحدود')
+        flash(f'کاربر ساخته شد. رمز: {password} | روز اعتبار 0 یعنی نامحدود، حجم 0 یعنی نامحدود' + (' | اعتبار از اولین اتصال شروع می‌شود.' if start_first else ''))
         return redirect(url_for('web.user_configs', user_id=u.id))
     _collect_usage_for_view(10)
     q = VpnUser.query if current_user.role == 'main_admin' else VpnUser.query.filter_by(owner_id=current_user.id)
@@ -235,7 +242,10 @@ def users_bulk_create():
     if not ok:
         flash(msg)
         return redirect(url_for('web.users'))
-    expires_at = None if days <= 0 else datetime.utcnow() + timedelta(days=days)
+    # v19.10.28: each bulk user gets its own "start on first connection" clock.
+    start_first = request.form.get('start_on_first_connect') == '1'
+    pending_days = days if start_first else None
+    expires_at = None if start_first else (None if days <= 0 else datetime.utcnow() + timedelta(days=days))
     created = []
     skipped = []
     failed = []
@@ -257,6 +267,8 @@ def users_bulk_create():
                 protocol_permissions=','.join(protocols),
                 allowed_devices=0,
                 expires_at=expires_at,
+                start_on_first_connect=start_first,
+                pending_expiry_days=pending_days,
                 owner_id=current_user.id if current_user.role == 'sub_admin' else None,
                 node_mode=node_mode,
                 preferred_node_id=preferred_node_id,
@@ -375,12 +387,22 @@ def user_edit(user_id):
         if current_user.role == 'main_admin' and feature_allowed('nodes'):
             u.node_mode = request.form.get('node_mode', getattr(u, 'node_mode', 'auto') or 'auto')
             u.preferred_node_id = int(request.form.get('preferred_node_id') or 0) or None
-        if request.form.get('unlimited_expiry') == '1':
+        # v19.10.28: arm/keep the "validity starts on first connection" countdown.
+        edit_start_first = request.form.get('start_on_first_connect') == '1'
+        if edit_start_first and not u.first_connected_at:
+            u.start_on_first_connect = True
+            u.pending_expiry_days = int(request.form.get('days') or 0) or None
             u.expires_at = None
-        elif request.form.get('expires_at'):
-            u.expires_at = datetime.strptime(request.form['expires_at'], '%Y-%m-%d')
         else:
-            u.expires_at = _parse_unlimited_days(request.form.get('days'), 0)
+            if u.first_connected_at:
+                u.start_on_first_connect = False
+                u.pending_expiry_days = None
+            if request.form.get('unlimited_expiry') == '1':
+                u.expires_at = None
+            elif request.form.get('expires_at'):
+                u.expires_at = datetime.strptime(request.form['expires_at'], '%Y-%m-%d')
+            else:
+                u.expires_at = _parse_unlimited_days(request.form.get('days'), 0)
         after_protocols = set(u.allowed_protocol_list() or u.protocol_list() or active_protocols())
         affected_protocols = before_protocols | after_protocols if (before_protocols != after_protocols or before_enabled != bool(u.enabled) or before_username != u.username or request.form.get('password') or request.form.get('sync_passwords') == '1') else set()
         db.session.commit(); set_user_ip_limit(u, request.form.get('ip_limit','0')); sync_user(u, restart=bool(affected_protocols), changed_protocols=affected_protocols)
@@ -623,4 +645,33 @@ def user_node_assign(user_id):
         return redirect(url_for('web.users'))
     ok, msg = assign_user_node(user_id, request.form.get('node_mode','auto'), int(request.form.get('preferred_node_id') or 0))
     flash(msg if ok else 'خطا: '+msg)
+    return redirect(url_for('web.users'))
+
+
+@web_bp.route('/users/delete-all', methods=['POST'])
+@login_required
+def users_delete_all():
+    """v19.10.28: main-admin only destructive action — delete every VPN user."""
+    if current_user.role != 'main_admin':
+        flash(ui('دسترسی مجاز نیست', 'Access denied'))
+        return redirect(url_for('web.users'))
+    total = VpnUser.query.count()
+    if total == 0:
+        flash(ui('کاربری برای حذف وجود ندارد', 'There are no users to delete'))
+        return redirect(url_for('web.users'))
+    victims = VpnUser.query.all()
+    deleted = delete_users_bulk(victims)
+    try:
+        apply_speed_limits_runtime()
+    except Exception:
+        pass
+    try:
+        sync_all_users(restart=True)
+    except Exception:
+        pass
+    log(current_user.username, 'delete_all_users', 'vpn', f'deleted={deleted}')
+    flash(ui(
+        f'{deleted} کاربر و همه کانفیگ‌هایشان حذف شدند',
+        f'{deleted} users and all their configs were deleted',
+    ))
     return redirect(url_for('web.users'))

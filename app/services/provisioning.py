@@ -2938,6 +2938,53 @@ def enforce_usage_limits(commit=True):
         db.session.commit()
     return len(stopped)
 
+def activate_first_connection_expiries(online_usernames=None):
+    """v19.10.28: start pending "validity from first connection" clocks.
+
+    Users created with start_on_first_connect stay unlimited until their first
+    successful connection. Once a username appears in the live session list
+    (any protocol, main server or node) the stored pending_expiry_days are
+    applied to expires_at and first_connected_at is recorded. OpenVPN also
+    activates instantly through the client-connect auth script.
+    """
+    try:
+        q = VpnUser.query.filter(
+            VpnUser.start_on_first_connect.is_(True),
+            VpnUser.first_connected_at.is_(None),
+        )
+        if online_usernames is not None:
+            names = {str(n or '').strip() for n in online_usernames if str(n or '').strip()}
+            if not names:
+                return 0
+            q = q.filter(VpnUser.username.in_(names))
+        activated = []
+        for user in q.all():
+            days = int(user.pending_expiry_days or 0)
+            now = datetime.utcnow()
+            user.first_connected_at = now
+            user.expires_at = now + timedelta(days=days) if days > 0 else None
+            user.pending_expiry_days = None
+            activated.append(user.username)
+            db.session.add(user)
+        if activated:
+            db.session.commit()
+            db.session.add(ActivityLog(
+                actor='system',
+                action='first_connection_validity_started',
+                target=','.join(activated)[:400],
+                details=f'days_applied={len(activated)}',
+            ))
+            db.session.commit()
+        return len(activated)
+    except Exception as exc:
+        try:
+            db.session.rollback()
+            _put_setting_raw('first_connect_activation_error', str(exc)[-500:])
+        except Exception:
+            pass
+        return 0
+
+
 def user_usage_summary(user: VpnUser):
     raw_used_bytes = _user_used_bytes(user)
     raw_upload_bytes = int(getattr(user, 'used_upload_bytes', 0) or 0) or int(user.used_upload_mb or 0) * 1024 * 1024

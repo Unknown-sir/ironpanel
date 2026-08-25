@@ -121,7 +121,7 @@ def find_user(cur, identity: str):
     if not cols:
         return None, cols
     # Stable order for row indexing.
-    wanted = ['id', 'username', 'enabled', 'expires_at', 'data_limit_mb', 'used_upload_mb', 'used_download_mb', 'used_upload_bytes', 'used_download_bytes', 'protocols', 'protocol_permissions']
+    wanted = ['id', 'username', 'enabled', 'expires_at', 'data_limit_mb', 'used_upload_mb', 'used_download_mb', 'used_upload_bytes', 'used_download_bytes', 'protocols', 'protocol_permissions', 'start_on_first_connect', 'pending_expiry_days', 'first_connected_at']
     selected = [c for c in wanted if c in cols]
     cur.execute(f"SELECT {','.join(selected)} FROM vpn_user")
     rows = cur.fetchall()
@@ -265,6 +265,23 @@ def main():
         if limit_mb > 0 and charged_total >= limit_mb * 1024 * 1024:
             log(f'deny {identity}/{username}: traffic limit reached; raw={raw_total} charged={charged_total} multiplier={traffic_multiplier_factor(cur):g}')
             return 1
+        try:
+            # v19.10.28: start the "validity from first connection" clock instantly.
+            if int(get_value(row, cols, 'start_on_first_connect', 0) or 0) == 1 and not get_value(row, cols, 'first_connected_at', None):
+                fc_days = int(get_value(row, cols, 'pending_expiry_days', 0) or 0)
+                if fc_days > 0:
+                    cur.execute(
+                        "UPDATE vpn_user SET first_connected_at=CURRENT_TIMESTAMP, expires_at=datetime('now', ?), pending_expiry_days=NULL WHERE id=?",
+                        (f'+{fc_days} days', user_id),
+                    )
+                else:
+                    cur.execute(
+                        "UPDATE vpn_user SET first_connected_at=CURRENT_TIMESTAMP, expires_at=NULL, pending_expiry_days=NULL WHERE id=?",
+                        (user_id,),
+                    )
+                log(f'info {identity}/{username}: validity started on first connection (+{fc_days}d)')
+        except Exception as fc_exc:
+            log(f'allow {identity}/{username}: first-connect activation failed: {fc_exc!r}')
         try:
             record_connect(cur, user_id, username, remote_ip, device_id)
             con.commit()

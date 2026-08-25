@@ -149,6 +149,111 @@ def _refresh_openvpn_sessions():
     return count
 
 
+def _refresh_xray_sessions():
+    """v19.10.29: true per-user Xray sessions from the access log.
+
+    Every Xray client carries email=ip-{id}-{username}; at loglevel info the
+    access.log records the client public IP next to that email, which gives an
+    exact username<->IP mapping for per-user tc speed limits.
+    """
+    log_path = Path('/var/log/xray/access.log')
+    if not log_path.exists():
+        return 0
+    try:
+        from .xray import _safe_email
+    except Exception:
+        return 0
+    emails = {}
+    for u in VpnUser.query.all():
+        try:
+            emails[_safe_email(u)] = u.username
+        except Exception:
+            continue
+    if not emails:
+        return 0
+    try:
+        with log_path.open('rb') as fh:
+            fh.seek(0, 2)
+            size = fh.tell()
+            fh.seek(max(0, size - 512 * 1024))
+            blob = fh.read().decode('utf-8', errors='ignore')
+    except Exception:
+        return 0
+    lines = blob.splitlines()
+    if len(lines) > 1:
+        lines = lines[1:]  # drop possibly truncated first line
+    ip_re = re.compile(r'\b(\d{1,3}(?:\.\d{1,3}){3}):\d+\b')
+    email_re = re.compile(r'email:\s*([^\s\]]+)')
+    latest = {}
+    now = datetime.utcnow()
+    cutoff = now - timedelta(minutes=20)
+    # Newest lines are at the bottom; first hit per email wins.
+    for line in reversed(lines):
+        m = email_re.search(line)
+        if not m:
+            continue
+        email = m.group(1).strip()
+        username = emails.get(email)
+        if not username or username in latest:
+            continue
+        ip_m = None
+        for cand in ip_re.finditer(line):
+            candidate_ip = cand.group(1)
+            if candidate_ip.startswith(('10.', '127.', '172.16.', '172.17.', '172.18.', '172.19.', '172.2', '172.3', '192.168.')):
+                continue
+            ip_m = cand
+            break
+        if not ip_m:
+            continue
+        ts_m = re.match(r'^(\d{4}/\d{2}/\d{2}) (\d{2}:\d{2}:\d{2})', line.strip())
+        connected_at = now
+        if ts_m:
+            try:
+                connected_at = datetime.strptime(ts_m.group(1) + ' ' + ts_m.group(2), '%Y/%m/%d %H:%M:%S')
+            except Exception:
+                connected_at = now
+        if connected_at < cutoff:
+            continue
+        latest[username] = (ip_m.group(1), connected_at)
+    count = 0
+    for username, (remote_ip, seen_at) in latest.items():
+        if _upsert_online(username, 'xray', remote_ip, seen_at):
+            count += 1
+    return count
+
+
+def _refresh_hysteria2_sessions():
+    """Best-effort per-user Hysteria2 sessions from the systemd journal."""
+    users = {u.username: u.username for u in VpnUser.query.all()}
+    if not users:
+        return 0
+    p = run_cmd(['bash', '-lc',
+                 "journalctl -u hysteria-server -u hysteria2 --since '-15 min' --no-pager 2>/dev/null | tail -n 500 || true"], timeout=10)
+    lines = (p.stdout or '').splitlines()
+    ip_re = re.compile(r'\b(\d{1,3}(?:\.\d{1,3}){3}):\d+\b')
+    latest = {}
+    for line in reversed(lines):
+        low = line.lower()
+        if 'auth' not in low and 'client' not in low and 'connected' not in low:
+            continue
+        matched_user = ''
+        for name in users:
+            if name.lower() in low:
+                matched_user = name
+                break
+        if not matched_user or matched_user in latest:
+            continue
+        ip_m = ip_re.search(line)
+        if not ip_m:
+            continue
+        latest[matched_user] = ip_m.group(1)
+    count = 0
+    for username, remote_ip in latest.items():
+        if _upsert_online(username, 'hysteria2', remote_ip):
+            count += 1
+    return count
+
+
 def _refresh_wireguard_sessions():
     count = 0
     now = datetime.utcnow()
@@ -346,6 +451,8 @@ def refresh_online_sessions():
         ('wireguard', _refresh_wireguard_sessions),
         ('ocserv', _refresh_ocserv_sessions),
         ('l2tp', _refresh_l2tp_sessions),
+        ('xray', _refresh_xray_sessions),
+        ('hysteria2', _refresh_hysteria2_sessions),
     ):
         try:
             fn()

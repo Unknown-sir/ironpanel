@@ -1,3 +1,16 @@
+# v19.10.29 - True Per-User Speed Limits (Protocol Defaults and User-Wide)
+
+- Semantics enforced: a per-protocol default limit caps EVERY user individually on that protocol, and a user-wide limit caps ALL protocols of that single user only.
+- Fixed per-user speed limits silently doing nothing for Xray and Hysteria2: these protocols had no online-session detector, so generated tc rows stayed "pending" forever and the apply script skipped them.
+- New Xray session detector: every client already carries email=ip-{id}-{username}; when limits are configured the panel automatically switches xray_loglevel to info (with logrotate), parses /var/log/xray/access.log and records each user's real public IP as an online session - giving exact per-user destination-IP tc rules on the shared port.
+- New best-effort Hysteria2 detector reads per-user IPs from the systemd journal; Telegram Proxy keeps its always-precise dedicated-port matching, and shared ports fall back to a whole-port cap only when exactly one enabled user carries a limit (otherwise an explicit "# NOTE pending" entry is surfaced in the Speed Limits status output instead of failing silently).
+- Added an mangle FORWARD hook next to OUTPUT so node-gateway/DNAT relayed client traffic is shaped too.
+# v19.10.28 - Delete-All Users and First-Connection Validity
+
+- Added a main-admin "Danger zone" action on the Users page to delete every VPN user at once (configs, OpenVPN certificates and WireGuard identities included) through the existing bulk-delete runtime rebuild, with confirmation dialog and audit log.
+- New per-user option "start validity on first connection" available in the create form, Quick Create, bulk creation and the edit form. While armed, the account never expires; each user independently gets its pending days applied at its own first successful connection, and first_connected_at is recorded.
+- First connection is detected instantly for OpenVPN (client-connect auth script) and within one 15s usage-sync cycle for every other protocol, including node/Direct Location sessions reported by agents.
+- first_connected_at (and pending state) is shown on user cards and in the edit form; new SQLite light-migration columns keep existing installs compatible without manual migration.
 # v19.10.27 - Reseller Config Domain and Authoritative Protocol Checkboxes
 
 - Quick Create presets no longer override the manual protocol checkboxes. Previously the default "all protocols" preset ignored unchecked boxes, so removing e.g. SSH still created its runtime account and advertised it on the user subscription page; now unchecking any protocol always excludes it, with presets acting as a filter over the checked set.

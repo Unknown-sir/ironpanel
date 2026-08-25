@@ -28,6 +28,7 @@ clear_runtime(){
   IFACE="${IRONPANEL_SPEED_IFACE:-$(default_iface)}"
   [[ -n "${IFACE:-}" ]] && tc qdisc del dev "$IFACE" root >/dev/null 2>&1 || true
   iptables -t mangle -D OUTPUT -j "$CHAIN" >/dev/null 2>&1 || true
+  iptables -t mangle -D FORWARD -j "$CHAIN" >/dev/null 2>&1 || true
   iptables -t mangle -F "$CHAIN" >/dev/null 2>&1 || true
   iptables -t mangle -X "$CHAIN" >/dev/null 2>&1 || true
 }
@@ -42,6 +43,9 @@ apply_limits(){
   fi
   iptables -t mangle -N "$CHAIN" >/dev/null 2>&1 || true
   iptables -t mangle -C OUTPUT -j "$CHAIN" >/dev/null 2>&1 || iptables -t mangle -A OUTPUT -j "$CHAIN" >/dev/null 2>&1 || true
+  # v19.10.29: node-gateway/DNAT relayed client traffic traverses FORWARD, not
+  # OUTPUT; hook the same chain there so relayed users are shaped too.
+  iptables -t mangle -C FORWARD -j "$CHAIN" >/dev/null 2>&1 || iptables -t mangle -A FORWARD -j "$CHAIN" >/dev/null 2>&1 || true
   tc qdisc add dev "$IFACE" root handle 1: htb default 999
   # Root HTB class is required before attaching per-user child classes. Older
   # releases used parent 1:1 without creating it, so tc silently rejected the
@@ -69,6 +73,11 @@ apply_limits(){
     fi
     if [[ "$MATCH_TYPE" == "remote_ip" ]]; then
       iptables -t mangle -A "$CHAIN" -p "$PROTO" --sport "$PORT" -d "$MATCH_VALUE" -j MARK --set-mark "$MARK" >/dev/null 2>&1 || true
+    elif [[ "$MATCH_TYPE" == "port_only" ]]; then
+      # v19.10.29: shared-port protocols with a single limited user — shape the
+      # whole service port for that user (precise because only one user carries
+      # a limit on this port).
+      iptables -t mangle -A "$CHAIN" -p "$PROTO" --sport "$PORT" -j MARK --set-mark "$MARK" >/dev/null 2>&1 || true
     elif [[ "$MATCH_TYPE" == "remote_endpoint" ]]; then
       EP_IP=${MATCH_VALUE%:*}; EP_PORT=${MATCH_VALUE##*:}
       if [[ -n "$EP_IP" && "$EP_PORT" =~ ^[0-9]+$ ]]; then
