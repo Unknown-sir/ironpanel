@@ -101,6 +101,9 @@
           <button class="btn small danger">🧹 حذف همه اکانت‌های منقضی / تمام‌حجم</button>
         </form>
         <form method="post" action="/users/sync-all"><button class="btn small ghost">Sync همه پروتکل‌ها</button></form>
+        {% if current_user.role == 'main_admin' %}
+        <a class="btn small danger" href="#danger-zone">🗑 حذف همه کاربران</a>
+        {% endif %}
       </div>
     </div>
 
@@ -165,7 +168,7 @@
    </section>
 
    {% if current_user.role == 'main_admin' %}
-   <section class="card users-danger-zone">
+   <section class="card users-danger-zone" id="danger-zone">
      <div class="section-head">
        <div>
          <p class="eyebrow">Danger zone</p>

@@ -1630,3 +1630,6 @@ body.menu-open::after,
 
 /* v19.10.26 pagination */
 .pager{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 4px 2px}.pager-info{display:flex;align-items:center;gap:6px;flex-wrap:wrap;color:var(--muted,#96a3b9);font-size:13px}.pager-info a{padding:7px 11px;border:1px solid var(--line,#252b38);border-radius:10px;background:#0b1220;color:var(--text,#edf4ff)}.pager-info a:hover{border-color:var(--accent,#60a5fa)}.pager-current{padding:7px 11px;border-radius:10px;background:linear-gradient(135deg,var(--accent,#60a5fa),#818cf8);color:#fff;font-weight:800}.pager-ellipsis{padding:0 4px}.pager-disabled{opacity:.45}.pager-info small{margin-inline-start:8px;direction:ltr}
+
+/* v19.10.29 users danger zone */
+.users-danger-zone{border-color:rgba(239,68,68,.45)!important;background:linear-gradient(180deg,rgba(239,68,68,.08),rgba(15,23,42,.9))!important}.users-danger-zone h3{color:#fecaca!important}
