@@ -92,8 +92,9 @@
             <option value="enable">فعال / وصل</option>
             <option value="disable">غیرفعال / قطع</option>
             <option value="reset_traffic">ریست حجم</option>
+            <option value="delete_selected">🗑 حذف اکانت‌های انتخاب‌شده</option>
           </select>
-          <button class="btn small" onclick="return confirm('عملیات روی کاربران انتخاب‌شده انجام شود؟')">اجرا</button>
+          <button class="btn small" onclick="return bulkActionConfirm()">اجرا</button>
         </form>
         <button type="button" class="btn small ghost" onclick="document.querySelectorAll('.bulk-user-select').forEach(function(x){x.checked=true;})">انتخاب همه</button>
         <button type="button" class="btn small ghost" onclick="document.querySelectorAll('.bulk-user-select').forEach(function(x){x.checked=false;})">لغو انتخاب</button>
@@ -181,5 +182,15 @@
      </div>
    </section>
    {% endif %}
-</div>
+ </div>
+ <script>
+ function bulkActionConfirm(){
+   var sel=document.querySelector('#bulk-user-actions select[name=action]');
+   var v=sel?sel.value:'';
+   if(v==='delete_selected'){
+     return confirm('اکانت‌های انتخاب‌شده برای همیشه حذف شوند؟\n(دیتابیس + کانفیگ‌ها + گواهی‌های OpenVPN — قابل بازگشت نیست)');
+   }
+   return confirm('عملیات روی کاربران انتخاب‌شده انجام شود؟');
+ }
+ </script>
 {% endblock %}

@@ -131,6 +131,7 @@ _HARDCODED_FA_TO_EN = {
     'هر کاربر Telegram Proxy پورت اختصاصی خودش را دارد؛ محدودیت همیشه دقیق و مستقیم روی همان پورت اعمال می‌شود.': 'Every Telegram Proxy user has a dedicated port; limits are always applied directly and precisely on that port.',
     'زمان شروع اعتبار': 'validity start moment',
     'حذف همه کاربران': 'Delete all users',
+    'حذف اکانت‌های انتخاب‌شده': 'Delete selected accounts',
     'به‌جای زمان ساخت، روزهای اعتبار از لحظه اولین اتصال کاربر حساب می‌شود': "Instead of creation time, the validity days are counted from the user's first connection",
     'هر کاربر مستقل؛ روزهای اعتبار هر کاربر از اولین اتصال خودش حساب می‌شود': "Each user independently: every user's validity starts at their own first connection",
     'روزهای اعتبار از لحظه اولین اتصال کاربر حساب می‌شود، نه از زمان ساخت': "Validity days are counted from the user's first connection, not from creation time",

@@ -593,6 +593,24 @@ def users_bulk_action():
         db.session.commit()
         if rows:
             sync_all_users(restart=True)
+    elif action == 'delete_selected':
+        # v19.10.29: permanently delete the selected accounts — DB row plus all
+        # runtime material (configs, OpenVPN certs via async revoke, WireGuard
+        # identities, auth files) through the shared bulk-delete engine.
+        if not rows:
+            flash(ui('هیچ اکانتی انتخاب نشده است', 'No accounts selected'))
+            return redirect(url_for('web.users'))
+        deleted = delete_users_bulk(rows)
+        try:
+            apply_speed_limits_runtime()
+        except Exception:
+            pass
+        log(current_user.username, 'bulk_delete_users', str(len(rows)), f'deleted={deleted}')
+        flash(ui(
+            f'{deleted} اکانت انتخاب‌شده برای همیشه حذف شد (دیتابیس، کانفیگ‌ها و گواهی‌ها)',
+            f'{deleted} selected accounts were permanently deleted (database, configs and certificates)',
+        ))
+        return redirect(url_for('web.users'))
     else:
         flash('عملیات گروهی نامعتبر است')
         return redirect(url_for('web.users'))
