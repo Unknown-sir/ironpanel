@@ -1,3 +1,8 @@
+# v19.10.30 - Compact User Cards with In-Place Details Modal
+
+- The Users page cards were redesigned from tall info-heavy cards into compact tiles: username, live status dot, remaining quota hint and only the two critical actions (connect/disconnect toggle + delete).
+- Clicking a tile opens a native modal in the same page with the full profile: badges, usage metrics, first-connection date (or awaiting-first-connection state), protocol chips, quick actions (configs, subscription, speed-limit, traffic reset, node assignment) and the complete edit form inline — saving syncs the runtime without leaving the page.
+- Edit form fields were extracted into a shared `_user_edit_fields.html` partial reused by both the modal and the standalone edit page (which also keeps Apply-Plan).
 # v19.10.29 - True Per-User Speed Limits (Protocol Defaults and User-Wide)
 
 - Semantics enforced: a per-protocol default limit caps EVERY user individually on that protocol, and a user-wide limit caps ALL protocols of that single user only.

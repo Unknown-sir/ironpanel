@@ -1633,3 +1633,25 @@ body.menu-open::after,
 
 /* v19.10.29 users danger zone */
 .users-danger-zone{border-color:rgba(239,68,68,.45)!important;background:linear-gradient(180deg,rgba(239,68,68,.08),rgba(15,23,42,.9))!important}.users-danger-zone h3{color:#fecaca!important}
+
+/* v19.10.30 compact user cards + details modal */
+.user-mini-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.user-mini{display:flex;flex-direction:column;gap:8px;background:linear-gradient(180deg,rgba(21,31,50,.9),rgba(15,23,42,.9));border:1px solid var(--line,#252b38);border-radius:14px;padding:10px 12px}
+.user-mini.is-off{opacity:.72}
+.user-mini-main{display:flex;align-items:center;gap:9px;cursor:pointer;min-width:0}
+.user-mini-main:hover b{color:#93c5fd}
+.mini-id{display:flex;flex-direction:column;min-width:0;flex:1}
+.mini-id b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:ltr;text-align:left;font-size:14px}
+.mini-id small{color:var(--muted,#96a3b9);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mini-dot{width:9px;height:9px;border-radius:50%;flex:none}.mini-dot.on{background:#22c55e;box-shadow:0 0 8px #22c55e88}.mini-dot.off{background:#ef4444;box-shadow:0 0 8px #ef444488}
+.user-mini-actions{display:flex;gap:6px;justify-content:flex-end}
+.user-mini-actions form{margin:0}
+.user-dialog{width:min(760px,94vw);max-height:86vh;border:1px solid var(--line,#252b38);border-radius:20px;padding:0;background:#0d1424;color:var(--text,#edf4ff);box-shadow:0 30px 90px rgba(0,0,0,.5)}
+.user-dialog::backdrop{background:rgba(2,6,23,.62);backdrop-filter:blur(3px)}
+.user-dialog-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line,#252b38)}
+.user-dialog-head h3{margin:0;font-size:17px;direction:ltr}
+.user-dialog-body{padding:16px 18px 20px;overflow:auto;max-height:calc(86vh - 58px);display:grid;gap:14px}
+.modal-badges{display:flex;gap:8px;flex-wrap:wrap}
+.user-modal-quick{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.user-edit-inline summary{cursor:pointer}
+@media(max-width:640px){.user-mini-grid{grid-template-columns:1fr}}

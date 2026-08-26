@@ -108,39 +108,49 @@
       </div>
     </div>
 
-    <div class="users-responsive-grid modern-user-grid">
+    <div class="users-responsive-grid modern-user-grid user-mini-grid">
       {% for u in users %}{% set ok, reason = user_status(u) %}{% set us = usage_summary(u) %}{% set proto_list = (u.protocols or '').split(',') %}
-      <article class="user-modern-card glass-user-card {{'is-active' if ok else 'is-off'}}">
-        <div class="user-card-main">
-          <label class="user-bulk-check" title="انتخاب برای عملیات گروهی"><input class="bulk-user-select" type="checkbox" name="user_ids" value="{{u.id}}" form="bulk-user-actions"></label>
-          <div class="user-avatar">{{ (u.username or '?')[:1]|upper }}</div>
-          <div class="user-identity">
-            <h4>{{u.username}}</h4>
-            {% if u.owner_id %}<span class="reseller-origin-badge">مالک: نماینده {{ admin_label_by_id(u.owner_id) }}</span>{% if not u.enabled %}<small class="muted reseller-disabled-owner">این اکانت غیرفعال همچنان زیرمجموعه همین نماینده است</small>{% endif %}{% endif %}
+      <article class="user-mini {{'is-active' if ok else 'is-off'}}" data-username="{{u.username}}">
+        <div class="user-mini-main" onclick="openUserModal(this.closest('.user-mini'))" title="{{ ui('نمایش اطلاعات و ویرایش', 'View details & edit') }}">
+          <label class="user-bulk-check" onclick="event.stopPropagation()"><input class="bulk-user-select" type="checkbox" name="user_ids" value="{{u.id}}" form="bulk-user-actions"></label>
+          <span class="mini-dot {{'on' if ok else 'off'}}"></span>
+          <div class="mini-id">
+            <b>{{u.username}}</b>
+            <small>{{ reason }}{% if us.remaining_human and us.remaining_human != 'نامحدود' %} · {{us.remaining_human}}{% endif %}</small>
           </div>
-          <span class="badge {{'ok' if ok else 'off'}}">{{reason}}</span>
+          {% if u.expiry_pending_first_connect %}<span class="badge">{{ ui('اولین اتصال؟','awaiting 1st connect') }}</span>{% endif %}
+        </div>
+        <div class="user-mini-actions">
+          <form method="post" action="/users/{{u.id}}/toggle"><button class="btn small {{ 'danger' if u.enabled else '' }}" title="{{ 'قطع' if u.enabled else 'وصل' }}">{{ '⛔' if u.enabled else '✅' }}</button></form>
+          <form method="post" action="/users/{{u.id}}/delete" onsubmit="return confirm('این کاربر و کانفیگ‌هایش حذف شوند؟')"><button class="btn small danger" title="حذف">🗑</button></form>
         </div>
 
-        <div class="user-metrics-grid modern-metrics-grid">
-          <div><small>مصرف</small><b>{{us.used_human}}</b><em>{{ ui('از', 'of') }} {{us.total_human}}</em></div>
-          <div><small>باقی‌مانده</small><b>{{us.remaining_human}}</b></div>
-          {% if u.first_connected_at %}
-          <div><small>اولین اتصال</small><b>{{u.first_connected_at.strftime('%Y-%m-%d %H:%M')}}</b><em>{{ ui('زمان شروع اعتبار', 'validity start moment') }}</em></div>
-          {% elif u.expiry_pending_first_connect %}
-          <div><small>اعتبار</small><b>در انتظار اولین اتصال</b><em>{{u.pending_expiry_days or 0}} {{ ui('روز پس از اولین اتصال', 'days after first connection') }}</em></div>
-          {% endif %}
-          <div><small>IP Limit</small><b>{{get_user_ip_limit(u)}}</b><em>فعال: {{us.ip_active_count}}</em></div>
-          <div><small>Speed Limit</small><b>{{ (u.speed_limit_mbps|string ~ ' Mbps') if (u.speed_limit_mbps or 0) > 0 else 'پیش‌فرض / نامحدود' }}</b><em>اختصاصی همین کاربر</em></div>
-          <div><small>انقضا</small><b>{{u.expires_at.strftime('%Y-%m-%d') if u.expires_at else 'نامحدود'}}</b></div>
-          {% if current_user.role == 'main_admin' and feature_allowed('nodes') %}<div><small>Node</small><b>{{ u.node_mode or 'auto' }}</b><em>{{ u.node_sync_status or 'local' }}</em></div>{% endif %}
-        </div>
-
-        <details class="modern-details user-mini-details">
-          <summary><span>🧩</span><b>{{ proto_list|length }} پروتکل فعال</b><em>جزئیات</em></summary>
-          <div class="details-body">
-            <div class="protocol-chip-grid">
-              {% for p in proto_list if p %}<span class="proto-chip"><i>{% if p == 'openvpn' %}🔐{% elif p == 'wireguard' %}⚡{% elif p in ['ocserv','cisco'] %}🛡️{% elif p == 'l2tp' %}🔗{% elif p == 'pptp' %}📡{% elif p == 'xray' %}✨{% elif p == 'hysteria2' %}🚀{% elif p == 'telegram_proxy' %}💬{% elif p == 'ssh' %}🖥️{% else %}•{% endif %}</i>{{p}}</span>{% endfor %}
-            </div>
+        <template class="user-details">
+          <div class="modal-badges">
+            <span class="badge {{'ok' if ok else 'off'}}">{{reason}}</span>
+            {% if u.owner_id %}<span class="badge">مالک: نماینده {{ admin_label_by_id(u.owner_id) }}</span>{% endif %}
+          </div>
+          <div class="user-metrics-grid modern-metrics-grid">
+            <div><small>مصرف</small><b>{{us.used_human}}</b><em>{{ ui('از', 'of') }} {{us.total_human}}</em></div>
+            <div><small>باقی‌مانده</small><b>{{us.remaining_human}}</b></div>
+            {% if u.first_connected_at %}
+            <div><small>اولین اتصال</small><b>{{u.first_connected_at.strftime('%Y-%m-%d %H:%M')}}</b><em>{{ ui('زمان شروع اعتبار', 'validity start moment') }}</em></div>
+            {% elif u.expiry_pending_first_connect %}
+            <div><small>اعتبار</small><b>در انتظار اولین اتصال</b><em>{{u.pending_expiry_days or 0}} {{ ui('روز پس از اولین اتصال', 'days after first connection') }}</em></div>
+            {% endif %}
+            <div><small>IP Limit</small><b>{{get_user_ip_limit(u)}}</b><em>فعال: {{us.ip_active_count}}</em></div>
+            <div><small>Speed Limit</small><b>{{ (u.speed_limit_mbps|string ~ ' Mbps') if (u.speed_limit_mbps or 0) > 0 else 'پیش‌فرض / نامحدود' }}</b><em>اختصاصی همین کاربر</em></div>
+            <div><small>انقضا</small><b>{{u.expires_at.strftime('%Y-%m-%d') if u.expires_at else 'نامحدود'}}</b></div>
+          </div>
+          <div class="protocol-chip-grid">
+            {% for p in proto_list if p %}<span class="proto-chip">{{p}}</span>{% endfor %}
+          </div>
+          <div class="user-modal-quick">
+            <a class="btn ghost" href="/users/{{u.id}}/configs">کانفیگ‌ها</a>
+            <a class="btn ghost" href="{{ subscription_url_for_user(u) }}" target="_blank">سابسکریپشن</a>
+            <a class="btn ghost" href="/users/{{u.id}}/edit">صفحه کامل ویرایش</a>
+            <form method="post" action="/users/{{u.id}}/speed-limit" class="inline-user-speed-form"><input name="speed_limit_mbps" type="number" min="0" max="100000" value="{{u.speed_limit_mbps or 0}}" aria-label="Speed Limit Mbps"><button class="btn small ghost">⚡ Mbps</button></form>
+            <form method="post" action="/users/{{u.id}}/reset-traffic" onsubmit="return confirm('حجم مصرفی این کاربر صفر شود؟')"><button class="btn small ghost">ریست حجم</button></form>
             {% if current_user.role == "main_admin" and feature_allowed("nodes") %}
             <form method="post" action="/users/{{u.id}}/node" class="inline-node-form modern-node-form">
               <select name="node_mode"><option value="auto" {{ "selected" if (u.node_mode or "auto")=="auto" else "" }}>Auto</option><option value="local" {{ "selected" if u.node_mode=="local" else "" }}>Local</option><option value="fixed" {{ "selected" if u.node_mode=="fixed" else "" }}>Fixed</option></select>
@@ -149,17 +159,16 @@
             </form>
             {% endif %}
           </div>
-        </details>
-
-        <div class="user-card-actions modern-actions-grid">
-          <a class="btn ghost" href="/users/{{u.id}}/configs">کانفیگ‌ها</a>
-          <a class="btn small ghost" href="/users/{{u.id}}/edit">ویرایش</a>
-          <a class="btn small ghost" href="{{ subscription_url_for_user(u) }}" target="_blank">سابسکریپشن</a>
-          <form method="post" action="/users/{{u.id}}/speed-limit" class="inline-user-speed-form" title="محدودیت سرعت فقط همین کاربر"><input name="speed_limit_mbps" type="number" min="0" max="100000" value="{{u.speed_limit_mbps or 0}}" aria-label="Speed Limit Mbps"><button class="btn small ghost">⚡ Mbps</button></form>
-          <form method="post" action="/users/{{u.id}}/reset-traffic" onsubmit="return confirm('حجم مصرفی این کاربر صفر شود؟')"><button class="btn small ghost">ریست حجم</button></form>
-          <form method="post" action="/users/{{u.id}}/toggle" onsubmit="return confirm('{{ 'این کاربر قطع و غیرفعال شود؟' if u.enabled else 'این کاربر فعال و وصل شود؟' }}')"><button class="btn small {{ 'danger' if u.enabled else '' }}">{{ '⛔ قطع / غیرفعال' if u.enabled else '✅ وصل / فعال' }}</button></form>
-          <form method="post" action="/users/{{u.id}}/delete" onsubmit="return confirm('این کاربر و کانفیگ‌هایش حذف شوند؟')"><button class="btn small danger">حذف</button></form>
-        </div>
+          <details class="modern-details user-edit-inline" open>
+            <summary><span>✏️</span><b>ویرایش در همین کادر</b><em>ذخیره = همگام‌سازی</em></summary>
+            <div class="details-body">
+              <form method="post" action="/users/{{u.id}}/edit" class="form grid-form">
+                {% with active = available %}{% include '_user_edit_fields.html' %}{% endwith %}
+                <button>ذخیره و همگام‌سازی</button>
+              </form>
+            </div>
+          </details>
+        </template>
       </article>
       {% else %}
       <div class="empty-state modern-empty">کاربری یافت نشد.</div>
@@ -182,15 +191,37 @@
      </div>
    </section>
    {% endif %}
- </div>
- <script>
- function bulkActionConfirm(){
-   var sel=document.querySelector('#bulk-user-actions select[name=action]');
-   var v=sel?sel.value:'';
-   if(v==='delete_selected'){
-     return confirm('اکانت‌های انتخاب‌شده برای همیشه حذف شوند؟\n(دیتابیس + کانفیگ‌ها + گواهی‌های OpenVPN — قابل بازگشت نیست)');
-   }
-   return confirm('عملیات روی کاربران انتخاب‌شده انجام شود؟');
- }
- </script>
+  </div>
+  <dialog id="user-dialog" class="user-dialog">
+    <div class="user-dialog-head">
+      <h3><b id="user-dialog-title">—</b></h3>
+      <button type="button" class="btn small ghost" onclick="document.getElementById('user-dialog').close()">{{ ui('بستن', 'Close') }} ✕</button>
+    </div>
+    <div class="user-dialog-body"></div>
+  </dialog>
+  <script>
+  function bulkActionConfirm(){
+    var sel=document.querySelector('#bulk-user-actions select[name=action]');
+    var v=sel?sel.value:'';
+    if(v==='delete_selected'){
+      return confirm('اکانت‌های انتخاب‌شده برای همیشه حذف شوند؟\n(دیتابیس + کانفیگ‌ها + گواهی‌های OpenVPN — قابل بازگشت نیست)');
+    }
+    return confirm('عملیات روی کاربران انتخاب‌شده انجام شود؟');
+  }
+  function openUserModal(card){
+    var dlg=document.getElementById('user-dialog');
+    if(!dlg||!card) return;
+    document.getElementById('user-dialog-title').textContent=card.getAttribute('data-username')||'';
+    var body=dlg.querySelector('.user-dialog-body');
+    body.innerHTML='';
+    var t=card.querySelector('template.user-details');
+    if(t) body.appendChild(t.content.cloneNode(true));
+    dlg.showModal();
+  }
+  (function(){
+    var dlg=document.getElementById('user-dialog');
+    if(!dlg) return;
+    dlg.addEventListener('click', function(e){ if(e.target===dlg) dlg.close(); });
+  })();
+  </script>
 {% endblock %}
