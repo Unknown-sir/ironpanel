@@ -50,13 +50,20 @@ def dashboard():
     tickets = Ticket.query.order_by(Ticket.id.desc()).limit(8).all()
     nodes = Node.query.all()
     _refresh_sessions_background()
-    online_sessions = _online_sessions_snapshot()
+    online_sessions_data = _online_sessions_snapshot()
+    # new format: (users_with_sessions, sessions_list)
+    if isinstance(online_sessions_data, tuple):
+        online_count, online_sessions = online_sessions_data
+    else:
+        online_count = len(online_sessions_data)
+        online_sessions = online_sessions_data
     license_result = check_license(force=False)
     return render_template(
         'dashboard.html',
         users=users,
         tickets=tickets,
         nodes=nodes,
+        online_count=online_count,
         online_sessions=online_sessions,
         github=github_latest_version(),
         license_result=license_result,

@@ -649,9 +649,9 @@ def ip_limit_settings():
         default_limit = int(get_setting('ip_limit_default', '0') or 0)
     except Exception:
         default_limit = 0
-    action = (get_setting('ip_limit_action', 'disable') or 'disable').strip()
+    action = (get_setting('ip_limit_action', 'log') or 'log').strip()  # v19.10.31: default 'log' instead of 'disable'
     if action not in ('disable', 'log'):
-        action = 'disable'
+        action = 'log'
     return {'enabled': enabled, 'default_limit': max(0, default_limit), 'action': action}
 
 
@@ -687,12 +687,32 @@ def set_user_ip_limit(user: VpnUser, limit):
     return limit
 
 
+def _is_local_or_private_ip(ip: str) -> bool:
+    """آی‌پی olup بررسی می‌کند که محلی/خصوصی باشد (Loopback, 192.168, 10, 172.16-31)."""
+    if not ip:
+        return True
+    ip = ip.strip()
+    # IPv4 loopback
+    if ip.startswith('127.') or ip == '0.0.0.0' or ip == '::1':
+        return True
+    # IPv4 privados ranges
+    if ip.startswith('192.168.') or ip.startswith('10.') or ip.startswith('172.16.') or ip.startswith('172.31.'):
+        return True
+    # IPv6 unspecified/all
+    if ip == '::':
+        return True
+    return False
+
+
 def active_ip_count_for_user(user: VpnUser, minutes: int = 15) -> int:
     try:
         cutoff = datetime.utcnow().timestamp() - minutes * 60
         ips = set()
         for s in OnlineSession.query.filter_by(user_id=user.id, active=True).all():
             if not s.remote_ip:
+                continue
+            # ignore local/private IPs from counting toward the limit
+            if _is_local_or_private_ip(s.remote_ip):
                 continue
             # last_seen is authoritative when present, otherwise count the active row.
             if getattr(s, 'last_seen', None):

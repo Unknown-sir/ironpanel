@@ -4,7 +4,6 @@
 {% set services = services|default({}) %}
 {% set total_users = users|length %}
 {% set active_users = users|selectattr('enabled')|list|length %}
-{% set online_count = online_sessions|length %}
 {% set license_days_safe = license_days if license_days is defined else none %}
 {% set license_paid = license_result.valid and license_result.paid %}
 {% set license_label = license_days_safe if license_paid and license_days_safe is not none else ('ACTIVE' if license_paid else 'FREE') %}
@@ -45,7 +44,7 @@
 
   <section class="metric-grid">
     <article class="metric-card card"><span>{{ 'کاربران' if is_fa else 'Users' }}</span><b>{{ total_users }}</b><small>{{ active_users }} {{ 'فعال' if is_fa else 'active' }}</small></article>
-    <article class="metric-card card"><span>{{ 'اتصالات آنلاین' if is_fa else 'Online sessions' }}</span><b>{{ online_count }}</b><small>{{ 'نشست فعال' if is_fa else 'active sessions' }}</small></article>
+    <article class="metric-card card"><span>{{ 'کاربران آنلاین' if is_fa else 'Online users' }}</span><b>{{ online_count }}</b><small>{{ 'تعداد کاربران دارای جلسه فعال' if is_fa else 'Unique users with active sessions' }}</small></article>
     <article class="metric-card card"><span>{{ 'وضعیت لایسنس' if is_fa else 'License status' }}</span><b>{{ license_label }}</b><small>{{ license_result.license_type|upper if license_paid else 'Beginner' }}</small></article>
     {% if nodes is defined %}<article class="metric-card card"><span>{{ 'نودها' if is_fa else 'Nodes' }}</span><b>{{ nodes|length }}</b><small>Direct Runtime</small></article>{% endif %}
   </section>

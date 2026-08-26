@@ -149,7 +149,10 @@ def _online_sessions_snapshot(limit=200):
         db.session.commit()
     except Exception:
         db.session.rollback()
-    return OnlineSession.query.filter_by(active=True).order_by(OnlineSession.last_seen.desc()).limit(limit).all()
+    # Return both: unique user count and full session list for details
+    users_with_sessions = db.session.query(OnlineSession.user_id).filter_by(active=True).distinct().count()
+    sessions = OnlineSession.query.filter_by(active=True).order_by(OnlineSession.last_seen.desc()).limit(limit).all()
+    return users_with_sessions, sessions
 
 
 # Reseller panel helpers ------------------------------------------------------
