@@ -1,237 +1,192 @@
-## 🆕 v19.10.25 — Full migration backup/restore
-
-Migration backups now preserve a transactional database snapshot plus all protocol identities (OpenVPN PKI/tls-crypt, WireGuard server key, SSL/Let’s Encrypt, Ocserv, L2TP/IKEv2, Xray, Hysteria2 and related runtime state) so restored users keep their existing tokens and credentials.
-
-## v19.10.24 — OpenVPN fresh-install PKI completion fix
-
-Fresh GitHub installs now build/recover and validate every mandatory OpenVPN PKI/runtime artifact from one canonical Easy-RSA PKI before the daemon can start. A healthy existing CA is preserved; only missing server identity/DH/tls-crypt artifacts are repaired. Incomplete PKI no longer enters a systemd restart loop.
-
-## v19.10.23 — Reseller auto-recovery and durable ownership state
-- Reseller limit suspensions now persist a reason and are automatically reversible after quota/account limits become healthy.
-- Only healthy users suspended because of the reseller are restored; expired, traffic-exhausted, IP-limited and manually disabled users remain disabled.
-- Disabled reseller-owned users keep their owner identity visible to the main admin.
-
-
-## v19.10.22 — MirzaBot API
-- Added an independent `/api/mirzabot/v1` compatibility endpoint for MirzaBot Custom Panel.
-- Existing v1/v2 APIs remain unchanged.
-- Dedicated `X-API-Key` and default-protocol settings are available in the admin UI.
-
 <div align="center">
 
-## v19.10.21
+<img src="https://s34.picofile.com/file/8491039084/IronpanelN.png" alt="IronPanel" width="140"/>
 
-- Reseller-created users are now provisioned into the live runtime immediately; Sync All is no longer required after create.
-- Expired/traffic-exhausted cleanup is now a single one-click action.
+# IronPanel
 
+**Professional multi-protocol, multi-server VPN management — users, resellers, nodes and tunnels from one console**
 
-## v19.10.20
+![Version](https://img.shields.io/badge/version-19.10.29-blue)
+![Python](https://img.shields.io/badge/python-3.10%2B-informational)
+![Flask](https://img.shields.io/badge/flask-3.0-green)
+![Platform](https://img.shields.io/badge/platform-Ubuntu%2022.04%2F24.04%20%7C%20Debian-orange)
+![License](https://img.shields.io/badge/license-Commercial-red)
 
-- Added a direct user-wide Mbps speed limit. Main admins can manage every user; resellers can manage only owned users.
-- A user-wide cap takes precedence over protocol defaults and is applied immediately to runtime rules.
-
-# ⚙️ IronPanel
-
-### A multi-protocol VPN/proxy control panel with users, subscriptions, nodes, relays and safe operations
-
-![IronPanel](https://s34.picofile.com/file/8491039084/IronpanelN.png)
-
-**IronPanel** is designed to manage VPN/proxy users, subscriptions, resellers, SSL, DNS, speed limits, routing rules, node gateways and maintenance workflows from one central dashboard.
+[🇬🇧 English](README_EN.md) · [🇮🇷 فارسی](README.md) · [Changelog](CHANGELOG.md)
 
 </div>
 
 ---
 
-## v19.10.19
+## Overview
 
-- Main admins can immediately connect/disconnect any user; resellers can do the same only for accounts they own, with runtime enforcement.
-- Added a bulk cleanup action that removes only accounts whose latest state transition was an automatic expiry/quota disable.
-- Protocol install/update is health-check-first: healthy cores are skipped, repairs are bounded by timeouts, and OpenVPN reuses valid active PKI/DH material instead of performing expensive regeneration during normal updates.
-- Fixed iPhone Safari subscription-page copy buttons with a synchronous legacy clipboard fallback.
-
-## v19.10.18
-
-- Protocol installation/repair now validates prerequisites and runtime health, uses one canonical OpenVPN issuing PKI, and installs complete WireGuard forwarding/NAT rules.
-- Beginner keeps only OpenVPN and Xray licensed while other protocol prerequisites remain prepared; entering a Plus/Pro/Admin key automatically unlocks, repairs, starts and resynchronizes newly granted protocols without reinstalling.
-- Settings now includes a persistent automatic user-password policy: minimum 3 characters and letters-only, numbers-only, or alphanumeric modes.
-
-
-## Highlights
-
-- Multi-protocol user and configuration management
-- Subscription links, QR codes and per-protocol outputs
-- Auto SSL, DNS presets, WireGuard MTU and routing rules
-- Speed limits per protocol and per user
-- Health Doctor, protocol repair, safe backup/restore and safe update
-- Firewall IP/CIDR ban with dedicated chains
-- Node Agent, Node Gateway, Transparent Relay and Auto Sync
-- Automatic node installation over SSH for Pro/Admin licenses
-- Encrypted SSH credentials for saved node access
+IronPanel is more than an account generator: it is a full control center for centralized VPN/Proxy service management — real-core user provisioning, live traffic accounting, subscriptions with QR codes, a complete reseller system, multi-server architectures with Node Gateway & Transparent Relay, genuinely per-user speed limiting, migration-grade backups and a public REST API.
 
 ---
 
-## Quick Install
+## ✨ Features
+
+| Area | Highlights |
+|---|---|
+| **Users** | Quota/expiry/per-user protocols, bulk operations, range creation, selective & delete-all, fast pagination |
+| **First-connection validity** | Optional mode: each user's days start at *their own* first connect (OpenVPN instantly; others ≤15s) |
+| **Subscriptions** | Per-user page with QR, single/ZIP downloads, Clash/Sing-box/Hiddify outputs, themable |
+| **Speed limits** | Three layers — protocol default / user-wide / per-user×protocol override — enforced for real via tc |
+| **Resellers** | Dedicated `/r/<path>` panels, real traffic quotas, auto suspend/restore, **custom config domain** |
+| **Multi-server** | Node Agent, Node Gateway, Transparent Relay, SSH auto node installer (Pro/Admin) |
+| **Telegram** | Owner-aware sales bot, admin bot with scheduled reports & 24h backups, managed MTProto proxy |
+| **API** | REST v1 & v2 + MirzaBot Custom Panel compatibility |
+| **Operations** | Health Doctor with background repair, migration-grade backup/restore, staged GitHub updater, watchdog |
+| **Security** | TOTP 2FA, login history, IP/CIDR bans, encrypted node credentials, full audit log |
+
+---
+
+## 🚀 Quick install
+
+**Requirements:** Ubuntu 22.04/24.04 or Debian · root access · Python 3.10+
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/Unknown-sir/ironpanel/main/install.sh)
 ```
 
-## Update
+The installer handles everything: venv + dependencies, database & migrations, protocol cores, systemd units/timers, and optional Auto-SSL.
 
-Fast GitHub update:
+| Path | Purpose |
+|---|---|
+| `/opt/ironpanel` | Application code & venv |
+| `/etc/ironpanel` | SQLite DB, configs, backups |
+| Default panel port | `8080` (changeable in Settings) |
+
+Login credentials are printed to the terminal after installation.
+
+---
+
+## 🔄 Updating
 
 ```bash
+# Fast update from GitHub
 sudo bash /opt/ironpanel/scripts/update_from_github.sh
-```
 
-Safe update with health checks (automatic backup is disabled by default for speed):
-
-```bash
+# Safe update with health checks and full logging
 sudo bash /opt/ironpanel/scripts/safe_update.sh
-```
 
-Enable the optional pre-update backup when needed:
-
-```bash
+# Include an automatic pre-update backup
 sudo IRONPANEL_UPDATE_BACKUP=1 bash /opt/ironpanel/scripts/safe_update.sh
 ```
 
 ---
 
-## Supported Protocols
+## 🧩 Supported protocols
 
-| Protocol | Status | Notes |
-|---|:---:|---|
-| OpenVPN | ✅ | `.ovpn` output, usage accounting and auth hooks |
-| WireGuard | ✅ | DNS, MTU, peers and QR codes |
-| Cisco / Ocserv | ✅ | AnyConnect-compatible SSL VPN |
-| L2TP/IPsec | ✅ | Classic mobile/desktop VPN |
-| PPTP | ✅ | Legacy compatibility |
-| Xray | ✅ | VLESS/Reality/TLS with subscriptions |
-| Hysteria2 | ✅ | High-speed UDP profile output |
-| Telegram MTProto Proxy | ✅ | Dedicated secrets and configurable ports |
-| SSH | ✅ | SSH tunnel accounts |
-
----
-
-## Node Gateway and Transparent Relay
-
-IronPanel supports tunnel-style multi-server deployments where the client keeps connecting to the main panel endpoint while the main server relays traffic to the selected node.
-
-```text
-User / Tunnel
-     ↓
-Main Panel Endpoint
-     ↓
-IronPanel Transparent Relay
-     ↓
-Selected Node
-     ↓
-IronPanel Transparent Relay
-     ↓
-User / Tunnel
-```
-
-This keeps node IPs hidden from client configs and makes the response path deterministic for tunnel deployments.
+| Protocol | Use case | Notes |
+|---|---|---|
+| OpenVPN | General, stable | `.ovpn` output, live auth hook quota enforcement |
+| WireGuard | Lightweight & fast | Peer management, DNS/MTU, QR |
+| Cisco / Ocserv | AnyConnect | Mobile friendly |
+| L2TP/IPsec | Classic | IKEv2 EAP + legacy PSK |
+| PPTP | Legacy | Specific compatibility scenarios |
+| Xray | VLESS/Reality/TLS/WS/gRPC | Multi-inbound builder, links & QR |
+| Hysteria2 | Fast UDP | Great on lossy networks |
+| Telegram MTProto | MTProxy | Per-user instance & secret |
+| SSH Tunnel | SSH tunneling | Restricted per-user accounts |
 
 ---
 
-## Automatic SSH Node Installer
+## 👥 Users & subscriptions
 
-Starting with v19.9, IronPanel can install nodes directly from the web panel through SSH.
-
-Supported methods:
-
-- SSH username/password
-- SSH private key
-- key passphrase
-- optional sudo password
-- encrypted saved credentials
-- auto dependency installation
-- node agent installation
-- core repair/install
-- config and user sync
-- gateway/relay apply and health checks
-
-This feature is available for **Pro** and **Admin** licenses.
+- Total/used/remaining quota with configurable multiplier, measured from every protocol's runtime
+- Unlimited or dated expiry + **"start validity on first connection"** (independent per user, even in bulk creation)
+- Exact per-user protocol selection: unchecked protocols are neither created nor shown
+- Bulk actions: enable/disable, reset traffic, **delete selected accounts**, delete-all (bulk engine also revokes certificates & rebuilds runtime)
+- Live online sessions, first-connection timestamp, per-user IP limit & speed limit
+- Smart Core Reload: only the affected core reloads, never everything
 
 ---
 
-## Plan Matrix
+## ⚡ Speed limits — truly per-user
 
-| Feature | Beginner / Free | Plus | Pro | Admin |
-|---|:---:|:---:|:---:|:---:|
-| No-license basic mode | ✅ | ❌ | ❌ | ❌ |
-| OpenVPN | ✅ | ✅ | ✅ | ✅ |
-| Xray | ✅ | ✅ | ✅ | ✅ |
-| Other protocols | ❌ | ✅ | ✅ | ✅ |
-| Subscriptions and QR | ✅ | ✅ | ✅ | ✅ |
-| DNS, routing and speed limits | ✅ | ✅ | ✅ | ✅ |
-| Reseller management | ✅ | ✅ | ✅ | ✅ |
-| Node Agent / Node Gateway | ❌ | ❌ | ✅ | ✅ |
-| Transparent Relay | ❌ | ❌ | ✅ | ✅ |
-| Auto SSH Node Installer | ❌ | ❌ | ✅ | ✅ |
-| Sales bots | ❌ | ❌ | ✅ | ✅ |
-| Full finance features | ❌ | ❌ | ❌ | ✅ |
+| Layer | Scope |
+|---|---|
+| Protocol default | Every user of that protocol, individually and simultaneously |
+| User-wide limit (⚡) | All protocols of *that one user* (one shared tc class) |
+| User×protocol override | Exactly that combination |
+
+Enforcement uses `tc/iptables` egress shaping; each user is identified by their active session's public IP (OpenVPN/WG/Ocserv/L2TP from live status, **Xray from access.log emails** — loglevel is switched automatically, Hysteria2 from the journal, Telegram Proxy via dedicated per-user ports). Node-relayed traffic is shaped through a FORWARD hook too. Technically unseparable cases are surfaced explicitly as pending notes in the Speed Limits status output.
 
 ---
 
-## Useful Commands
+## 🤝 Resellers
 
-Panel status:
+- Dedicated panel at your own path, account-count cap plus **real consumed traffic** (not allocated)
+- Automatic suspension when limits are exhausted + automatic restore of only healthy users afterwards
+- Per-reseller allowed protocols, enforced server-side too
+- **Custom config domain**: a reseller's own users get configs pointing at that domain; empty = main panel address
+- Independent owner-aware sales bot per reseller
 
-```bash
-systemctl status ironpanel --no-pager
+---
+
+## 🛰️ Nodes, Gateway & Transparent Relay
+
+```
+User ──► Main Panel Endpoint ──► Transparent Relay ──► Selected Node
 ```
 
-Restart panel:
+- Clients keep connecting to the main endpoint; node IPs are never exposed
+- Direct Location: per-node configs inside the subscription with flag & label
+- Auto rebalance by ping/load, force protocols onto specific nodes
+- In-panel SSH auto installer (password/key/passphrase/sudo) — Pro/Admin only
+
+---
+
+## 🔌 API
+
+| Version | Path | Auth |
+|---|---|---|
+| v1 | `/api/v1` | `X-API-Key` |
+| v2 | `/api/v2` | Token (`POST /api/v2/auth/token`) |
+| MirzaBot | `/api/mirzabot/v1` | Dedicated `X-API-Key` |
+
+Full docs: [`docs/API_GUIDE.md`](docs/API_GUIDE.md) · [`docs/API.md`](docs/API.md) · [`docs/openapi.yaml`](docs/openapi.yaml)
+
+---
+
+## 💾 Migration-grade backup & restore
+
+Backups capture an atomic DB snapshot plus complete protocol identities (OpenVPN PKI/tls-crypt, WireGuard keys, SSL/Let's Encrypt, Ocserv, L2TP/IKEv2, Xray, Hysteria2, env/secrets and units); restores validate checksums/schema and keep an automatic rollback copy.
 
 ```bash
-sudo systemctl restart ironpanel
-```
-
-Panel logs:
-
-```bash
-journalctl -u ironpanel -n 150 --no-pager
-```
-
-Apply node gateway:
-
-```bash
-sudo bash /opt/ironpanel/scripts/apply_node_gateway.sh --apply
-```
-
-Clear node gateway:
-
-```bash
-sudo bash /opt/ironpanel/scripts/apply_node_gateway.sh --clear
+cd /opt/ironpanel && sudo .venv/bin/flask --app run.py safe-backup
 ```
 
 ---
 
-## Documentation
-
-Version-specific documentation is available in the `docs/` directory. See `CHANGELOG.md` for the full release history.
-
-## Real traffic accounting (v19.10.14)
-
-Runtime counters for OpenVPN, WireGuard, Xray, Cisco/Ocserv, L2TP, PPTP, Hysteria2 and Telegram Proxy are merged into each user's shared quota. v19.10.14 repairs the V2Ray/Xray path: the Stats API runner now accepts its timeout argument, and the parser supports current quoted-int64 JSON, older numeric JSON, and text-protobuf output. Traffic-sensitive panel and public subscription pages perform a short locked refresh before rendering so they do not show stale database values.
-
-Diagnostics:
+## 🧰 Handy commands
 
 ```bash
-sudo bash /opt/ironpanel/scripts/usage_diagnose.sh
-sudo systemctl restart ironpanel-usage-sync.timer
-cd /opt/ironpanel && sudo /opt/ironpanel/.venv/bin/flask --app run.py sync-usage
+systemctl status ironpanel --no-pager          # panel status
+sudo systemctl restart ironpanel               # restart
+journalctl -u ironpanel -n 150 --no-pager      # logs
+sudo ironpanelctl repair                       # general repair
+sudo bash scripts/ironpanel_doctor.sh          # full diagnostics
+sudo bash scripts/update_from_github.sh        # update
 ```
 
-Traffic that was never stored and no longer exists in a live runtime counter cannot be reconstructed; new and still-active session traffic is accounted after upgrading.
+---
 
+## 🗂 More documentation
 
+- [CHANGELOG.md](CHANGELOG.md) — full version history
+- [`docs/`](docs/) — per-release technical notes + OpenAPI spec
+- [SECURITY.md](SECURITY.md) · [CONTRIBUTING.md](CONTRIBUTING.md)
 
-## Reseller protocol permissions (v19.10.17)
+---
 
-Each reseller can be limited to an explicit protocol allow-list. The restriction is enforced in quick, normal and bulk creation, user edits, plan application, API-key provisioning and reseller-owned sales bots.
+## 📄 License
 
-- v19.10.19: Existing installs health-check each protocol first and skip healthy runtimes; OpenVPN PKI adoption uses a lightweight non-blocking recovery snapshot.
+IronPanel is released under its [commercial license](LICENSE). Some modules require a Plus/Pro/Admin license key; the free Beginner edition works without a key (OpenVPN + Xray).
+
+<div align="center">
+
+**IronPanel — One panel, many protocols, many nodes, complete control**
+
+</div>
