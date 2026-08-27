@@ -1,3 +1,6 @@
+# v19.10.31 - Admin-Only Language & Theme
+
+- Language and theme (light/dark) settings are now editable by the main admin only. Resellers/sub-admins can no longer change them: the `/appearance` route redirects non-main-admins and the topbar "Language & theme" button is hidden for resellers (it had been shown to every logged-in user, while the sidebar entry had always been admin-only).
 # v19.10.30 - Compact User Cards with In-Place Details Modal
 
 - The Users page cards were redesigned from tall info-heavy cards into compact tiles: username, live status dot, remaining quota hint and only the two critical actions (connect/disconnect toggle + delete).

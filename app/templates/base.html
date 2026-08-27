@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0b1220">
   <title>{% block title %}IronPanel{% endblock %}</title>
-  <link rel="stylesheet" href="/static/css/style.css?v=19.10.30">
+  <link rel="stylesheet" href="/static/css/style.css?v=19.10.31">
 </head>
 <body class="theme-{{ current_theme() }} lang-{{ lang }} iron-stable-v19103 iron-mobile-fix-v19104">
 {% set simple_ui = is_simple_ui() if current_user.is_authenticated else true %}
@@ -148,7 +148,9 @@
         <h1>{% block heading %}IronPanel{% endblock %}</h1>
       </div>
       <div class="topbar-actions">
+        {% if current_user.is_authenticated and current_user.role == 'main_admin' %}
         <a class="btn subtle" href="/appearance">{{ ui('زبان و ظاهر','Language & theme') }}</a>
+        {% endif %}
         <a class="btn subtle" href="/health">{{ ui('سلامت سیستم','System health') }}</a>
         <a class="btn primary" href="/quick-create">{{ ui('ساخت کاربر','Create user') }}</a>
       </div>

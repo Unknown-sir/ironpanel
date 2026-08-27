@@ -134,6 +134,9 @@ def account():
 @web_bp.route('/appearance', methods=['GET','POST'])
 @login_required
 def appearance():
+    if current_user.role != 'main_admin':
+        flash('Only the main admin can change language & theme.')
+        return redirect(url_for('web.dashboard'))
     if request.method == 'POST':
         save_appearance(request.form)
         db.session.commit()
