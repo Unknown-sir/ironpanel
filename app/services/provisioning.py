@@ -655,12 +655,17 @@ def ip_limit_settings():
     return {'enabled': enabled, 'default_limit': max(0, default_limit), 'action': action}
 
 
-def set_ip_limit_settings(enabled, default_limit, action='disable'):
+def set_ip_limit_settings(enabled, default_limit, action='log'):
     try:
         default_limit = max(0, int(default_limit or 0))
     except Exception:
         default_limit = 0
-    action = action if action in ('disable', 'log') else 'disable'
+    # v19.10.31: default is now 'log' — never hard-disable user configs.
+    # 'disable' is kept for backward compat but maps to soft-kick (see enforce_ip_limits).
+    if action not in ('disable', 'log', 'kick'):
+        action = 'log'
+    if action == 'kick':
+        action = 'disable'
     set_setting('ip_limit_enabled', '1' if enabled else '0')
     set_setting('ip_limit_default', str(default_limit))
     set_setting('ip_limit_action', action)
@@ -688,73 +693,172 @@ def set_user_ip_limit(user: VpnUser, limit):
 
 
 def _is_local_or_private_ip(ip: str) -> bool:
-    """آی‌پی olup بررسی می‌کند که محلی/خصوصی باشد (Loopback, 192.168, 10, 172.16-31)."""
+    """بررسی آی‌پی محلی/خصوصی با پوشش کامل RFC1918 + CGNAT + link-local."""
     if not ip:
         return True
-    ip = ip.strip()
-    # IPv4 loopback
-    if ip.startswith('127.') or ip == '0.0.0.0' or ip == '::1':
+    ip = ip.strip().strip('[]')
+    if not ip or ip.lower() in ('(none)', 'unknown', '0.0.0.0', '::', '::1'):
         return True
-    # IPv4 privados ranges
-    if ip.startswith('192.168.') or ip.startswith('10.') or ip.startswith('172.16.') or ip.startswith('172.31.'):
+    # Fast path for obvious locals
+    if ip.startswith('127.') or ip == 'localhost':
         return True
-    # IPv6 unspecified/all
-    if ip == '::':
-        return True
-    return False
+    try:
+        import ipaddress
+        addr = ipaddress.ip_address(ip)
+        # Loopback, private, link-local, CGNAT (100.64/10), multicast, unspecified
+        if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_multicast or addr.is_unspecified:
+            return True
+        # ipaddress marks 100.64/10 as private in recent Python, but keep explicit
+        if addr.version == 4 and str(addr).startswith('100.'):
+            # 100.64.0.0/10
+            first_octet = int(str(addr).split('.')[0])
+            second_octet = int(str(addr).split('.')[1]) if '.' in str(addr) else 0
+            if first_octet == 100 and 64 <= second_octet <= 127:
+                return True
+        # Reserved / documentation
+        if addr.is_reserved:
+            return True
+        return False
+    except Exception:
+        # Fallback string checks for malformed
+        if ip.startswith(('10.', '192.168.', '172.')):
+            # 172.16.0.0/12 -> 172.16.-172.31.
+            if ip.startswith('172.'):
+                try:
+                    second = int(ip.split('.')[1])
+                    if 16 <= second <= 31:
+                        return True
+                except Exception:
+                    pass
+            else:
+                return True
+        return False
 
 
-def active_ip_count_for_user(user: VpnUser, minutes: int = 15) -> int:
+def active_ip_count_for_user(user: VpnUser, minutes: int = 5) -> int:
+    """تعداد IPهای عمومی همزمان فعالِ دارای ترافیک اخیر (پنجره 5 دقیقه).
+
+    فقط نشست‌هایی که last_seen داخل پنجره هستند و IP عمومی دارند شمرده می‌شوند.
+    این یعنی تغییر IP متوالی (موبایل NAT) به‌عنوان 1 شمرده می‌شود، نه 2.
+    """
     try:
         cutoff = datetime.utcnow().timestamp() - minutes * 60
         ips = set()
         for s in OnlineSession.query.filter_by(user_id=user.id, active=True).all():
             if not s.remote_ip:
                 continue
-            # ignore local/private IPs from counting toward the limit
             if _is_local_or_private_ip(s.remote_ip):
                 continue
-            # last_seen is authoritative when present, otherwise count the active row.
+            # فقط نشست‌های واقعاً اخیر (همزمان) — نه تاریخی 15 دقیقه قبل
             if getattr(s, 'last_seen', None):
                 try:
                     if s.last_seen.timestamp() < cutoff:
                         continue
                 except Exception:
                     pass
+            else:
+                continue
             ips.add(s.remote_ip)
         return len(ips)
     except Exception:
         return 0
 
 
+def _active_sessions_for_user(user: VpnUser, minutes: int = 5):
+    """لیست نشست‌های فعال همزمان برای IP-limit (برای soft-kick)."""
+    try:
+        cutoff = datetime.utcnow().timestamp() - minutes * 60
+        out = []
+        for s in OnlineSession.query.filter_by(user_id=user.id, active=True).order_by(OnlineSession.last_seen.asc()).all():
+            if not s.remote_ip or _is_local_or_private_ip(s.remote_ip):
+                continue
+            if getattr(s, 'last_seen', None):
+                try:
+                    if s.last_seen.timestamp() < cutoff:
+                        continue
+                except Exception:
+                    pass
+            else:
+                continue
+            out.append(s)
+        return out
+    except Exception:
+        return []
+
+
 def enforce_ip_limits(commit=True):
+    """IP-Limit نرم (Option B): حساسیت کم، فقط ترافیک همزمان، بدون قطع کانفیگ.
+
+    - پنجره 5 دقیقه همزمان (نه 15 دقیقه تاریخی)
+    - نیاز به 3 تخلف متوالی (~45 ثانیه) قبل از هر اقدام
+    - cooldown 30 دقیقه بعد از هر kick
+    - action=log => فقط لاگ
+    - action=disable (قدیمی) => soft-kick: قدیمی‌ترین نشست IP اضافه kick می‌شود، یوزر disable نمی‌شود
+    """
     settings = ip_limit_settings()
     if not settings.get('enabled'):
         return 0
-    stopped = []
+    kicked = 0
+    now_ts = int(time.time())
     for user in VpnUser.query.all():
         if not user.enabled:
             continue
         limit = get_user_ip_limit(user)
         if limit <= 0:
             continue
-        count = active_ip_count_for_user(user)
-        if count > limit:
-            detail = f'ip_limit:{count}>{limit}'
-            db.session.add(ActivityLog(actor='system', action='ip_limit_exceeded', target=user.username, details=detail))
-            if settings.get('action') == 'disable':
-                user.enabled = False
-                user.disabled_reason = 'ip_limit'
-                stopped.append(user.username)
-    if stopped:
-        db.session.commit()
+        count = active_ip_count_for_user(user, minutes=5)
+        vkey = f'ip_limit_violation_{user.id}'
+        ckey = f'ip_limit_cooldown_{user.id}'
+        last_kick = 0
         try:
-            sync_all_users(restart=True)
+            last_kick = int(get_setting(ckey, '0') or 0)
+        except Exception:
+            last_kick = 0
+        # داخل cooldown هستیم -> فقط لاگ، بدون kick مجدد
+        in_cooldown = (now_ts - last_kick) < 1800  # 30 min
+        if count > limit:
+            # افزایش شمارنده تخلف متوالی
+            try:
+                vio = int(get_setting(vkey, '0') or 0) + 1
+            except Exception:
+                vio = 1
+            set_setting(vkey, str(vio))
+            detail = f'ip_limit:{count}>{limit} vio={vio} action={settings.get("action")}'
+            db.session.add(ActivityLog(actor='system', action='ip_limit_exceeded', target=user.username, details=detail))
+            # فقط لاگ اگر هنوز به آستانه نرسیده یا در cooldown هستیم
+            if settings.get('action') == 'log' or vio < 3 or in_cooldown:
+                continue
+            # soft-kick: قدیمی‌ترین نشست‌های اضافه را غیرفعال کن (نه کل یوزر)
+            sessions = _active_sessions_for_user(user, minutes=5)
+            # تعداد اضافه
+            excess = count - limit
+            to_kick = sessions[:max(1, excess)] if sessions else []
+            for sess in to_kick:
+                sess.active = False
+                db.session.add(sess)
+                db.session.add(ActivityLog(actor='system', action='ip_limit_kick', target=user.username, details=f'kick {sess.protocol} {sess.remote_ip} count={count}>{limit}'))
+            set_setting(vkey, '0')
+            set_setting(ckey, str(now_ts))
+            kicked += len(to_kick)
+        else:
+            # سالم -> ریست شمارنده تخلف
+            if get_setting(vkey, ''):
+                set_setting(vkey, '0')
+    if kicked:
+        try:
+            db.session.commit()
         except Exception as exc:
             _put_setting_raw('ip_limit_sync_error', str(exc)[-500:])
+            try:
+                db.session.commit()
+            except Exception:
+                pass
     if commit:
-        db.session.commit()
-    return len(stopped)
+        try:
+            db.session.commit()
+        except Exception:
+            pass
+    return kicked
 
 
 def subscription_theme_settings():

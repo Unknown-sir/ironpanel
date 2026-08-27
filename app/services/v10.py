@@ -186,8 +186,8 @@ def _refresh_xray_sessions():
     email_re = re.compile(r'email:\s*([^\s\]]+)')
     latest = {}
     now = datetime.utcnow()
-    cutoff = now - timedelta(minutes=20)
-    # Newest lines are at the bottom; first hit per email wins.
+    cutoff = now - timedelta(minutes=5)
+    # Newest lines are at the bottom; first hit per email wins. 5min = real concurrent only.
     for line in reversed(lines):
         m = email_re.search(line)
         if not m:
@@ -228,7 +228,7 @@ def _refresh_hysteria2_sessions():
     if not users:
         return 0
     p = run_cmd(['bash', '-lc',
-                 "journalctl -u hysteria-server -u hysteria2 --since '-15 min' --no-pager 2>/dev/null | tail -n 500 || true"], timeout=10)
+                 "journalctl -u hysteria-server -u hysteria2 --since '-6 min' --no-pager 2>/dev/null | tail -n 300 || true"], timeout=10)
     lines = (p.stdout or '').splitlines()
     ip_re = re.compile(r'\b(\d{1,3}(?:\.\d{1,3}){3}):\d+\b')
     latest = {}
@@ -280,8 +280,8 @@ def _refresh_wireguard_sessions():
             ts = 0
         if ts <= 0:
             continue
-        # WireGuard refreshes handshakes roughly every few minutes while active.
-        if datetime.utcfromtimestamp(ts) < now - timedelta(minutes=10):
+        # WireGuard sends handshake every ~2min while traffic flows; 4min = real online only.
+        if datetime.utcfromtimestamp(ts) < now - timedelta(minutes=4):
             continue
         remote_ip = endpoint.split(':')[0].strip('[]') if endpoint and endpoint != '(none)' else ''
         if _upsert_online(user.username, 'wireguard', remote_ip, datetime.utcfromtimestamp(ts), allowed_ips):
@@ -302,7 +302,7 @@ def _refresh_wireguard_sessions():
                 if not user:
                     continue
                 ts = int(ps[1])
-                if ts > 0 and datetime.utcfromtimestamp(ts) > now - timedelta(minutes=10):
+                if ts > 0 and datetime.utcfromtimestamp(ts) > now - timedelta(minutes=4):
                     epv = endpoints.get(ps[0], '')
                     remote_ip = epv.split(':')[0].strip('[]') if epv and epv != '(none)' else ''
                     if _upsert_online(user.username, 'wireguard', remote_ip, datetime.utcfromtimestamp(ts)):
@@ -329,17 +329,9 @@ def _refresh_ocserv_sessions():
     """
     count = 0
     now = datetime.utcnow()
-    # Hook-written sessions are the most reliable signal. Keep them fresh while
-    # they are still inside the active window so they are included in the count.
-    try:
-        active_hook_rows = OnlineSession.query.filter_by(protocol='ocserv', active=True).filter(OnlineSession.last_seen > now - timedelta(minutes=12)).all()
-        for row in active_hook_rows:
-            row.last_seen = now
-            db.session.add(row)
-            count += 1
-    except Exception:
-        pass
-
+    # NOTE: no blind hook refresh any more — old hook rows without occtl confirmation
+    # caused massive over-count (every disconnect stayed 12min as "online").
+    # Only occtl-confirmed users are counted; hooks are fallback only when occtl fails.
     raw_outputs = []
     commands = [
         'occtl -j show users 2>/dev/null || true',
@@ -437,14 +429,14 @@ def _refresh_l2tp_sessions():
 
 
 def refresh_online_sessions():
-    """Refresh and return online VPN sessions across OpenVPN, WireGuard, Cisco/Ocserv and L2TP.
+    """Refresh and return online VPN sessions — only truly concurrent traffic.
 
-    Cisco/Ocserv is refreshed from both live occtl output and daemon hooks so
-    AnyConnect users remain visible even on ocserv builds with different occtl formats.
+    Stale window is 5 min (not 12) so disconnected users do not stay as "online".
+    WireGuard 4min, Xray/Hysteria 5min, OpenVPN from status.log is authoritative.
     """
     now = datetime.utcnow()
-    # Mark sessions stale first; live detectors below will reactivate/update them.
-    OnlineSession.query.filter(OnlineSession.last_seen < now - timedelta(minutes=12)).update({'active': False})
+    # 5 min = real concurrent. 12min caused 2-3x overcount on panels.
+    OnlineSession.query.filter(OnlineSession.last_seen < now - timedelta(minutes=5)).update({'active': False})
     errors = []
     for name, fn in (
         ('openvpn', _refresh_openvpn_sessions),
