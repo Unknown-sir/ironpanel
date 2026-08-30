@@ -43,6 +43,28 @@ def set_setting(key, value):
 def _owner_value():
     return None if SALES_BOT_OWNER_ID <= 0 else SALES_BOT_OWNER_ID
 
+
+def _owner_volume_gate():
+    """v2.0.0: Dargahno volume gate for reseller (owner>0) sales bots. While the
+    reseller panel has no remaining volume the bot must NOT create new users or
+    renew/charge existing services. The main admin (owner 0) is never gated."""
+    owner = _owner_value()
+    if not owner:
+        return None
+    reseller = Admin.query.get(owner)
+    if not reseller:
+        return None
+    if not bool(getattr(reseller, 'enabled', True)):
+        return 'پنل نمایندگی شما توسط مدیریت متوقف شده است؛ برای ادامه فروش با مدیر اصلی در تماس باشید.'
+    quota_gb = int(getattr(reseller, 'traffic_quota_gb', 0) or 0)
+    if quota_gb <= 0:
+        return None  # unlimited volume
+    ledger_bytes = int(getattr(reseller, 'reseller_used_bytes', 0) or 0)
+    remaining_gb = float(quota_gb) - ledger_bytes / (1024 * 1024 * 1024)
+    if remaining_gb <= 0:
+        return 'حجم فروش پنل نمایندگی شما تمام شده است؛ امکان ساخت یا تمدید/شارژ سرویس توسط ربات تا خرید حجم مسدود است. از بخش «حجم و شارژ» در پنل نمایندگی حجم بخرید.'
+    return None
+
 def _plan_query():
     return SalesBotPlan.query.filter_by(owner_id=_owner_value())
 
@@ -276,6 +298,9 @@ def _order_owner_value(order):
     return None if oid <= 0 else oid
 
 def _create_vpn_user_for_order(order, name_prefix=None):
+    gate_msg = _owner_volume_gate()
+    if gate_msg:
+        raise RuntimeError(gate_msg)
     owner_value = _order_owner_value(order)
     plan = SalesBotPlan.query.filter_by(id=order.plan_id, owner_id=owner_value).first()
     if not plan:
@@ -312,6 +337,9 @@ def _create_vpn_user_for_order(order, name_prefix=None):
 
 
 def _renew_vpn_user_for_order(order):
+    gate_msg = _owner_volume_gate()
+    if gate_msg:
+        raise RuntimeError(gate_msg)
     owner_value = _order_owner_value(order)
     plan = SalesBotPlan.query.filter_by(id=order.plan_id, owner_id=owner_value).first()
     if not plan or not order.vpn_user_id:
@@ -346,6 +374,9 @@ def _create_trial(tg_user):
         return None, 'شما قبلاً تست رایگان دریافت کرده‌اید.'
     if _setting('sales_bot_trial_enabled', '1') != '1':
         return None, 'تست رایگان در حال حاضر غیرفعال است.'
+    gate_msg = _owner_volume_gate()
+    if gate_msg:
+        return None, gate_msg
     days = int(_setting('sales_bot_trial_days', '1') or 1)
     traffic = int(_setting('sales_bot_trial_traffic_gb', '1') or 1)
     username = f'trial{tg_user.id}_{secrets.token_hex(2)}'[:78]
@@ -619,6 +650,10 @@ async def callbacks(update, context):
             await _show_plans(q, xray_only=True)
             return
         if data.startswith('buy:'):
+            gate_msg = _owner_volume_gate()
+            if gate_msg:
+                await q.edit_message_text(gate_msg, reply_markup=InlineKeyboardMarkup([back_button('home')]))
+                return
             set_setting(f'sales_bot_state_{user.id}', '')
             p = _plan_query().filter_by(id=int(data.split(':', 1)[1])).first()
             if not p or not p.active:
@@ -700,6 +735,10 @@ async def callbacks(update, context):
             await q.edit_message_text('پلن تمدید را انتخاب کنید:', reply_markup=InlineKeyboardMarkup(kb))
             return
         if data.startswith('renewplan:'):
+            gate_msg = _owner_volume_gate()
+            if gate_msg:
+                await q.edit_message_text(gate_msg, reply_markup=InlineKeyboardMarkup([back_button('renew')]))
+                return
             set_setting(f'sales_bot_state_{user.id}', '')
             _, uid, pid = data.split(':')
             p = _plan_query().filter_by(id=int(pid)).first()
@@ -1138,6 +1177,10 @@ async def receipt_handler(update, context):
                 parts = text.split()
                 if len(parts) < 2:
                     await update.message.reply_text('فرمت درست: TelegramID PlanID Count [Name]')
+                    return
+                gate_msg = _owner_volume_gate()
+                if gate_msg:
+                    await update.message.reply_text(gate_msg, reply_markup=main_keyboard(True))
                     return
                 tg, pid = parts[0], int(parts[1]); count = int(parts[2]) if len(parts) > 2 else 1
                 custom_prefix = ' '.join(parts[3:]).strip() if len(parts) > 3 else ''

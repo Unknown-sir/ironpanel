@@ -81,6 +81,14 @@ DEFAULT_SETTINGS = {
     'sales_bot_trial_days': '1',
     'sales_bot_trial_traffic_gb': '1',
     'sales_bot_currency': 'IRT',
+    # v2.0.0: Dargahno online payment gateway for reseller volume top-ups.
+    'dargahno_enabled': '0',
+    'dargahno_username': '',
+    'dargahno_password': '',
+    'dargahno_merchant_id': '',
+    'dargahno_price_per_gb': '20000',
+    'dargahno_min_purchase': '50000',
+    'dargahno_support_id': '',
     # v16: full Xray Core integration. Xray is available for every license type.
     'xray_enabled': '1',
     'xray_profile_type': 'vless-reality',

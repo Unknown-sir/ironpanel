@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+{% block heading %}حجم و شارژ نماینده{% endblock %}
+{% block content %}
+<section class="clean-hero">
+  <div>
+    <p class="eyebrow">RESELLER STORAGE</p>
+    <h3>حجم پنل نمایندگی و افزایش (درگاه پرداخت)</h3>
+    <p>از اینجا لیمیت حجم، مصرف ثبت‌شده و حجم باقی‌مانده پنل نمایندگی خودت را می‌بینی و در صورت نیاز با پرداخت آنلاین حجم بیشتری خریداری می‌کنی. بعد از پرداخت، مبلغ بلافاصله و خودکار به حجم پنل اضافه می‌شود.</p>
+  </div>
+  <div class="clean-status-grid">
+    <div><span>لیمیت حجم</span><b>{{ stats.traffic_quota_gb if stats.traffic_quota_gb else '∞' }} GB</b></div>
+    <div><span>مصرف ثبت‌شده</span><b>{{ stats.used_gb }} GB</b></div>
+    <div><span>باقی‌مانده</span><b class="{{ 'off-text' if stats.remaining_gb is not none and stats.remaining_gb <= 0 else 'ok-text' }}">{{ stats.remaining_gb if stats.remaining_gb is not none else 'نامحدود' }} GB</b></div>
+    <div><span>تعداد کاربر</span><b>{{ stats.user_count }} / {{ stats.user_limit if stats.user_limit else '∞' }}</b></div>
+  </div>
+</section>
+
+<section class="clean-grid two">
+  <article class="card clean-card">
+    <div class="clean-card-head"><div><p class="eyebrow">GATEWAY TOP-UP</p><h3>خرید حجم از درگاه</h3></div><span class="pill">آنلاین</span></div>
+    {% if not gateway_ready %}
+      <div class="alert-box empty-state"><b>درگاه پرداخت هنوز در پنل اصلی فعال نشده است.</b><p class="muted">برای فعال‌شدن خرید آنلاین حجم، با مدیر اصلی ({{ 'مدیر اصلی' if is_admin else 'مدیر' }}) هماهنگ کن تا در بخش «درگاه پرداخت» تنظیمات را تکمیل کند.</p></div>
+    {% else %}
+      <form method="post" class="clean-form">
+        <label>مقدار حجم (گیگابایت)<input type="number" name="gb_amount" id="gb_input" min="1" step="1" value="10" required></label>
+        <label>قیمت هر گیگ<small class="muted">{{ "{:,}".format(price_per_gb) }} ریال — مبلغ نهایی به‌صورت خودکار برای پرداخت از درگاه محاسبه می‌شود.</small></label>
+        <small class="muted" id="min_hint">حداقل مبلغ قابل پرداخت: {{ "{:,}".format(min_purchase) }} ریال</small>
+        <div class="bot-preview"><div><span>مبلغ قابل پرداخت</span></div><b id="price_preview" style="font-size:22px;color:#7fffe7">—</b></div>
+        <button class="btn primary wide">پرداخت از درگاه و افزایش حجم</button>
+      </form>
+    {% endif %}
+  </article>
+
+  <article class="card clean-card">
+    <div class="clean-card-head"><div><p class="eyebrow">VOLUME STATUS</p><h3>وضعیت حجم</h3></div></div>
+    <div class="reseller-quota-cards">
+      <div><span>لیمیت حجم</span><b>{{ stats.traffic_quota_gb if stats.traffic_quota_gb else '∞' }} GB</b></div>
+      <div><span>مصرف ثبت‌شده</span><b>{{ stats.used_gb }} GB</b><small>مصرف واقعی ترافیک نماینده</small></div>
+      <div><span>باقی‌مانده</span><b>{{ stats.remaining_gb if stats.remaining_gb is not none else '∞' }} GB</b></div>
+    </div>
+    <p class="muted" style="line-height:1.9">هر بار که سرویس‌های زیرمجموعه این پنل ترافیک مصرف کنند، از همین سقف کسر می‌شود. اگر حجم تمام شود، پنل به‌صورت خودکار متوقف و کاربران غیرفعال می‌شوند؛ با همین فرم زیر حجم بخر تا دوباره وصل شود.</p>
+    <p class="muted" style="line-height:1.9">پس از پرداخت موفق، حجم خریداری‌شده بلافاصله به لیمیت اضافه و در صورت توقف خودکار، پنل دوباره فعال می‌شود.</p>
+  </article>
+</section>
+
+<section class="card clean-card">
+  <div class="clean-card-head"><div><p class="eyebrow">PAYMENT HISTORY</p><h3>پرداخت‌های گذشته</h3></div></div>
+  {% if recent %}
+  <div class="table-wrap clean-table">
+    <table>
+      <thead><tr><th>فاکتور</th><th>حجم</th><th>مبلغ (ریال)</th><th>وضعیت</th><th>تاریخ</th></tr></thead>
+      <tbody>
+        {% for p in recent %}
+        <tr>
+          <td><code>{{ p.factor_number }}</code></td>
+          <td>{{ p.gb_amount }} GB</td>
+          <td>{{ "{:,}".format(p.amount) }}</td>
+          <td><span class="badge {{ 'ok' if p.status == 'success' else ('warn' if p.status == 'pending' else 'off') }}">{{ {'success':'موفق','pending':'در انتظار','failed':'ناموفق','canceled':'لغو شده'}.get(p.status, p.status) }}</span>{% if p.error %}<small class="muted" style="display:block;margin-top:4px">{{ p.error[:120] }}</small>{% endif %}</td>
+          <td>{{ p.created_at.strftime('%Y-%m-%d %H:%M') if p.created_at else '-' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state"><b>هنوز پرداختی ثبت نشده است.</b><p class="muted">اولین خرید حجم را از فرم بالا انجام بده.</p></div>
+  {% endif %}
+</section>
+
+<script>
+(function(){
+  var gb = document.getElementById('gb_input');
+  var out = document.getElementById('price_preview');
+  var min = {{ min_purchase }};
+  var per = {{ price_per_gb }};
+  function render(){
+    var v = parseInt(gb && gb.value || '0', 10) || 0;
+    var price = v * per;
+    if(out){
+      out.textContent = price > 0 ? (price.toLocaleString('en-US') + ' ریال') : '—';
+      if(per && price < min && v > 0){ out.textContent = out.textContent + ' (کمتر از حداقل مبلغ)'; out.style.color='#fb7185'; } else { out.style.color='#7fffe7'; }
+    }
+  }
+  if(gb){ gb.addEventListener('input', render); render(); }
+})();
+</script>
+{% endblock %}

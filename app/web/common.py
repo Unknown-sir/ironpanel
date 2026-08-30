@@ -372,7 +372,7 @@ def enforce_license_features():
         'nodes': ['/nodes', '/cluster', '/v17/nodes'],
         'network': ['/firewall', '/dns', '/domains'],
         'billing': ['/billing', '/plans', '/wallet', '/invoices'],
-        'sales_bot': ['/sales-bot'],
+        'sales_bot': ['/sales-bot', '/reseller/bot'],
     }
     if current_user.is_authenticated and current_user.role == 'sub_admin' and not bool(getattr(current_user, 'enabled', True)):
         if path not in ('/logout',) and not path.startswith('/static/'):

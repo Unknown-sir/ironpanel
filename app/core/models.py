@@ -346,6 +346,22 @@ class LoginHistory(db.Model):
     reason = db.Column(db.String(120), default='')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+class GatewayPayment(db.Model):
+    # v2.0.0: Dargahno online gateway top-ups for reseller volume.
+    id = db.Column(db.Integer, primary_key=True)
+    provider = db.Column(db.String(40), default='dargahno')
+    reseller_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=True)
+    gb_amount = db.Column(db.Integer, default=0)
+    amount = db.Column(db.Float, default=0)          # gateway price in Rial for dargahno
+    currency = db.Column(db.String(10), default='IRT')
+    factor_number = db.Column(db.Integer, unique=True, nullable=False)
+    authority = db.Column(db.String(160), default='')
+    status = db.Column(db.String(30), default='pending')  # pending/success/failed/canceled
+    raw_response = db.Column(db.Text, default='')
+    error = db.Column(db.Text, default='')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
 class RecoveryCode(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     admin_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=False)

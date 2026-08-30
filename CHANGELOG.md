@@ -1,3 +1,13 @@
+# v2.0.0 - Dargahno Payment Gateway & Reseller Volume Top-ups
+
+- New Dargahno (درگاه نو) online payment gateway integration. The main admin configures the gateway (username/password, Merchant ID, price per GB in Rial, minimum purchase amount, support ID) under a new "Payment gateway" page (`/gateway`) and can run a live connection test. Gateway credentials/tokens are cached and never stored as plain settings beyond the existing AppSetting store.
+- New reseller "Volume & recharge" page (`/reseller/storage`): each reseller sees their volume limit, registered usage and remaining quota, and can buy extra volume online. After entering the requested GB the price is computed from the admin's price-per-GB, the customer is redirected to the gateway, and on a server-side verified payment the purchased volume is added to the reseller's quota immediately.
+- All payments are verified server-side with `POST /api/v2/transaction/check` before any volume is credited; the callback `status` parameter alone is never trusted. Ambiguous/unverifiable transactions stay "pending" and surface the support ID for follow-up.
+- New designed standalone payment pages: a success page showing factor number, amount and added GB, and a failure/undetermined page that shows the reference factor and the configured support ID.
+- New reseller "My sales bot" page (`/reseller/bot`): a reseller connects their own Telegram bot token (owner-scoped, isolated from the main admin bot) that serves only their own plan/customers.
+- Hard volume gate for reseller sales bots: a reseller's bot can no longer create a new user, renew/charge an existing service, create a free trial or free config once the reseller's volume is exhausted (or the reseller panel is disabled) - enforced inside `bot/main.py` at the user-creation/renewal level plus early UX checks in the buy/renew/trial/free-config flows. Buying volume re-enables the panel and unlocks the bot automatically.
+- A record of every gateway payment (factor number, authority, GB, Rial amount, status, raw gateway response) is kept in a new `GatewayPayment` model, visible to resellers (their own) and to the main admin (all).
+- Front-end: new nav entries for admin ("Payment gateway") and resellers ("Volume & recharge", "My sales bot"); CSS/JS cache-buster bumped to 2.0.0.
 # v19.10.31 - Admin-Only Language & Theme
 
 - Language and theme (light/dark) settings are now editable by the main admin only. Resellers/sub-admins can no longer change them: the `/appearance` route redirects non-main-admins and the topbar "Language & theme" button is hidden for resellers (it had been shown to every logged-in user, while the sidebar entry had always been admin-only).

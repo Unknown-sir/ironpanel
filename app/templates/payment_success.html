@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>پرداخت موفق — IronPanel</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <style>
+    .pay-wrap{min-height:100vh;display:grid;place-items:center;padding:20px;background:radial-gradient(circle at top left,#16345a 0,#090d16 38%,#060913 100%);color:#edf4ff}
+    .pay-card{width:min(520px,100%);padding:34px;border-radius:26px;background:rgba(15,23,42,.92);border:1px solid rgba(52,211,153,.35);box-shadow:0 24px 70px rgba(0,0,0,.4);text-align:center}
+    .pay-icon{width:76px;height:76px;margin:0 auto 18px;display:grid;place-items:center;border-radius:50%;background:rgba(52,211,153,.14);border:1px solid rgba(52,211,153,.4);font-size:40px}
+    .pay-card h1{margin:6px 0 8px;font-size:26px;color:#7fffe7}
+    .pay-card p{color:#b6c3d4;line-height:1.9;margin:0 0 6px}
+    .pay-meta{display:grid;gap:10px;margin:20px 0;text-align:right}
+    .pay-meta div{display:flex;justify-content:space-between;gap:12px;padding:11px 14px;border:1px solid rgba(148,163,184,.16);border-radius:14px;background:rgba(8,13,24,.4)}
+    .pay-meta span{color:#8fa0b8;font-size:13px}
+    .pay-meta b{direction:ltr;text-align:right;color:#d8e2ef}
+    .pay-btn{display:inline-flex;align-items:center;gap:8px;border:0;border-radius:14px;padding:13px 20px;background:linear-gradient(135deg,#22c55e,#0fd2ae);color:#02130a;font-weight:900;text-decoration:none;cursor:pointer}
+    .pay-btn.small{background:rgba(96,165,250,.16);color:#bfdbfe;border:1px solid rgba(96,165,250,.3);font-size:13px;padding:10px 16px}
+  </style>
+</head>
+<body>
+  <div class="pay-wrap">
+    <div class="pay-card">
+      <div class="pay-icon">✅</div>
+      <p class="eyebrow" style="margin:0;color:#34d399">PAYMENT VERIFIED</p>
+      <h1>پرداخت با موفقیت انجام شد</h1>
+      <p>تراکنش توسط درگاه تایید شده و حجم خریداری‌شده به پنل نمایندگی اضافه شد.</p>
+      <div class="pay-meta">
+        <div><span>شماره فاکتور</span><b>#{{ pay.factor_number }}</b></div>
+        <div><span>مبلغ پرداخت‌شده</span><b>{{ "{:,}".format(pay.amount) }} ریال</b></div>
+        <div><span>حجم اضافه‌شده</span><b>{{ pay.gb_amount }} گیگابایت</b></div>
+        {% if reseller_username %}<div><span>پنل نمایندگی</span><b>{{ reseller_username }}</b></div>{% endif %}
+        <div><span>تاریخ</span><b>{{ pay.updated_at.strftime('%Y-%m-%d %H:%M') if pay.updated_at else pay.created_at.strftime('%Y-%m-%d %H:%M') if pay.created_at else '-' }}</b></div>
+      </div>
+      {% if current_user.is_authenticated %}
+      <a class="pay-btn" href="/reseller/storage">بازگشت به پنل حجم</a>
+      {% else %}
+      <a class="pay-btn" href="/">ورود به پنل نمایندگی</a>
+      {% endif %}
+    </div>
+  </div>
+</body>
+</html>
