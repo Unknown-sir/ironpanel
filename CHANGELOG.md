@@ -1,3 +1,9 @@
+# v2.0.1 - Gateway Connection Hardening & Full UI Language Support
+
+- Connection to Dargahno is more resilient: HTTP timeout raised to 45s with up to 3 attempts (a Cloudflare front can stall on a cold start), and the gateway API base is now configurable ("Gateway API base (optional)" on the gateway page) in case the account is served from a different host.
+- The gateway test error message now clearly explains what to verify (outbound HTTPS/DNS to the gateway host) instead of a bare connection error.
+- All new v2.0.0 pages now localize completely: gateway, reseller storage, reseller sales bot and both standalone payment pages show Persian text in the Persian theme and full English text in any other language (dynamic lang/dir attributes included), instead of hard-coded Persian strings.
+- Small English labels remain for brand/technical terms (Merchant ID, Bot Token, Authority, PAYMENT VERIFIED).
 # v2.0.0 - Dargahno Payment Gateway & Reseller Volume Top-ups
 
 - New Dargahno (درگاه نو) online payment gateway integration. The main admin configures the gateway (username/password, Merchant ID, price per GB in Rial, minimum purchase amount, support ID) under a new "Payment gateway" page (`/gateway`) and can run a live connection test. Gateway credentials/tokens are cached and never stored as plain settings beyond the existing AppSetting store.

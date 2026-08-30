@@ -1,50 +1,56 @@
 {% extends 'base.html' %}
-{% block heading %}اتصال ربات فروش{% endblock %}
+{% block heading %}{{ ui('اتصال ربات فروش','Connect sales bot') }}{% endblock %}
 {% block content %}
 <section class="clean-hero">
   <div>
     <p class="eyebrow">RESELLER SALES BOT</p>
-    <h3>ربات فروش اختصاصی نمایندگی تو</h3>
-    <p>اینجا می‌توانی یک ربات تلگرامی بسازی و به پنل نمایندگی خودت وصل کنی. این ربات فقط مخصوص مشتری‌های خودِ توست و تنها با کاربران و پلن‌های زیرمجموعه همین نمایندگی کار می‌کند؛ هیچ دسترسی‌ای به سایر نماینده‌ها یا پنل اصلی ندارد.</p>
+    <h3>{{ ui('ربات فروش اختصاصی نمایندگی تو','Your dedicated reseller sales bot') }}</h3>
+    <p>{{ ui('اینجا می‌توانی یک ربات تلگرامی بسازی و به پنل نمایندگی خودت وصل کنی. این ربات فقط مخصوص مشتری‌های خودِ توست و تنها با کاربران و پلن‌های زیرمجموعه همین نمایندگی کار می‌کند؛ هیچ دسترسی‌ای به سایر نماینده‌ها یا پنل اصلی ندارد.','Here you can create a Telegram bot and connect it to your reseller panel. The bot serves only your own customers and works only with the users and plans under this reseller account; it has no access to other resellers or the main panel.') }}</p>
   </div>
   <div class="clean-status-grid">
-    <div><span>وضعیت ربات</span><b class="{{ 'ok-text' if settings.get('sales_bot_enabled') == '1' else 'off-text' }}">{{ 'فعال' if settings.get('sales_bot_enabled') == '1' else 'غیرفعال' }}</b></div>
-    <div><span>حجم باقی‌مانده</span><b class="{{ 'off-text' if stats.remaining_gb is not none and stats.remaining_gb <= 0 else 'ok-text' }}">{{ stats.remaining_gb if stats.remaining_gb is not none else 'نامحدود' }} GB</b></div>
-    <div><span>پلن‌ها</span><b>{{ plans|length }}</b></div>
-    <div><span>سفارش‌ها</span><b>{{ orders }}</b></div>
+    <div><span>{{ ui('وضعیت ربات','Bot status') }}</span><b class="{{ 'ok-text' if settings.get('sales_bot_enabled') == '1' else 'off-text' }}">{{ ui('فعال','Enabled') if settings.get('sales_bot_enabled') == '1' else ui('غیرفعال','Disabled') }}</b></div>
+    <div><span>{{ ui('حجم باقی‌مانده','Remaining volume') }}</span><b class="{{ 'off-text' if stats.remaining_gb is not none and stats.remaining_gb <= 0 else 'ok-text' }}">{{ stats.remaining_gb if stats.remaining_gb is not none else ui('نامحدود','Unlimited') }} GB</b></div>
+    <div><span>{{ ui('پلن‌ها','Plans') }}</span><b>{{ plans|length }}</b></div>
+    <div><span>{{ ui('سفارش‌ها','Orders') }}</span><b>{{ orders }}</b></div>
   </div>
 </section>
 
 <section class="clean-grid two">
   <article class="card clean-card">
-    <div class="clean-card-head"><div><p class="eyebrow">BOT CONNECTION</p><h3>اتصال ربات (BotFather)</h3></div><span class="pill">توکن</span></div>
+    <div class="clean-card-head"><div><p class="eyebrow">BOT CONNECTION</p><h3>{{ ui('اتصال ربات (BotFather)','Connect your bot (BotFather)') }}</h3></div><span class="pill">{{ ui('توکن','Token') }}</span></div>
     <div class="help-steps" style="margin-bottom:14px">
-      <div><b>1</b><span>در تلگرام به <code>@BotFather</code> پیام بده و دستور <code>/newbot</code> را بزن و یک نام دلخواه بده.</span></div>
-      <div><b>2</b><span>توکنی که BotFather تحویل می‌دهد (شبیه <code>123456789:ABC...</code>) را همین‌جا کپی کن.</span></div>
-      <div><b>3</b><span>همین‌جا ذخیره کن؛ ربات خودش بالا می‌آید و فقط مشتری‌های خودت به آن دسترسی دارند.</span></div>
+      <div>{% if is_fa %}<span>در تلگرام به <code>@BotFather</code> پیام بده و دستور <code>/newbot</code> را بزن و یک نام دلخواه بده.</span>{% else %}<span>Message <code>@BotFather</code> on Telegram, run <code>/newbot</code> and choose any name.</span>{% endif %}</div>
+      <div>{% if is_fa %}<span>توکنی که BotFather تحویل می‌دهد (شبیه <code>123456789:ABC...</code>) را همین‌جا کپی کن.</span>{% else %}<span>Copy the token BotFather gives you (like <code>123456789:ABC...</code>) here.</span>{% endif %}</div>
+      <div>{% if is_fa %}<span>همین‌جا ذخیره کن؛ ربات خودش بالا می‌آید و فقط مشتری‌های خودت به آن دسترسی دارند.</span>{% else %}<span>Save it here; the bot starts by itself and only your own customers can use it.</span>{% endif %}</div>
     </div>
     <form method="post" class="clean-form">
       <input type="hidden" name="action" value="connect">
-      <label class="switch-row"><input type="checkbox" name="sales_bot_enabled" value="1" {% if settings.get('sales_bot_enabled') == '1' %}checked{% endif %}><span>ربات فروش من فعال باشد</span></label>
+      <label class="switch-row"><input type="checkbox" name="sales_bot_enabled" value="1" {% if settings.get('sales_bot_enabled') == '1' %}checked{% endif %}><span>{{ ui('ربات فروش من فعال باشد','Enable my sales bot') }}</span></label>
       <label>Bot Token<input name="sales_bot_token" placeholder="123456789:ABC..." value="{{ settings.get('sales_bot_token','') }}" autocomplete="off" dir="ltr"></label>
-      <button class="btn primary wide">ذخیره و ری‌استارت ربات</button>
+      <button class="btn primary wide">{{ ui('ذخیره و ری‌استارت ربات','Save & restart bot') }}</button>
     </form>
   </article>
 
   <article class="card clean-card">
-    <div class="clean-card-head"><div><p class="eyebrow">RULES</p><h3>قانون مهم: سقف حجم</h3></div><span class="pill soft">مهم</span></div>
-    <p style="line-height:1.9;color:#d8e2ef">ربات فروش تو فقط تا سقف حجم پنل نمایندگی‌ات می‌تواند سرویس جدید بسازد یا سرویس مشتری را تمدید/شارژ کند:</p>
+    <div class="clean-card-head"><div><p class="eyebrow">RULES</p><h3>{{ ui('قانون مهم: سقف حجم','Important rule: volume limit') }}</h3></div><span class="pill soft">{{ ui('مهم','Important') }}</span></div>
+    <p style="line-height:1.9;color:#d8e2ef">{{ ui('ربات فروش تو فقط تا سقف حجم پنل نمایندگی‌ات می‌تواند سرویس جدید بسازد یا سرویس مشتری را تمدید/شارژ کند:','Your sales bot can create a new service or renew/charge a customer service only up to the volume limit of your reseller panel:') }}</p>
     <div class="reseller-quota-cards">
-      <div><span>لیمیت حجم</span><b>{{ stats.traffic_quota_gb if stats.traffic_quota_gb else '∞' }} GB</b></div>
-      <div><span>مصرف ثبت‌شده</span><b>{{ stats.used_gb }} GB</b></div>
-      <div><span>باقی‌مانده</span><b>{{ stats.remaining_gb if stats.remaining_gb is not none else '∞' }} GB</b></div>
+      <div><span>{{ ui('لیمیت حجم','Volume limit') }}</span><b>{{ stats.traffic_quota_gb if stats.traffic_quota_gb else ui('نامحدود','Unlimited') }} GB</b></div>
+      <div><span>{{ ui('مصرف ثبت‌شده','Registered usage') }}</span><b>{{ stats.used_gb }} GB</b></div>
+      <div><span>{{ ui('باقی‌مانده','Remaining') }}</span><b>{{ stats.remaining_gb if stats.remaining_gb is not none else ui('نامحدود','Unlimited') }} GB</b></div>
     </div>
     <ul style="line-height:2;color:#b6c3d4;padding-inline-start:18px">
+      {% if is_fa %}
       <li>اگر حجم پنل تمام شود، ربات <b>نمی‌تواند</b> سرویس جدید بسازد و هم‌چنین <b>نمی‌تواند</b> سرویس کسی را تمدید یا شارژ کند؛ این کار به‌صورت خودکار مسدود می‌شود.</li>
       <li>کیف پول خودِ مشتری (خرید از ربات) مستقل است و فقط با تأیید تو شارژ می‌شود.</li>
       <li>برای ادامه فروش، کافی است از بخش «حجم و شارژ» در همین منو حجم بیشتری بخری.</li>
+      {% else %}
+      <li>When your volume runs out, the bot <b>cannot</b> create a new service and <b>cannot</b> renew or charge any customer service; this is blocked automatically.</li>
+      <li>The customer's own wallet (purchases from the bot) is independent and is only charged with your approval.</li>
+      <li>To keep selling, buy more volume from the "Volume & recharge" section in this menu.</li>
+      {% endif %}
     </ul>
-    <a class="btn ghost wide" href="/sales-bot">مدیریت کامل ربات (پلن‌ها، پیام‌ها، سفارش‌ها)</a>
+    <a class="btn ghost wide" href="/sales-bot">{{ ui('مدیریت کامل ربات (پلن‌ها، پیام‌ها، سفارش‌ها)','Full bot management (plans, messages, orders)') }}</a>
   </article>
 </section>
 {% endblock %}

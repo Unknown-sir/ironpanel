@@ -1,9 +1,11 @@
+{% set _lang = current_language() %}
+{% set _is_fa = _lang.lower().startswith('fa') %}
 <!doctype html>
-<html lang="fa" dir="rtl">
+<html lang="{{ _lang }}" dir="{{ language_dir() }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>پرداخت ناتمام — IronPanel</title>
+  <title>{{ ui('پرداخت ناتمام — IronPanel','Incomplete payment — IronPanel') }}</title>
   <link rel="stylesheet" href="/static/css/style.css">
   <style>
     .pay-wrap{min-height:100vh;display:grid;place-items:center;padding:20px;background:radial-gradient(circle at top left,#3a1616 0,#090d16 40%,#060913 100%);color:#edf4ff}
@@ -26,23 +28,23 @@
     <div class="pay-card">
       <div class="pay-icon">⚠️</div>
       <p class="eyebrow" style="margin:0;color:#fb7185">PAYMENT NOT CONFIRMED</p>
-      <h1>{{ title or ('وضعیت پرداخت هنوز قطعی نیست' if pending else 'پرداخت انجام نشد') }}</h1>
-      <p>{{ message or ('پرداخت توسط شما تأیید یا تکمیل نشد؛ در نتیجه حجم خریداری، به پنل اضافه نشد.' if not pending else 'تراکنش با خطای موقت مواجه شد.') }}</p>
+      <h1>{{ title or (ui('وضعیت پرداخت هنوز قطعی نیست','The payment is not confirmed yet') if pending else ui('پرداخت انجام نشد','Payment not completed')) }}</h1>
+      <p>{{ message or (ui('پرداخت توسط شما تأیید یا تکمیل نشد؛ در نتیجه حجم خریداری، به پنل اضافه نشد.','The payment was not confirmed or completed by you, so the purchased volume was not added to your panel.') if not pending else ui('تراکنش با خطای موقت مواجه شد.','The transaction is facing a temporary error.')) }}</p>
       {% if reference or amount %}
       <div class="pay-meta">
-        {% if reference %}<div><span>شماره فاکتور</span><b>#{{ reference }}</b></div>{% endif %}
-        {% if amount %}<div><span>مبلغ</span><b>{{ "{:,}".format(amount) }} ریال</b></div>{% endif %}
-        {% if reseller_username %}<div><span>پنل نمایندگی</span><b>{{ reseller_username }}</b></div>{% endif %}
+        {% if reference %}<div><span>{{ ui('شماره فاکتور','Invoice number') }}</span><b>#{{ reference }}</b></div>{% endif %}
+        {% if amount %}<div><span>{{ ui('مبلغ','Amount') }}</span><b>{{ "{:,}".format(amount) }} {{ ui('ریال','Rial') }}</b></div>{% endif %}
+        {% if reseller_username %}<div><span>{{ ui('پنل نمایندگی','Reseller panel') }}</span><b>{{ reseller_username }}</b></div>{% endif %}
       </div>
       {% endif %}
       {% if support_id %}
-      <div class="pay-support">🛟 شناسه پیگیری: {{ reference if reference else pay.factor_number if pay else '-' }} — برای بررسی‌های بیشتر با پشتیبانی در تماس باش:<br><b>{{ support_id }}</b></div>
+      <div class="pay-support">🛟 {{ ui('شناسه پیگیری','Tracking ID') }}: {{ reference if reference else pay.factor_number if pay else '-' }} — {{ ui('برای بررسی‌های بیشتر با پشتیبانی در تماس باش','Contact support for further checks') }}:<br><b>{{ support_id }}</b></div>
       {% endif %}
       <div class="pay-actions">
         {% if current_user.is_authenticated %}
-        <a class="pay-btn" href="/reseller/storage">بازگشت به پنل حجم</a>
+        <a class="pay-btn" href="/reseller/storage">{{ ui('بازگشت به پنل حجم','Back to volume panel') }}</a>
         {% else %}
-        <a class="pay-btn ghost" href="/">ورود به پنل نمایندگی</a>
+        <a class="pay-btn ghost" href="/">{{ ui('ورود به پنل نمایندگی','Login to reseller panel') }}</a>
         {% endif %}
       </div>
     </div>

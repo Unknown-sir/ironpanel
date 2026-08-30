@@ -22,6 +22,7 @@ SETTING_KEYS = [
     'dargahno_price_per_gb',
     'dargahno_min_purchase',
     'dargahno_support_id',
+    'dargahno_api_base',
 ]
 
 DEFAULT_VALUES = {
@@ -32,6 +33,7 @@ DEFAULT_VALUES = {
     'dargahno_price_per_gb': '20000',
     'dargahno_min_purchase': '50000',
     'dargahno_support_id': '',
+    'dargahno_api_base': 'https://dargahno.net',
 }
 
 TOKEN_KEY = 'dargahno_access_token'
@@ -53,6 +55,28 @@ def gateway_settings() -> dict:
         out[key] = get_setting(key, DEFAULT_VALUES.get(key, ''))
     out['dargahno_password'] = get_setting('dargahno_password', '')
     return out
+
+
+def api_base() -> str:
+    s = gateway_settings()
+    base = (s.get('dargahno_api_base') or '').strip()
+    if base.startswith(('http://', 'https://')):
+        return base.rstrip('/')
+    return API_BASE
+
+
+def _http_post(url, *, timeout=45, tries=3, backoff=1.0, **kwargs):
+    """POST with a longer timeout and a few quick retries. A production server
+    behind Cloudflare can stall on the first attempt after a cold start."""
+    last = None
+    for attempt in range(int(tries)):
+        try:
+            return requests.post(url, timeout=timeout, **kwargs)
+        except requests.RequestException as exc:
+            last = exc
+            if attempt < int(tries) - 1:
+                time.sleep(float(backoff))
+    raise last
 
 
 def gateway_configured() -> bool:
@@ -139,6 +163,8 @@ def save_gateway_settings(form: dict) -> list:
     set_setting('dargahno_price_per_gb', str(price))
     set_setting('dargahno_min_purchase', str(minimum))
     set_setting('dargahno_support_id', (form.get('dargahno_support_id') or '').strip())
+    api = (form.get('dargahno_api_base') or '').strip().rstrip('/')
+    set_setting('dargahno_api_base', api if api.startswith(('http://', 'https://')) else DEFAULT_VALUES['dargahno_api_base'])
     # Credentials/token may have changed; reset the cached token.
     clear_cached_token()
     db.session.commit()
@@ -165,14 +191,13 @@ def _login() -> tuple:
     # v3 form login (OAuth2 password flow) documented in the OpenAPI spec.
     payload = {'grant_type': 'password', 'username': username, 'password': password, 'scope': ''}
     try:
-        resp = requests.post(
-            f'{API_BASE}/api/v3/auth/login',
+        resp = _http_post(
+            f'{api_base()}/api/v3/auth/login',
             data=payload,
             headers={'Accept': 'application/json'},
-            timeout=30,
         )
     except requests.RequestException as exc:
-        return None, f'ارتباط با درگاه برقرار نشد: {exc}'
+        return None, (f'درگاه نو از این سرور در دسترس نیست؛ خروجی HTTPS به {api_base()} (و DNS) را بررسی یا بعداً دوباره امتحان کنید. ({exc})')
     try:
         data = resp.json()
     except Exception:
@@ -263,14 +288,13 @@ def register_transaction(*, factor_number: int, price: int, callback_url: str = 
         if not token:
             return {'ok': False, 'message': 'دریافت توکن درگاه ناموفق بود.'}
     try:
-        resp = requests.post(
-            f'{API_BASE}/api/v2/transaction/register',
+        resp = _http_post(
+            f'{api_base()}/api/v2/transaction/register',
             json=body,
             headers=_auth_headers(),
-            timeout=30,
         )
     except requests.RequestException as exc:
-        return {'ok': False, 'message': f'ارتباط با درگاه برقرار نشد: {exc}'}
+        return {'ok': False, 'message': (f'درگاه نو از این سرور در دسترس نیست؛ خروجی HTTPS به {api_base()} را بررسی کنید. ({exc})')}
     try:
         data = resp.json()
     except Exception:
@@ -317,14 +341,13 @@ def check_transaction(authority: str, expected_price: int = None) -> dict:
     if expected_price is not None:
         body['new_price'] = str(int(expected_price))
     try:
-        resp = requests.post(
-            f'{API_BASE}/api/v2/transaction/check',
+        resp = _http_post(
+            f'{api_base()}/api/v2/transaction/check',
             json=body,
             headers=_auth_headers(),
-            timeout=30,
         )
     except requests.RequestException as exc:
-        return {'ok': False, 'success': False, 'message': f'ارتباط با درگاه برقرار نشد: {exc}'}
+        return {'ok': False, 'success': False, 'message': (f'درگاه نو از این سرور در دسترس نیست؛ خروجی HTTPS به {api_base()} را بررسی کنید. ({exc})')}
     try:
         data = resp.json()
     except Exception:
