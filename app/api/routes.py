@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 import secrets
 from ..services.license import filter_protocols_for_license
 from ..services.password_policy import generate_user_password
-from ..services.speed_limit import normalize_speed_limit_mbps, apply_speed_limits_runtime
+from ..services.speed_limit import normalize_speed_limit_mbps, apply_speed_limits_runtime, cap_user_speed_for_owner
 from ..services.reseller_api import volume_gate_reason, create_block_reason
 
 api_bp = Blueprint('api', __name__)
@@ -67,7 +67,7 @@ def create_user():
                 protocol_permissions=','.join(protocols),
                 expires_at=datetime.utcnow()+timedelta(days=int(data.get('days') or 30)),
                 owner_id=(request.api_admin.id if request.api_admin and request.api_admin.role == 'sub_admin' else None),
-                speed_limit_mbps=normalize_speed_limit_mbps(data.get('speed_limit_mbps', 0)))
+                speed_limit_mbps=cap_user_speed_for_owner((request.api_admin.id if request.api_admin and request.api_admin.role == 'sub_admin' else None), data.get('speed_limit_mbps', 0)))
     u.set_password(password)
     db.session.add(u); db.session.commit(); sync_user(u)
     if int(getattr(u, 'speed_limit_mbps', 0) or 0) > 0: apply_speed_limits_runtime()
@@ -99,7 +99,7 @@ def api_user_speed_limit(user_id):
         reason = volume_gate_reason(request.api_admin)
         if reason:
             return jsonify(success=False, error='reseller blocked: '+reason), 403
-    u.speed_limit_mbps = normalize_speed_limit_mbps((request.json or {}).get('speed_limit_mbps', 0))
+    u.speed_limit_mbps = cap_user_speed_for_owner((request.api_admin.id if request.api_admin and request.api_admin.role == 'sub_admin' else None), (request.json or {}).get('speed_limit_mbps', 0))
     db.session.commit()
     ok, out = apply_speed_limits_runtime()
     log('api', 'user_speed_limit', u.username, f'{u.speed_limit_mbps}Mbps; applied={ok}')

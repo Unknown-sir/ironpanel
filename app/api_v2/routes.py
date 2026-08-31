@@ -8,7 +8,7 @@ from ..services.v10 import refresh_online_sessions, server_metrics
 import io, secrets
 from ..services.license import filter_protocols_for_license
 from ..services.password_policy import generate_user_password
-from ..services.speed_limit import normalize_speed_limit_mbps, apply_speed_limits_runtime
+from ..services.speed_limit import normalize_speed_limit_mbps, apply_speed_limits_runtime, cap_user_speed_for_owner
 from ..services.reseller_api import resolve_api_token, volume_gate_reason, create_block_reason, owner_user_query, can_manage_user, owner_protocols
 
 api_v2_bp=Blueprint('api_v2', __name__)
@@ -70,7 +70,7 @@ def create_user():
     protocols = owner_protocols(owner, protocols)
     if not protocols:
         return jsonify(success=False, error='at least one protocol is required'), 400
-    u=VpnUser(username=d.get('username') or 'user'+secrets.token_hex(3), owner_id=owner.id if owner else None, data_limit_mb=int(d.get('data_limit_mb') or 0), expires_at=None if days<=0 else datetime.utcnow()+timedelta(days=days), l2tp_password=d.get('l2tp_password') or password, cisco_password=d.get('cisco_password') or password, protocols=','.join(protocols), protocol_permissions=','.join(protocols), speed_limit_mbps=normalize_speed_limit_mbps(d.get('speed_limit_mbps', 0)))
+    u=VpnUser(username=d.get('username') or 'user'+secrets.token_hex(3), owner_id=owner.id if owner else None, data_limit_mb=int(d.get('data_limit_mb') or 0), expires_at=None if days<=0 else datetime.utcnow()+timedelta(days=days), l2tp_password=d.get('l2tp_password') or password, cisco_password=d.get('cisco_password') or password, protocols=','.join(protocols), protocol_permissions=','.join(protocols), speed_limit_mbps=cap_user_speed_for_owner(owner.id if owner else None, d.get('speed_limit_mbps', 0)))
     u.set_password(password); db.session.add(u); db.session.commit(); sync_user(u)
     if int(getattr(u, 'speed_limit_mbps', 0) or 0) > 0: apply_speed_limits_runtime()
     return jsonify(success=True, user=serialize_user(u), password=password)
@@ -88,7 +88,7 @@ def edit_user(user_id):
     for k in ['enabled','data_limit_mb','connection_limit','allowed_devices']:
         if k in d: setattr(u,k,d[k])
     if 'speed_limit_mbps' in d:
-        u.speed_limit_mbps = normalize_speed_limit_mbps(d.get('speed_limit_mbps'))
+        u.speed_limit_mbps = cap_user_speed_for_owner(owner.id if owner else None, d.get('speed_limit_mbps'))
     if 'protocols' in d:
         protocols = filter_protocols_for_license(normalize_user_protocols(d.get('protocols') or []))
         protocols = owner_protocols(owner, protocols)

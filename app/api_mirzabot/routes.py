@@ -29,6 +29,7 @@ from ..services.reseller_api import (
     create_block_reason,
     owner_protocols,
 )
+from ..services.speed_limit import cap_user_speed_for_owner
 
 api_mirzabot_bp = Blueprint('api_mirzabot', __name__)
 
@@ -182,6 +183,7 @@ def _action_create_user(data):
         cisco_password=password,
         owner_id=owner.id if owner else None,
         enabled=True,
+        speed_limit_mbps=cap_user_speed_for_owner(owner.id if owner else None, 0),
     )
     user.set_password(password)
     db.session.add(user)

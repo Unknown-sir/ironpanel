@@ -18,6 +18,7 @@ from ..services.provisioning import (
     sync_user,
     subscription_url_for_user,
 )
+from ..services.speed_limit import set_reseller_speed_limit
 from ..services.v10 import refresh_online_sessions
 from .common import _normalize_reseller_path, _normalize_reseller_protocols, _reseller_stats, reseller_panel_url
 from . import web_bp
@@ -51,6 +52,10 @@ def resellers():
         saved_domain = set_reseller_config_domain(a.id, request.form.get('config_domain'))
         if saved_domain:
             log(current_user.username, 'reseller_config_domain', a.username, saved_domain)
+        # v2.0.6: optional per-user speed cap for this reseller (0 = no cap).
+        saved_speed = set_reseller_speed_limit(a.id, request.form.get('speed_limit_mbps', '0'))
+        if saved_speed:
+            log(current_user.username, 'reseller_speed_limit', a.username, f'{saved_speed}Mbps per user')
         flash(f'نماینده ساخته شد. آدرس پنل: {reseller_panel_url(a)}')
         return redirect(url_for('web.resellers'))
     rows = Admin.query.filter_by(role='sub_admin').order_by(Admin.id.desc()).all()
@@ -64,7 +69,7 @@ def resellers():
             changed = True
     if changed:
         db.session.commit()
-    return render_template('resellers.html', resellers=rows, reseller_stats=_reseller_stats, reseller_panel_url=reseller_panel_url, reseller_protocol_choices=_normalize_reseller_protocols(active_protocols() or [], allow_default=True), reseller_config_domain=lambda rid: get_setting(f'reseller_config_domain_owner_{int(rid)}', ''))
+    return render_template('resellers.html', resellers=rows, reseller_stats=_reseller_stats, reseller_panel_url=reseller_panel_url, reseller_protocol_choices=_normalize_reseller_protocols(active_protocols() or [], allow_default=True), reseller_config_domain=lambda rid: get_setting(f'reseller_config_domain_owner_{int(rid)}', ''), reseller_speed_limit=lambda rid: get_setting(f'reseller_speed_limit_owner_{int(rid)}', '0'))
 
 @web_bp.route('/resellers/<int:reseller_id>/update', methods=['POST'])
 @login_required
@@ -123,7 +128,25 @@ def reseller_update(reseller_id):
     reseller_state = set_reseller_enabled(r, requested_enabled, source=current_user.username)
     # v19.10.27: optional per-reseller config domain override.
     saved_domain = set_reseller_config_domain(r.id, request.form.get('config_domain'))
-    log(current_user.username, 'update_reseller', r.username, f'{r.panel_path}; protocols={r.reseller_protocols}; users_restricted={len(changed_users)}; state={reseller_state}; domain={saved_domain or "default"}')
+    # v2.0.6: per-user speed cap for this reseller (0 = no cap). Applied to every
+    # owned user so none of them can use more than the configured Mb/s.
+    saved_speed = set_reseller_speed_limit(r.id, request.form.get('speed_limit_mbps', '0'))
+    if request.form.get('apply_speed_to_existing') == '1':
+        from ..services.speed_limit import enforce_reseller_speed_limit, user_wide_limit
+        speed_changed = 0
+        for owned_user in VpnUser.query.filter_by(owner_id=r.id).all():
+            capped = enforce_reseller_speed_limit(owned_user, user_wide_limit(owned_user))
+            if int(getattr(owned_user, 'speed_limit_mbps', 0) or 0) != capped:
+                owned_user.speed_limit_mbps = capped
+                speed_changed += 1
+        db.session.commit()
+        if speed_changed:
+            try:
+                from ..services.speed_limit import apply_speed_limits_runtime
+                apply_speed_limits_runtime()
+            except Exception:
+                pass
+    log(current_user.username, 'update_reseller', r.username, f'{r.panel_path}; protocols={r.reseller_protocols}; users_restricted={len(changed_users)}; state={reseller_state}; domain={saved_domain or "default"}; speed={saved_speed or "none"}Mbps')
     if reseller_state.get('enabled'):
         state_msg = f" پنل فعال است؛ {int(reseller_state.get('restored') or 0)} کاربر سالم دوباره وصل شد."
     elif reseller_state.get('reason') == 'traffic_quota':

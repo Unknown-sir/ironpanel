@@ -91,6 +91,66 @@ def normalize_speed_limit_mbps(value) -> int:
     """Public normalizer used by web/API paths. 0 means no user-wide override."""
     return _sanitize_mbps(value, 0)
 
+# v2.0.6: a reseller (sub-admin) can carry a per-user speed cap. When set, every
+# owned user's speed limit is capped at that value so they cannot use more than
+# the configured Mb/s. Stored per-owner in AppSetting (no column migration).
+RESELLER_SPEED_LIMIT_KEY = 'reseller_speed_limit_owner_{owner_id}'
+
+def get_reseller_speed_limit(owner_id) -> int:
+    """Return the owning reseller's per-user speed cap in Mb/s (0 = unlimited)."""
+    try:
+        oid = int(owner_id or 0)
+    except Exception:
+        oid = 0
+    if not oid:
+        return 0
+    return _sanitize_mbps(get_setting(RESELLER_SPEED_LIMIT_KEY.format(owner_id=oid), '0'))
+
+def set_reseller_speed_limit(owner_id, mbps) -> int:
+    """Store a reseller's per-user speed cap; returns the sanitized value (0 clears it)."""
+    try:
+        oid = int(owner_id or 0)
+    except Exception:
+        oid = 0
+    if not oid:
+        return 0
+    clean = _sanitize_mbps(mbps)
+    set_setting(RESELLER_SPEED_LIMIT_KEY.format(owner_id=oid), str(clean))
+    db.session.commit()
+    return clean
+
+def enforce_reseller_speed_limit(user: VpnUser, requested_mbps) -> int:
+    """Return the user speed cap with the owner's reseller cap applied.
+
+    A reseller's per-user speed cap (if set) becomes the hard maximum for each of
+    its owned users: the user's own requested limit is clamped so it can never
+    exceed the reseller cap. Main-admin / ownerless users are left unchanged.
+    """
+    mbps = normalize_speed_limit_mbps(requested_mbps)
+    owner_id = getattr(user, 'owner_id', None) or 0
+    if owner_id:
+        cap = get_reseller_speed_limit(owner_id)
+        if cap > 0 and mbps == 0:
+            # No explicit user limit -> reseller cap applies to the user.
+            return cap
+        if cap > 0:
+            return min(mbps, cap)
+    return mbps
+
+def cap_user_speed_for_owner(owner_id, mbps) -> int:
+    """Cap a requested speed limit (Mb/s) by the owning reseller's cap.
+
+    Used at user creation where the user object does not exist yet.
+    """
+    value = normalize_speed_limit_mbps(mbps)
+    if owner_id:
+        cap = get_reseller_speed_limit(owner_id)
+        if cap > 0 and value == 0:
+            return cap
+        if cap > 0:
+            return min(value, cap)
+    return value
+
 def user_wide_limit(user: VpnUser) -> int:
     return normalize_speed_limit_mbps(getattr(user, 'speed_limit_mbps', 0) or 0)
 

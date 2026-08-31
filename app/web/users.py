@@ -41,6 +41,8 @@ from ..services.provisioning import (
 )
 from ..services.speed_limit import (
     apply_speed_limits_runtime,
+    cap_user_speed_for_owner,
+    enforce_reseller_speed_limit,
     normalize_speed_limit_mbps,
     set_user_speed_limit,
 )
@@ -106,7 +108,10 @@ def quick_create_user():
         days_value = int(request.form.get('days') or 30)
         expires_at = None if start_first else _parse_unlimited_days(days_value, 30)
         node_mode, preferred_node_id = _node_selection_from_form()
-        u = VpnUser(username=username, l2tp_password=password, cisco_password=password, data_limit_mb=data_limit_mb, connection_limit=int(request.form.get('connection_limit') or 1), protocols=','.join(protocols), protocol_permissions=','.join(protocols), allowed_devices=0, expires_at=expires_at, start_on_first_connect=start_first, pending_expiry_days=days_value if start_first else None, owner_id=current_user.id if current_user.role=='sub_admin' else None, node_mode=node_mode, preferred_node_id=preferred_node_id, speed_limit_mbps=normalize_speed_limit_mbps(request.form.get('speed_limit_mbps', '0')))
+        # v2.0.6: the owning reseller's per-user speed cap (if any) is the hard max.
+        owner_id = current_user.id if current_user.role == 'sub_admin' else None
+        capped_speed = cap_user_speed_for_owner(owner_id, request.form.get('speed_limit_mbps', '0'))
+        u = VpnUser(username=username, l2tp_password=password, cisco_password=password, data_limit_mb=data_limit_mb, connection_limit=int(request.form.get('connection_limit') or 1), protocols=','.join(protocols), protocol_permissions=','.join(protocols), allowed_devices=0, expires_at=expires_at, start_on_first_connect=start_first, pending_expiry_days=days_value if start_first else None, owner_id=owner_id, node_mode=node_mode, preferred_node_id=preferred_node_id, speed_limit_mbps=capped_speed)
         u.set_password(password)
         db.session.add(u); db.session.commit()
         set_user_ip_limit(u, request.form.get('ip_limit', '0'))
@@ -147,7 +152,10 @@ def users():
         days_value = int(request.form.get('days') or 30)
         expires_at = None if start_first else _parse_unlimited_days(days_value, 30)
         node_mode, preferred_node_id = _node_selection_from_form()
-        u = VpnUser(username=username, l2tp_password=request.form.get('l2tp_password') or password, cisco_password=request.form.get('cisco_password') or password, data_limit_mb=data_limit_mb, connection_limit=int(request.form.get('connection_limit') or 1), protocols=','.join(protocols), protocol_permissions=','.join(protocols), allowed_devices=int(request.form.get('allowed_devices') or 0), expires_at=expires_at, start_on_first_connect=start_first, pending_expiry_days=days_value if start_first else None, owner_id=current_user.id if current_user.role=='sub_admin' else None, node_mode=node_mode, preferred_node_id=preferred_node_id, speed_limit_mbps=normalize_speed_limit_mbps(request.form.get('speed_limit_mbps', '0')))
+        # v2.0.6: the owning reseller's per-user speed cap (if any) is the hard max.
+        owner_id = current_user.id if current_user.role == 'sub_admin' else None
+        capped_speed = cap_user_speed_for_owner(owner_id, request.form.get('speed_limit_mbps', '0'))
+        u = VpnUser(username=username, l2tp_password=request.form.get('l2tp_password') or password, cisco_password=request.form.get('cisco_password') or password, data_limit_mb=data_limit_mb, connection_limit=int(request.form.get('connection_limit') or 1), protocols=','.join(protocols), protocol_permissions=','.join(protocols), allowed_devices=int(request.form.get('allowed_devices') or 0), expires_at=expires_at, start_on_first_connect=start_first, pending_expiry_days=days_value if start_first else None, owner_id=owner_id, node_mode=node_mode, preferred_node_id=preferred_node_id, speed_limit_mbps=capped_speed)
         u.set_password(password); db.session.add(u); db.session.commit(); set_user_ip_limit(u, request.form.get('ip_limit','0')); sync_user(u, restart=False, changed_protocols=protocols, ensure_runtime=True);
         if int(getattr(u, 'speed_limit_mbps', 0) or 0) > 0:
             apply_speed_limits_runtime()
@@ -258,6 +266,9 @@ def users_bulk_create():
                 skipped.append((username, 'duplicate'))
                 continue
             password = _bulk_password(password_length, password_mode)
+            # v2.0.6: cap by the owning reseller's per-user speed limit.
+            owner_id = current_user.id if current_user.role == 'sub_admin' else None
+            capped_speed = cap_user_speed_for_owner(owner_id, request.form.get('bulk_speed_limit_mbps', '0'))
             u = VpnUser(
                 username=username,
                 l2tp_password=password,
@@ -270,10 +281,10 @@ def users_bulk_create():
                 expires_at=expires_at,
                 start_on_first_connect=start_first,
                 pending_expiry_days=pending_days,
-                owner_id=current_user.id if current_user.role == 'sub_admin' else None,
+                owner_id=owner_id,
                 node_mode=node_mode,
                 preferred_node_id=preferred_node_id,
-                speed_limit_mbps=normalize_speed_limit_mbps(request.form.get('bulk_speed_limit_mbps', '0')),
+                speed_limit_mbps=capped_speed,
             )
             u.set_password(password)
             db.session.add(u)
@@ -384,7 +395,8 @@ def user_edit(user_id):
         u.data_limit_mb = new_data_limit_mb
         u.connection_limit = int(request.form.get('connection_limit') or 1)
         # Main admin may edit every user; reseller reaches this route only for owned users.
-        u.speed_limit_mbps = normalize_speed_limit_mbps(request.form.get('speed_limit_mbps', getattr(u, 'speed_limit_mbps', 0) or 0))
+        # v2.0.6: cap by the owning reseller's per-user speed limit (hard max).
+        u.speed_limit_mbps = enforce_reseller_speed_limit(u, request.form.get('speed_limit_mbps', getattr(u, 'speed_limit_mbps', 0) or 0))
         if current_user.role == 'main_admin' and feature_allowed('nodes'):
             u.node_mode = request.form.get('node_mode', getattr(u, 'node_mode', 'auto') or 'auto')
             u.preferred_node_id = int(request.form.get('preferred_node_id') or 0) or None

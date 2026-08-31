@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0b1220">
   <title>{% block title %}IronPanel{% endblock %}</title>
-  <link rel="stylesheet" href="/static/css/style.css?v=2.0.5">
+  <link rel="stylesheet" href="/static/css/style.css?v=2.0.6">
 </head>
 <body class="theme-{{ current_theme() }} lang-{{ lang }} iron-stable-v19103 iron-mobile-fix-v19104">
 {% set simple_ui = is_simple_ui() if current_user.is_authenticated else true %}
@@ -177,6 +177,6 @@
     </section>
   </main>
 </div>
-<script src="/static/js/app.js?v=2.0.5"></script>
+<script src="/static/js/app.js?v=2.0.6"></script>
 </body>
 </html>

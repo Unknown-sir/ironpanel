@@ -1,3 +1,12 @@
+# v2.0.6 - Per-Reseller Speed Limit (Per-User Cap)
+
+- **The main admin can set a speed limit for each reseller independently.** On the Resellers page (`/resellers`) the admin can enter a per-user speed cap (Mb/s) when creating or editing a reseller.
+- **It is a per-user cap, not a shared pool.** When a reseller limit is set, e.g. 8 Mb/s, **every user owned by that reseller** gets a speed limit of 8 Mb/s — none of the reseller's users can use more than that, each independently (not shared across users).
+- **Enforced everywhere a reseller creates or edits users:** the reseller's own panel (quick-create, users, bulk), the v1 API (`/api/v1/users/create` + `/speed-limit`), the v2 API (`/api/v2/users` + PATCH `/users/:id`), MirzaBot and the 3x-ui API. A reseller can never set a user's speed above its inherited cap (0 cap on a reseller means no restriction).
+- **"Apply to existing users"** option in the reseller edit form re-caps all currently owned users and refreshes the speed-limit runtime.
+- Stored per-owner in `AppSetting` (`reseller_speed_limit_owner_<id>`, value in Mb/s; 0 = unlimited) — no schema migration needed. New helpers in `speed_limit.py`: `get_reseller_speed_limit`, `set_reseller_speed_limit`, `enforce_reseller_speed_limit`, `cap_user_speed_for_owner`.
+- CSS/JS cache-buster bumped to 2.0.6.
+
 # v2.0.5 - Per-Protocol Domain Overrides for the Main Admin
 
 - **Main admin can now set a separate domain for each VPN protocol.** A new admin page (`/protocol-domains`, under Network & Domains) lets the main admin enter an individual domain for OpenVPN, WireGuard, Ocserv/OpenConnect, L2TP/IKEv2, PPTP, Hysteria2, SSH, Xray and Telegram Proxy.

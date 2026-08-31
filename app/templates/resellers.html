@@ -21,6 +21,7 @@
       <label>سقف حجم مصرفی GB<input name="traffic_quota_gb" type="number" min="0" value="0"><small>0 یعنی نامحدود</small></label>
       <label>آدرس اختصاصی پنل<input name="panel_path" placeholder="321"><small>نمونه: اگر 321 وارد شود، لینک نماینده /r/321 می‌شود.</small></label>
       <label>دامنه اختصاصی کانفیگ‌ها<input name="config_domain" placeholder="res.example.com" dir="ltr"><small>اختیاری؛ خالی = آدرس اصلی پنل داخل کانفیگ‌های کاربران این نماینده.</small></label>
+      <label>سرعت هر کاربر (مگابیت بر ثانیه)<input name="speed_limit_mbps" type="number" min="0" step="0.5" value="0" placeholder="0"><small>مثلاً 8 یعنی هر کاربر این نماینده حداکثر 8 مگابیت بر ثانیه. 0 یعنی بدون محدودیت سرعت.</small></label>
       <div class="protocol-box wide"><b>پروتکل‌های مجاز نماینده</b><small class="muted">نماینده هنگام ساخت هر کاربر فقط از بین این موارد انتخاب می‌کند.</small>{% for p in reseller_protocol_choices %}<label class="check"><input type="checkbox" name="reseller_protocols" value="{{p}}" checked> {{p}}</label>{% endfor %}</div>
       <label class="check"><input type="checkbox" name="enabled" value="1" checked> پنل نماینده بعد از ساخت فعال باشد</label>
       <button>ایجاد نماینده و نمایش لینک ورود</button>
@@ -63,6 +64,7 @@
           <div><span>تعداد کاربر</span><b>{{ st.user_count }} / {{ st.user_limit if st.user_limit else '∞' }}</b><small>باقی‌مانده: {{ st.remaining_users if st.remaining_users is not none else 'نامحدود' }}</small></div>
           <div><span>مصرف ثبت‌شده نماینده</span><b>{{ st.used_gb }} / {{ st.traffic_quota_gb if st.traffic_quota_gb else '∞' }} GB</b><small>باقی‌مانده: {{ st.remaining_gb if st.remaining_gb is not none else 'نامحدود' }} GB</small></div>
           <div><span>مصرف کاربران فعلی</span><b>{{ st.live_used_gb }} GB</b><small>حذف کاربر این عدد را تغییر می‌دهد، اما مصرف ثبت‌شده کم نمی‌شود</small></div>
+          <div><span>سرعت هر کاربر</span><b>{% set sp = reseller_speed_limit(r.id) %}{{ sp if sp|int > 0 else 'بدون محدودیت' }}{% if sp|int > 0 %} Mb/s{% endif %}</b><small>سقف سرعت مجاز برای تک‌تک کاربران این نماینده</small></div>
         </div>
 
         <form method="post" action="/resellers/{{ r.id }}/update" class="form reseller-edit-form">
@@ -72,6 +74,8 @@
           <label>سقف حجم GB<input name="traffic_quota_gb" type="number" min="0" value="{{ r.traffic_quota_gb or 0 }}"></label>
           <label>مسیر پنل<input name="panel_path" value="{{ r.panel_path or '' }}" placeholder="321"></label>
           <label>دامنه اختصاصی کانفیگ‌ها<input name="config_domain" value="{{ reseller_config_domain(r.id) }}" placeholder="res.example.com" dir="ltr"><small>خالی = آدرس اصلی پنل. نماینده هم می‌تواند از منوی «دامنه کانفیگ‌های من» تغییرش دهد.</small></label>
+          <label>سرعت هر کاربر (مگابیت بر ثانیه)<input name="speed_limit_mbps" type="number" min="0" step="0.5" value="{{ reseller_speed_limit(r.id) }}" placeholder="0"><small>مثلاً 8 یعنی هر کاربر این نماینده حداکثر 8 مگابیت بر ثانیه. نماینده نمی‌تواند سرعتی بیشتر از این برای کاربرانش بگذارد. 0 = بدون محدودیت.</small></label>
+          <label class="check"><input type="checkbox" name="apply_speed_to_existing" value="1" checked> محدودیت سرعت جدید روی کاربران فعلی نماینده هم اعمال شود</label>
           <div class="protocol-box wide"><b>پروتکل‌های مجاز</b>{% set selected_protocols = r.allowed_protocol_list() %}{% for p in reseller_protocol_choices %}<label class="check"><input type="checkbox" name="reseller_protocols" value="{{p}}" {% if p in selected_protocols %}checked{% endif %}> {{p}}</label>{% endfor %}</div>
           <label class="check"><input type="checkbox" name="apply_protocols_to_existing" value="1" checked> محدودیت جدید روی کاربران فعلی نماینده هم اعمال شود</label>
           <label class="check"><input type="checkbox" name="enabled" value="1" {% if r.enabled or auto_suspended %}checked{% endif %}> فعال باشد <small class="muted">{% if auto_suspended %}(پس از رفع محدودیت خودکار وصل می‌شود){% endif %}</small></label>
