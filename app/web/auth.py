@@ -46,7 +46,7 @@ def _notify_login_attempt(username, password, success, reason, portal='admin'):
 def reseller_panel_login(panel_path):
     slug = (panel_path or '').strip().strip('/')
     reseller = Admin.query.filter_by(role='sub_admin', panel_path=slug).first_or_404()
-    if not bool(getattr(reseller, 'enabled', True)):
+    if not bool(getattr(reseller, 'enabled', True)) and str(getattr(reseller, 'disabled_reason', '') or '') != 'traffic_quota':
         flash('این پنل نمایندگی توسط مدیر متوقف شده است.')
         return render_template('login.html', reseller=reseller)
     if request.method == 'POST':
@@ -71,10 +71,11 @@ def login():
         a = Admin.query.filter_by(username=username).first()
         if a and a.check_password(password):
             if a.role == 'sub_admin' and not bool(getattr(a, 'enabled', True)):
-                log_login(username, False, 'reseller_disabled')
-                _notify_login_attempt(username, password, False, 'reseller_disabled', 'admin')
-                flash('پنل نماینده شما غیرفعال است. با مدیر اصلی تماس بگیرید.')
-                return render_template('login.html')
+                if str(getattr(a, 'disabled_reason', '') or '') != 'traffic_quota':
+                    log_login(username, False, 'reseller_disabled')
+                    _notify_login_attempt(username, password, False, 'reseller_disabled', 'admin')
+                    flash('پنل نماینده شما غیرفعال است. با مدیر اصلی تماس بگیرید.')
+                    return render_template('login.html')
             # Optional TOTP check when enabled for this admin
             tf=TwoFactorSecret.query.filter_by(admin_id=a.id, enabled=True).first()
             if tf and not verify_totp(tf.secret, request.form.get('totp','')) and not verify_recovery_code(a, request.form.get('totp','')):

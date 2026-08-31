@@ -24,9 +24,14 @@ class Admin(UserMixin, db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     @property
     def is_active(self):
-        # Main admin is always allowed; a disabled reseller cannot log in.
+        # Main admin is always allowed. A reseller disabled because its volume
+        # ran out (disabled_reason == 'traffic_quota') may still log in so the
+        # recharge-only panel stays reachable; every other disabled reseller
+        # cannot log in.
         if self.role == 'sub_admin':
-            return bool(self.enabled)
+            if bool(self.enabled):
+                return True
+            return str(self.disabled_reason or '') == 'traffic_quota'
         return True
     def set_password(self, password): self.password_hash = generate_password_hash(password)
     def check_password(self, password): return check_password_hash(self.password_hash, password)
@@ -346,19 +351,20 @@ class LoginHistory(db.Model):
     reason = db.Column(db.String(120), default='')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-class GatewayPayment(db.Model):
-    # v2.0.0: Dargahno online gateway top-ups for reseller volume.
+class ChargeRequest(db.Model):
+    # v2.0.3: manual card-to-card volume top-up requests from resellers.
+    # No payment gateway: the reseller copies the card info, transfers the
+    # amount, uploads the receipt and the main admin approves the credit.
+    __tablename__ = 'charge_request'
     id = db.Column(db.Integer, primary_key=True)
-    provider = db.Column(db.String(40), default='dargahno')
     reseller_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=True)
     gb_amount = db.Column(db.Integer, default=0)
-    amount = db.Column(db.Float, default=0)          # gateway price in Rial for dargahno
+    amount = db.Column(db.Float, default=0)          # estimated price in Rial (gb * price_per_gb)
     currency = db.Column(db.String(10), default='IRT')
     factor_number = db.Column(db.Integer, unique=True, nullable=False)
-    authority = db.Column(db.String(160), default='')
-    status = db.Column(db.String(30), default='pending')  # pending/success/failed/canceled
-    raw_response = db.Column(db.Text, default='')
-    error = db.Column(db.Text, default='')
+    receipt_file = db.Column(db.String(255), default='')
+    note = db.Column(db.Text, default='')            # admin follow-up / rejection reason
+    status = db.Column(db.String(30), default='pending')  # pending/approved/rejected
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

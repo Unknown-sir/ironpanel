@@ -310,6 +310,14 @@ def _ensure_famous_dns_profiles_web():
 
 # Blueprint-wide hooks --------------------------------------------------------
 
+def _is_current_reseller_volume_gated() -> bool:
+    """True when the logged-in reseller is disabled because its volume ran out."""
+    if not (current_user.is_authenticated and current_user.role == 'sub_admin'):
+        return False
+    return bool(not getattr(current_user, 'enabled', True)
+                and str(getattr(current_user, 'disabled_reason', '') or '') == 'traffic_quota')
+
+
 @web_bp.app_context_processor
 def inject_globals():
     return dict(
@@ -334,6 +342,7 @@ def inject_globals():
         node_auto_installer_allowed=node_auto_installer_allowed,
         node_has_saved_ssh_credentials=node_has_saved_ssh_credentials,
         admin_label_by_id=lambda admin_id: ((Admin.query.get(admin_id).username if Admin.query.get(admin_id) else '') if admin_id else ''),
+        volume_gated=_is_current_reseller_volume_gated(),
     )
 
 
@@ -375,10 +384,18 @@ def enforce_license_features():
         'sales_bot': ['/sales-bot', '/reseller/bot'],
     }
     if current_user.is_authenticated and current_user.role == 'sub_admin' and not bool(getattr(current_user, 'enabled', True)):
-        if path not in ('/logout',) and not path.startswith('/static/'):
-            logout_user()
-            flash('پنل نماینده شما توسط مدیر متوقف شده است.')
-            return redirect(url_for('web.login'))
+        if str(getattr(current_user, 'disabled_reason', '') or '') == 'traffic_quota':
+            # Volume exhausted: the reseller keeps its session but only the
+            # recharge page (and logout) are reachable until an admin approves
+            # a top-up, which re-enables the panel automatically.
+            if path not in ('/reseller/storage', '/logout') and not path.startswith('/static/'):
+                flash('پنل غیر فعال به علت تمام شدن حجم است؛ برای ادامه، از بخش «شارژ پنل» حجم بخرید.')
+                return redirect(url_for('web.reseller_storage'))
+        else:
+            if path not in ('/logout',) and not path.startswith('/static/'):
+                logout_user()
+                flash('پنل نماینده شما توسط مدیر متوقف شده است.')
+                return redirect(url_for('web.login'))
     for feature, prefixes in feature_paths.items():
         if any(path.startswith(prefix) for prefix in prefixes) and not feature_allowed(feature):
             flash(f'این بخش در نسخه فعلی فعال نیست: {feature_label(feature)}. از بخش آپگرید لایسنس مناسب را وارد کنید.')

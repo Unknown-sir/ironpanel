@@ -1655,3 +1655,28 @@ body.menu-open::after,
 .user-modal-quick{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .user-edit-inline summary{cursor:pointer}
 @media(max-width:640px){.user-mini-grid{grid-template-columns:1fr}}
+/* v2.0.3 manual card-to-card recharge */
+.volume-gate-banner{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:0 0 16px;border:1px solid rgba(251,113,133,.32);border-radius:16px;padding:14px 16px;background:linear-gradient(135deg,rgba(127,29,29,.35),rgba(2,6,23,.6))}
+.volume-gate-banner b{color:#fecdd3}.volume-gate-banner span{flex:1;color:#fda4af;font-size:13px}
+.bank-strip{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.bank-strip div{border:1px solid rgba(148,163,184,.16);border-radius:14px;padding:12px;background:rgba(8,13,24,.4)}
+.bank-strip small{display:block;color:#8fa0b8;font-size:12px;margin-bottom:6px}.bank-strip b{font-size:16px}
+.charge-request-grid{display:grid;gap:12px}
+.charge-card{border:1px solid rgba(148,163,184,.18);border-radius:16px;background:rgba(8,13,24,.35)}
+.charge-card summary{cursor:pointer;padding:14px 16px;list-style:none}
+.charge-card summary::-webkit-details-marker{display:none}
+.charge-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.charge-meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.charge-meta span{border:1px solid rgba(148,163,184,.13);border-radius:12px;padding:8px 12px;background:rgba(2,6,23,.3);min-width:110px}
+.charge-meta small{display:block;color:#8fa0b8;font-size:11px}.charge-meta b{font-size:14px}
+.charge-detail{border-top:1px solid rgba(148,163,184,.14);padding:14px 16px;display:grid;gap:12px}
+.charge-detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.charge-detail-grid div{border:1px solid rgba(148,163,184,.13);border-radius:12px;padding:10px;background:rgba(2,6,23,.3)}
+.charge-detail-grid small{display:block;color:#8fa0b8;font-size:11px;margin-bottom:4px}
+.receipt-box{display:grid;gap:8px}
+.receipt-box small{color:#8fa0b8;font-size:12px}
+.receipt-box img{max-width:320px;width:100%;border:1px solid rgba(148,163,184,.2);border-radius:14px;background:#fff;padding:6px}
+.charge-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.charge-actions form{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.charge-actions .reject-form input[type=text]{border:1px solid rgba(148,163,184,.16);border-radius:10px;background:#0b1220;color:var(--text);padding:9px 11px;min-width:220px}
+@media(max-width:640px){.bank-strip{grid-template-columns:1fr}.charge-actions form{width:100%}.charge-actions .btn{flex:1}.charge-actions .reject-form input[type=text]{width:100%}}

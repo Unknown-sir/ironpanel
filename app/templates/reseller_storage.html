@@ -1,11 +1,11 @@
 {% extends 'base.html' %}
-{% block heading %}{{ ui('حجم و شارژ نماینده','Reseller volume & recharge') }}{% endblock %}
+{% block heading %}{{ ui('شارژ پنل نمایندگی','Reseller panel recharge') }}{% endblock %}
 {% block content %}
-<section class="clean-hero">
+<section class="clean-hero{% if volume_gated %} node-gateway-hero{% endif %}">
   <div>
-    <p class="eyebrow">RESELLER STORAGE</p>
-    <h3>{{ ui('حجم پنل نمایندگی و افزایش (درگاه پرداخت)','Reseller storage & top-up (payment gateway)') }}</h3>
-    <p>{{ ui('از اینجا لیمیت حجم، مصرف ثبت‌شده و حجم باقی‌مانده پنل نمایندگی خودت را می‌بینی و در صورت نیاز با «لینک کارت‌به‌کارت» درگاه حجم بیشتری خریداری می‌کنی. بعد از واریز، مدیر اصلی شارژ را تأیید می‌کند و حجم به پنل اضافه می‌شود.','Here you can see your volume limit, registered usage and remaining volume, and buy more through the Dargahno "card-to-card" link when needed. After the transfer the main admin approves the credit and the volume is added to your panel.') }}</p>
+    <p class="eyebrow">CARD-TO-CARD TOP-UP</p>
+    <h3>{{ ui('شارژ کارت به کارت','Manual card-to-card recharge') }}</h3>
+    <p>{{ ui('اینجا لیمیت حجم، مصرف ثبت‌شده و حجم باقی‌مانده پنل نمایندگی خودت را می‌بینی. برای افزایش حجم: تعداد گیگ موردنظر را وارد کن، مبلغ تقریبی همان لحظه نمایش داده می‌شود، به کارت مدیر اصلی کارت‌به‌کارت واریز کن و تصویر رسید را بارگذاری کن. پس از تأیید مدیر، حجم به پنل اضافه و پنل (در صورت توقف خودکار) دوباره فعال می‌شود.','Here you can see your volume limit, registered usage and remaining volume. To add volume: enter the GB you need (the estimated amount is shown instantly), transfer the money to the main admin\'s card and upload the receipt image. After admin approval the volume is added and, if the panel was suspended, it is re-enabled.') }}</p>
   </div>
   <div class="clean-status-grid">
     <div><span>{{ ui('لیمیت حجم','Volume limit') }}</span><b>{{ stats.traffic_quota_gb if stats.traffic_quota_gb else ui('نامحدود','Unlimited') }} GB</b></div>
@@ -17,35 +17,40 @@
 
 <section class="clean-grid two">
   <article class="card clean-card">
-    <div class="clean-card-head"><div><p class="eyebrow">GATEWAY TOP-UP</p><h3>{{ ui('خرید حجم از درگاه','Buy volume via gateway') }}</h3></div><span class="pill">{{ ui('کارت‌به‌کارت','Card-to-card') }}</span></div>
-    {% if not gateway_ready %}
-      <div class="alert-box empty-state"><b>{{ ui('درگاه پرداخت هنوز در پنل اصلی فعال نشده است.','The payment gateway is not set up in the main panel yet.') }}</b><p class="muted">{{ ui('برای فعال‌شدن خرید حجم، با مدیر اصلی هماهنگ کن تا در بخش «درگاه پرداخت» تنظیمات را تکمیل کند.','To enable volume purchases, ask the main admin to complete the gateway settings in the "Payment gateway" section.') }}</p></div>
+    <div class="clean-card-head"><div><p class="eyebrow">RECHARGE FORM</p><h3>{{ ui('درخواست شارژ','Charge request') }}</h3></div><span class="pill">{{ ui('کارت به کارت','Card-to-card') }}</span></div>
+    {% if not card_active %}
+      <div class="alert-box empty-state"><b>{{ ui('شارژ کارت به کارت هنوز در پنل اصلی فعال نشده است.','Card-to-card recharge is not enabled in the main panel yet.') }}</b><p class="muted">{{ ui('برای فعال‌شدن شارژ، با مدیر اصلی هماهنگ کن تا در بخش «شارژ کارت به کارت» شماره کارت و قیمت هر گیگ را ثبت کند.','To enable recharge, ask the main admin to register the card number and price per GB in the "Card-to-card recharge" section.') }}</p></div>
     {% else %}
-      <form method="post" class="clean-form">
+      <form method="post" enctype="multipart/form-data" class="clean-form">
         <label>{{ ui('مقدار حجم (گیگابایت)','Volume amount (GB)') }}<input type="number" name="gb_amount" id="gb_input" min="1" step="1" value="10" required></label>
-        <label>{{ ui('قیمت هر گیگ','Price per GB') }}<small class="muted">{{ "{:,}".format(price_per_gb) }} {{ ui('ریال — مبلغ نهایی به‌صورت خودکار محاسبه می‌شود.','Rial — the final amount is calculated automatically.') }}</small></label>
+        <label>{{ ui('قیمت هر گیگ','Price per GB') }}<small class="muted">{{ "{:,}".format(price_per_gb) }} {{ ui('ریال — مبلغ تقریبی به‌صورت خودکار محاسبه می‌شود.','Rial — the estimated amount is calculated automatically.') }}</small></label>
         <small class="muted" id="min_hint">{{ ui('حداقل مبلغ قابل پرداخت','Minimum payable amount') }}: {{ "{:,}".format(min_purchase) }} {{ ui('ریال','Rial') }}</small>
-        <div class="bot-preview"><div><span>{{ ui('مبلغ قابل پرداخت','Payable amount') }}</span></div><b id="price_preview" style="font-size:22px;color:#7fffe7">—</b></div>
-        <button class="btn primary wide">{{ ui('ساخت لینک پرداخت (کارت‌به‌کارت)','Get card-to-card payment link') }}</button>
-        <small class="muted" style="display:block;margin-top:8px;text-align:center">{{ ui('با کلیک، به صفحه امن کارت‌به‌کارت درگاه نو منتقل می‌شوی. پس از واریز، صبر کن تا مدیر اصلی شارژ را تأیید کند.','You will be redirected to the secure Dargahno card-to-card page. After the transfer, wait for the main admin to approve the credit.') }}</small>
+        <div class="bot-preview"><div><span>{{ ui('مبلغ تقریبی','Estimated amount') }}</span></div><b id="price_preview" style="font-size:22px;color:#7fffe7">—</b></div>
+        <label>{{ ui('تصویر رسید واریز (فیش)','Payment receipt image') }}<input type="file" name="receipt" accept="image/*" required></label>
+        <button class="btn primary wide">{{ ui('ثبت درخواست شارژ','Submit charge request') }}</button>
+        <small class="muted" style="display:block;margin-top:8px;text-align:center">{{ ui('پس از ثبت، مدیر اصلی رسید را بررسی و درخواست را تأیید یا رد می‌کند.','After submitting, the main admin reviews the receipt and approves or rejects the request.') }}</small>
       </form>
     {% endif %}
   </article>
 
   <article class="card clean-card">
-    <div class="clean-card-head"><div><p class="eyebrow">VOLUME STATUS</p><h3>{{ ui('وضعیت حجم','Volume status') }}</h3></div></div>
-    <div class="reseller-quota-cards">
-      <div><span>{{ ui('لیمیت حجم','Volume limit') }}</span><b>{{ stats.traffic_quota_gb if stats.traffic_quota_gb else ui('نامحدود','Unlimited') }} GB</b></div>
-      <div><span>{{ ui('مصرف ثبت‌شده','Registered usage') }}</span><b>{{ stats.used_gb }} GB</b><small>{{ ui('مصرف واقعی ترافیک نماینده','Actual reseller traffic usage') }}</small></div>
-      <div><span>{{ ui('باقی‌مانده','Remaining') }}</span><b>{{ stats.remaining_gb if stats.remaining_gb is not none else ui('نامحدود','Unlimited') }} GB</b></div>
+    <div class="clean-card-head"><div><p class="eyebrow">PAYMENT INFO</p><h3>{{ ui('اطلاعات واریز','Transfer details') }}</h3></div></div>
+    {% if card_active %}
+    <div class="bank-strip">
+      <div><small>{{ ui('شماره کارت مقصد','Destination card') }}</small><b dir="ltr">{{ instructions.get('card_number') or '-' }}</b></div>
+      <div><small>{{ ui('نام دارنده حساب','Account holder') }}</small><b>{{ instructions.get('card_holder') or '-' }}</b></div>
     </div>
-    <p class="muted" style="line-height:1.9">{{ ui('هر بار که سرویس‌های زیرمجموعه این پنل ترافیک مصرف کنند، از همین سقف کسر می‌شود. اگر حجم تمام شود، پنل به‌صورت خودکار متوقف و کاربران غیرفعال می‌شوند؛ با همین فرم زیر حجم بخر تا دوباره وصل شود.','Every time the services under this panel use traffic it is deducted from this limit. When the volume runs out the panel is automatically suspended and users are disabled; buy volume with the form below to get connected again.') }}</p>
-    <p class="muted" style="line-height:1.9">{{ ui('پس از پرداخت کارت‌به‌کارت، مدیر اصلی شارژ را تأیید می‌کند؛ در این صورت حجم خریداری‌شده به لیمیت اضافه و در صورت توقف خودکار، پنل دوباره فعال می‌شود.','After the card-to-card payment the main admin approves the credit; then the purchased volume is added to the limit and, if the panel was suspended, it is re-enabled.') }}</p>
+    <p class="muted" style="line-height:1.9;white-space:pre-line">{{ instructions.get('payment_text') or '' }}</p>
+    {% if instructions.get('support') %}<p class="muted" style="line-height:1.9">{{ ui('پشتیبانی','Support') }}: <b dir="ltr">{{ instructions.get('support') }}</b></p>{% endif %}
+    {% else %}
+    <div class="empty-state"><b>{{ ui('اطلاعاتی ثبت نشده است.','No payment details registered yet.') }}</b></div>
+    {% endif %}
+    <p class="muted" style="line-height:1.9;margin-top:12px">{{ ui('هر بار که سرویس‌های زیرمجموعه این پنل ترافیک مصرف کنند، از همین سقف کسر می‌شود. اگر حجم تمام شود، پنل به‌صورت خودکار متوقف و کاربران غیرفعال می‌شوند؛ با همین فرم حجم بخر تا دوباره وصل شود.','Every time the services under this panel use traffic it is deducted from this limit. When the volume runs out the panel is automatically suspended and users are disabled; buy volume with the form below to get connected again.') }}</p>
   </article>
 </section>
 
 <section class="card clean-card">
-  <div class="clean-card-head"><div><p class="eyebrow">PAYMENT HISTORY</p><h3>{{ ui('پرداخت‌های گذشته','Payment history') }}</h3></div></div>
+  <div class="clean-card-head"><div><p class="eyebrow">CHARGE HISTORY</p><h3>{{ ui('درخواست‌های شارژ گذشته','Charge request history') }}</h3></div></div>
   {% if recent %}
   <div class="table-wrap clean-table">
     <table>
@@ -53,10 +58,10 @@
       <tbody>
         {% for p in recent %}
         <tr>
-          <td><code>{{ p.factor_number }}</code></td>
+          <td><code>#{{ p.factor_number }}</code></td>
           <td>{{ p.gb_amount }} GB</td>
-          <td>{{ "{:,}".format(p.amount) }}</td>
-          <td><span class="badge {{ 'ok' if p.status == 'success' else ('warn' if p.status == 'pending' else 'off') }}">{{ {'success': ui('موفق','Paid'),'pending': ui('در انتظار تأیید','Awaiting approval'),'failed': ui('ناموفق','Failed'),'canceled': ui('لغو شده','Canceled')}.get(p.status, p.status) }}</span>{% if p.status == 'pending' %}<small class="muted" style="display:block;margin-top:4px">{{ ui('پس از واریز، مدیر اصلی تأیید می‌کند.','The main admin approves after the transfer.') }}</small>{% endif %}{% if p.error %}<small class="muted" style="display:block;margin-top:4px">{{ p.error[:120] }}</small>{% endif %}</td>
+          <td>{{ "{:,}".format(p.amount | int) }}</td>
+          <td><span class="badge {{ 'ok' if p.status == 'approved' else ('warn' if p.status == 'pending' else 'off') }}">{{ {'approved': ui('تأیید شده','Approved'),'pending': ui('در انتظار تأیید','Awaiting approval'),'rejected': ui('رد شده','Rejected')}.get(p.status, p.status) }}</span>{% if p.status == 'pending' %}<small class="muted" style="display:block;margin-top:4px">{{ ui('پس از واریز، مدیر اصلی تأیید می‌کند.','The main admin approves after the transfer.') }}</small>{% endif %}{% if p.note %}<small class="muted" style="display:block;margin-top:4px">{{ p.note[:120] }}</small>{% endif %}</td>
           <td>{{ p.created_at.strftime('%Y-%m-%d %H:%M') if p.created_at else '-' }}</td>
         </tr>
         {% endfor %}
@@ -64,7 +69,7 @@
     </table>
   </div>
   {% else %}
-  <div class="empty-state"><b>{{ ui('هنوز پرداختی ثبت نشده است.','No payments yet.') }}</b><p class="muted">{{ ui('اولین خرید حجم را از فرم بالا انجام بده.','Make your first volume purchase from the form above.') }}</p></div>
+  <div class="empty-state"><b>{{ ui('هنوز درخواست شارژی ثبت نشده است.','No charge requests yet.') }}</b><p class="muted">{{ ui('اولین درخواست شارژ را با فرم بالا ثبت کن.','Submit your first charge request with the form above.') }}</p></div>
   {% endif %}
 </section>
 

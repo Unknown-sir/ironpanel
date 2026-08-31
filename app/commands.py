@@ -81,14 +81,14 @@ DEFAULT_SETTINGS = {
     'sales_bot_trial_days': '1',
     'sales_bot_trial_traffic_gb': '1',
     'sales_bot_currency': 'IRT',
-    # v2.0.0: Dargahno online payment gateway for reseller volume top-ups.
-    'dargahno_enabled': '0',
-    'dargahno_username': '',
-    'dargahno_password': '',
-    'dargahno_merchant_id': '',
-    'dargahno_price_per_gb': '20000',
-    'dargahno_min_purchase': '50000',
-    'dargahno_support_id': '',
+    # v2.0.3: manual card-to-card volume recharge settings (no payment gateway).
+    'card_charge_enabled': '0',
+    'card_price_per_gb': '20000',
+    'card_min_purchase': '50000',
+    'card_number': '',
+    'card_holder': '',
+    'card_payment_text': 'کارت به کارت به شماره کارت اعلام‌شده واریز کنید و پس از پرداخت، تصویر رسید را در فرم «درخواست شارژ» بارگذاری کنید.',
+    'card_support': '',
     # v16: full Xray Core integration. Xray is available for every license type.
     'xray_enabled': '1',
     'xray_profile_type': 'vless-reality',

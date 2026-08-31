@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0b1220">
   <title>{% block title %}IronPanel{% endblock %}</title>
-  <link rel="stylesheet" href="/static/css/style.css?v=2.0.2">
+  <link rel="stylesheet" href="/static/css/style.css?v=2.0.3">
 </head>
 <body class="theme-{{ current_theme() }} lang-{{ lang }} iron-stable-v19103 iron-mobile-fix-v19104">
 {% set simple_ui = is_simple_ui() if current_user.is_authenticated else true %}
@@ -58,7 +58,7 @@
         {{ nav_link('/usage', request.path == '/usage', '05', 'گزارش مصرف', 'Usage report', 'ترافیک و آمار مصرف', 'Traffic and usage') }}
         {% if current_user.is_authenticated and current_user.role == 'sub_admin' %}
         {{ nav_link('/my/config-domain', request.path == '/my/config-domain', '06', 'دامنه کانفیگ‌های من', 'My config domain', 'دامنه اختصاصی کانفیگ مشتریان', 'Custom domain for your users') }}
-        {{ nav_link('/reseller/storage', request.path == '/reseller/storage', '07', 'حجم و شارژ', 'Volume & recharge', 'مشاهده حجم و خرید آنلاین', 'View volume and recharge online') }}
+        {{ nav_link('/reseller/storage', request.path == '/reseller/storage', '07', 'شارژ پنل', 'Panel recharge', 'شارژ کارت به کارت و درخواست افزایش حجم', 'Manual card-to-card top-up request') }}
         {{ nav_link('/reseller/bot', request.path == '/reseller/bot', '08', 'ربات فروش من', 'My sales bot', 'ربات اختصاصی مشتریان شما', 'Your own Telegram sales bot') }}
         {% endif %}
       </div>
@@ -101,13 +101,13 @@
       <div class="nav-section">
         <p class="nav-section-title">{{ ui('فروش و دسترسی‌ها','Business & access') }}</p>
         {% if feature_allowed('billing') or feature_allowed('sales_bot') %}
-        {% call nav_group('business','D', 'فروش و نمایندگان', 'Sales & resellers', 'پلن، پرداخت و ربات فروش', 'Plans, payments and sales bot', request.path in ['/billing','/plans','/wallet','/sales-bot','/resellers','/tickets','/gateway']) %}
+        {% call nav_group('business','D', 'فروش و نمایندگان', 'Sales & resellers', 'پلن، پرداخت و ربات فروش', 'Plans, payments and sales bot', request.path in ['/billing','/plans','/wallet','/sales-bot','/resellers','/tickets','/cards']) %}
           {% if feature_allowed('billing') %}
           <a href="/billing" class="{{ 'active' if request.path == '/billing' else '' }}">{{ 'مالی و فاکتورها' if is_fa else 'Billing' }}</a>
           <a href="/plans" class="{{ 'active' if request.path == '/plans' else '' }}">{{ 'پلن‌های فروش' if is_fa else 'Sales plans' }}</a>
           <a href="/wallet" class="{{ 'active' if request.path == '/wallet' else '' }}">{{ 'کیف پول' if is_fa else 'Wallet' }}</a>
           {% endif %}
-          <a href="/gateway" class="{{ 'active' if request.path == '/gateway' else '' }}">{{ 'درگاه پرداخت' if is_fa else 'Payment gateway' }}</a>
+          <a href="/cards" class="{{ 'active' if request.path == '/cards' else '' }}">{{ 'شارژ کارت به کارت' if is_fa else 'Card-to-card recharge' }}</a>
           {% if feature_allowed('sales_bot') %}<a href="/sales-bot" class="{{ 'active' if request.path == '/sales-bot' else '' }}">{{ 'ربات فروش' if is_fa else 'Sales bot' }}</a>{% endif %}
           <a href="/resellers" class="{{ 'active' if request.path == '/resellers' else '' }}">{{ 'نمایندگان' if is_fa else 'Resellers' }}</a>
           <a href="/tickets" class="{{ 'active' if request.path == '/tickets' else '' }}">{{ 'تیکت‌ها' if is_fa else 'Tickets' }}</a>
@@ -163,11 +163,19 @@
       {% for m in messages %}<div class="toast app-toast">{{ m }}</div>{% endfor %}
     {% endwith %}
 
+    {% if current_user.is_authenticated and current_user.role == 'sub_admin' and volume_gated %}
+    <div class="volume-gate-banner">
+      <b>{{ ui('پنل غیر فعال به علت تمام شدن حجم','Panel disabled: volume exhausted') }}</b>
+      <span>{{ ui('تا تأیید شارژ، فقط بخش «شارژ پنل» در دسترس است.','Until a top-up is approved, only the recharge page is available.') }}</span>
+      <a class="btn primary" href="/reseller/storage">{{ ui('رفتن به شارژ','Go to recharge') }}</a>
+    </div>
+    {% endif %}
+
     <section class="page-content">
       {% block content %}{% endblock %}
     </section>
   </main>
 </div>
-<script src="/static/js/app.js?v=2.0.2"></script>
+<script src="/static/js/app.js?v=2.0.3"></script>
 </body>
 </html>

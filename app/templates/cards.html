@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% block heading %}{{ ui('شارژ کارت به کارت','Card-to-card recharge') }}{% endblock %}
+{% block content %}
+<section class="clean-hero">
+  <div>
+    <p class="eyebrow">MANUAL CARD-TO-CARD</p>
+    <h3>{{ ui('شارژ پنل‌های نمایندگی با کارت به کارت','Reseller panel top-ups by manual card-to-card') }}</h3>
+    <p>{{ ui('بدون درگاه پرداخت: شماره کارت و اطلاعات واریز را اینجا ثبت کن. نماینده‌ها تعداد گیگ موردنیاز را وارد می‌کنند، مبلغ تقریبی را می‌بینند، به کارت تو واریز می‌کنند و تصویر رسید را بارگذاری می‌کنند؛ تو از همین صفحه درخواست را تأیید یا رد می‌کنی و حجم به پنل نماینده اضافه می‌شود.','No payment gateway: register the target card and transfer details here. Resellers enter the GB they need, see the estimated amount, transfer the money to your card and upload the receipt; you approve or reject each request from this page and the volume is credited to the reseller panel.') }}</p>
+  </div>
+  <div class="clean-status-grid">
+    <div><span>{{ ui('وضعیت شارژ','Recharge status') }}</span><b class="{{ 'ok-text' if card_active else 'off-text' }}">{{ ui('فعال','Active') if card_active else ui('غیرفعال','Inactive') }}</b></div>
+    <div><span>{{ ui('درخواست‌های در انتظار','Awaiting approval') }}</span><b>{{ pending_count }}</b></div>
+    <div><span>{{ ui('قیمت هر گیگ','Price per GB') }}</span><b>{{ "{:,}".format(price_per_gb) }} {{ ui('ریال','Rial') }}</b></div>
+    <div><span>{{ ui('حداقل درخواست','Minimum request') }}</span><b>{{ "{:,}".format(min_purchase) }} {{ ui('ریال','Rial') }}</b></div>
+  </div>
+</section>
+
+<section class="clean-grid two">
+  <article class="card clean-card">
+    <div class="clean-card-head"><div><p class="eyebrow">PAYMENT INFO</p><h3>{{ ui('اطلاعات کارت به کارت','Card-to-card details') }}</h3></div><span class="pill">{{ ui('نمایش به نماینده','Shown to resellers') }}</span></div>
+    <form method="post" class="clean-form">
+      <input type="hidden" name="action" value="settings">
+      <label class="switch-row"><input type="checkbox" name="card_charge_enabled" value="1" {% if settings.get('card_charge_enabled') == '1' %}checked{% endif %}><span>{{ ui('شارژ کارت به کارت فعال باشد','Enable card-to-card recharge') }}</span></label>
+      <div class="mini-grid">
+        <label>{{ ui('قیمت هر گیگ (ریال)','Price per GB (Rial)') }}<input type="number" min="1" name="card_price_per_gb" value="{{ price_per_gb }}"></label>
+        <label>{{ ui('حداقل درخواست (ریال)','Minimum request (Rial)') }}<input type="number" min="0" name="card_min_purchase" value="{{ min_purchase }}"></label>
+      </div>
+      <label>{{ ui('شماره کارت مقصد','Destination card number') }}<input name="card_number" value="{{ settings.get('card_number','') }}" placeholder="6037-....-....-...." dir="ltr"></label>
+      <label>{{ ui('نام دارنده حساب','Account holder name') }}<input name="card_holder" value="{{ settings.get('card_holder','') }}" placeholder="{{ ui('نام و نام خانوادگی','Full name') }}"></label>
+      <label>{{ ui('متن راهنمای پرداخت','Payment instructions text') }}<textarea name="card_payment_text" rows="4" placeholder="{{ ui('مثلاً: مبلغ را واریز کنید، پس از پرداخت تصویر رسید را بارگذاری کنید و منتظر تأیید بمانید','e.g. transfer the amount, upload the receipt image after paying and wait for approval') }}">{{ settings.get('card_payment_text','') }}</textarea></label>
+      <label>{{ ui('شناسه پشتیبانی (اختیاری)','Support ID (optional)') }}<input name="card_support" value="{{ settings.get('card_support','') }}" placeholder="{{ ui('آیدی تلگرام یا شماره تماس','Telegram ID or phone number') }}"></label>
+      <button class="btn primary wide">{{ ui('ذخیره تنظیمات','Save settings') }}</button>
+    </form>
+  </article>
+
+  <article class="card clean-card">
+    <div class="clean-card-head"><div><p class="eyebrow">FLOW</p><h3>{{ ui('نحوه شارژ','How it works') }}</h3></div></div>
+    <div class="clean-steps" style="grid-template-columns:1fr">
+      <div class="clean-step active"><span>1</span><div><b>{{ ui('نماینده گیگ وارد می‌کند','The reseller enters GB') }}</b><small>{{ ui('تعداد گیگ را وارد و مبلغ تقریبی (= گیگ × قیمت هر گیگ) را همان لحظه می‌بیند.','They enter the GB and instantly see the estimated amount (= GB x price per GB).') }}</small></div></div>
+      <div class="clean-step"><span>2</span><div><b>{{ ui('واریز و بارگذاری رسید','Transfer & receipt upload') }}</b><small>{{ ui('به شماره کارت ثبت‌شده کارت به کارت می‌کند و تصویر فیش را با درخواست بارگذاری می‌کند.','They transfer to the registered card and upload the receipt image with the request.') }}</small></div></div>
+      <div class="clean-step"><span>3</span><div><b>{{ ui('بررسی و تأیید','Review & approve') }}</b><small>{{ ui('روی کارت درخواست کلیک کن: عکس فیش، حجم و مبلغ را بررسی کن؛ «تأیید» حجم را اضافه و پنلِ متوقف‌شده را دوباره فعال می‌کند، «رد» بدون اضافه‌کردن حجم درخواست را می‌بندد.','Click a request card to inspect the receipt, volume and amount; "Approve" credits the GB and re-enables any suspended panel, "Reject" closes it without crediting.') }}</small></div></div>
+    </div>
+  </article>
+</section>
+
+<section class="card clean-card">
+  <div class="clean-card-head"><div><p class="eyebrow">CHARGE REQUESTS</p><h3>{{ ui('درخواست‌های شارژ نماینده‌ها','Reseller charge requests') }}</h3></div><span class="badge warn">{{ pending_count }} {{ ui('در انتظار','awaiting') }}</span></div>
+  {% if history %}
+  <div class="charge-request-grid">
+    {% for c in history %}
+    <details class="charge-card clean-card">
+      <summary>
+        <div class="charge-card-head">
+          <b>{{ admin_label_by_id(c.reseller_id) or '-' }}</b>
+          <span class="badge {{ 'ok' if c.status == 'approved' else ('warn' if c.status == 'pending' else 'off') }}">{{ {'approved': ui('تأیید شده','Approved'),'pending': ui('در انتظار تأیید','Awaiting approval'),'rejected': ui('رد شده','Rejected')}.get(c.status, c.status) }}</span>
+        </div>
+        <div class="charge-meta">
+          <span><small>{{ ui('حجم','Volume') }}</small><b>{{ c.gb_amount }} GB</b></span>
+          <span><small>{{ ui('مبلغ','Amount') }}</small><b>{{ "{:,}".format(c.amount | int) }} {{ ui('ریال','Rial') }}</b></span>
+          <span><small>#{{ c.factor_number }}</small><b>{{ c.created_at.strftime('%d %b %H:%M') if c.created_at else '-' }}</b></span>
+        </div>
+      </summary>
+      <div class="charge-detail">
+        <div class="charge-detail-grid">
+          <div><small>{{ ui('نماینده','Reseller') }}</small><b>{{ admin_label_by_id(c.reseller_id) or '-' }}</b></div>
+          <div><small>{{ ui('حجم درخواستی','Requested volume') }}</small><b>{{ c.gb_amount }} GB</b></div>
+          <div><small>{{ ui('مبلغ برآوردشده','Estimated amount') }}</small><b>{{ "{:,}".format(c.amount | int) }} {{ ui('ریال','Rial') }}</b></div>
+          <div><small>{{ ui('تاریخ','Date') }}</small><b>{{ c.created_at.strftime('%Y-%m-%d %H:%M') if c.created_at else '-' }}</b></div>
+        </div>
+        {% if c.receipt_file %}
+        <div class="receipt-box">
+          <small>{{ ui('فیش واریز','Payment receipt') }}</small>
+          <a href="{{ url_for('web.charge_receipt', charge_id=c.id) }}" target="_blank"><img src="{{ url_for('web.charge_receipt', charge_id=c.id) }}" alt="receipt #{{ c.factor_number }}"></a>
+        </div>
+        {% else %}
+        <div class="alert-box empty-state"><b>{{ ui('رسیدی بارگذاری نشده است.','No receipt was uploaded.') }}</b></div>
+        {% endif %}
+        {% if c.note %}<p class="muted" style="margin-top:10px">{{ ui('یادداشت مدیر','Admin note') }}: {{ c.note }}</p>{% endif %}
+        {% if c.status == 'pending' %}
+        <div class="charge-actions">
+          <form method="post" action="{{ url_for('web.cards_panel') }}">
+            <input type="hidden" name="action" value="approve">
+            <input type="hidden" name="charge_id" value="{{ c.id }}">
+            <button class="btn primary">{{ ui('تأیید و اضافه‌کردن حجم','Approve & add volume') }}</button>
+          </form>
+          <form method="post" action="{{ url_for('web.cards_panel') }}" class="reject-form">
+            <input type="hidden" name="action" value="reject">
+            <input type="hidden" name="charge_id" value="{{ c.id }}">
+            <input type="text" name="note" placeholder="{{ ui('دلیل رد (اختیاری)','Reject reason (optional)') }}">
+            <button class="btn ghost">{{ ui('رد درخواست','Reject request') }}</button>
+          </form>
+        </div>
+        {% endif %}
+      </div>
+    </details>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state"><b>{{ ui('هنوز درخواست شارژی ثبت نشده است.','No charge requests yet.') }}</b><p class="muted">{{ ui('هنگامی که یک نماینده برای حجم درخواست شارژ ثبت کند، اینجا نمایش داده می‌شود.','When a reseller submits a recharge request it will show up here.') }}</p></div>
+  {% endif %}
+</section>
+{% endblock %}

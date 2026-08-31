@@ -45,7 +45,7 @@ def _owner_value():
 
 
 def _owner_volume_gate():
-    """v2.0.0: Dargahno volume gate for reseller (owner>0) sales bots. While the
+    """v2.0.3: card-to-card recharge volume gate for reseller (owner>0) sales bots. While the
     reseller panel has no remaining volume the bot must NOT create new users or
     renew/charge existing services. The main admin (owner 0) is never gated."""
     owner = _owner_value()
@@ -62,7 +62,7 @@ def _owner_volume_gate():
     ledger_bytes = int(getattr(reseller, 'reseller_used_bytes', 0) or 0)
     remaining_gb = float(quota_gb) - ledger_bytes / (1024 * 1024 * 1024)
     if remaining_gb <= 0:
-        return 'حجم فروش پنل نمایندگی شما تمام شده است؛ امکان ساخت یا تمدید/شارژ سرویس توسط ربات تا خرید حجم مسدود است. از بخش «حجم و شارژ» در پنل نمایندگی حجم بخرید.'
+        return 'پنل غیر فعال به علت تمام شدن حجم است؛ امکان ساخت یا تمدید/شارژ سرویس توسط ربات تا شارژ مجدد مسدود شده. از بخش «شارژ پنل» در پنل نمایندگی حجم بخرید.'
     return None
 
 def _plan_query():

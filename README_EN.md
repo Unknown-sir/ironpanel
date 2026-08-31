@@ -6,7 +6,7 @@
 
 **Professional multi-protocol, multi-server VPN management — users, resellers, nodes and tunnels from one console**
 
-![Version](https://img.shields.io/badge/version-19.10.29-blue)
+![Version](https://img.shields.io/badge/version-2.0.3-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-informational)
 ![Flask](https://img.shields.io/badge/flask-3.0-green)
 ![Platform](https://img.shields.io/badge/platform-Ubuntu%2022.04%2F24.04%20%7C%20Debian-orange)
@@ -33,6 +33,7 @@ IronPanel is more than an account generator: it is a full control center for cen
 | **Subscriptions** | Per-user page with QR, single/ZIP downloads, Clash/Sing-box/Hiddify outputs, themable |
 | **Speed limits** | Three layers — protocol default / user-wide / per-user×protocol override — enforced for real via tc |
 | **Resellers** | Dedicated `/r/<path>` panels, real traffic quotas, auto suspend/restore, **custom config domain** |
+| **Card-to-card recharge** | No payment gateway: the reseller enters GB, sees the estimated amount, transfers money and uploads a receipt; the main admin approves or rejects and the volume is credited |
 | **Multi-server** | Node Agent, Node Gateway, Transparent Relay, SSH auto node installer (Pro/Admin) |
 | **Telegram** | Owner-aware sales bot, admin bot with scheduled reports & 24h backups, managed MTProto proxy |
 | **API** | REST v1 & v2 + MirzaBot Custom Panel compatibility |
@@ -125,6 +126,17 @@ Enforcement uses `tc/iptables` egress shaping; each user is identified by their 
 
 ---
 
+## 💳 Manual card-to-card recharge (no payment gateway)
+
+Reseller panel top-ups are fully manual and **do not involve any payment gateway**:
+
+- The main admin configures the **"Card-to-card recharge"** page (`/cards`): destination card number, account holder, payment instructions text, price per GB (Rial) and the minimum purchase amount.
+- On **"Panel recharge"** (`/reseller/storage`) a reseller enters the required GB; the estimated amount (= GB × price per GB) is shown instantly, they transfer the money to the admin's card and upload the **receipt image** with the request.
+- Requests appear in the admin panel as **expandable cards**: receipt image, requested volume, amount and reseller are inspectable. **Approve** credits the volume to the reseller quota and re-enables a suspended panel; **Reject** closes the request without crediting anything.
+- When a reseller's volume runs out the panel is automatically suspended, the message **"Panel disabled: volume exhausted"** is shown and only the recharge section is reachable; their sales bot also blocks creating/renewing/charging services until a top-up is approved.
+
+---
+
 ## 🛰️ Nodes, Gateway & Transparent Relay
 
 ```
@@ -183,7 +195,17 @@ sudo bash scripts/update_from_github.sh        # update
 
 ## 📄 License
 
-IronPanel is released under its [commercial license](LICENSE). Some modules require a Plus/Pro/Admin license key; the free Beginner edition works without a key (OpenVPN + Xray).
+IronPanel is released under its [commercial license](LICENSE). The free **Beginner** edition runs without a key (OpenVPN + Xray). Feature comparison:
+
+| Feature | 🆓 Beginner | 💠 Plus | 🚀 Pro | 👑 Admin | 🎁 Trial |
+|---|---|---|---|---|---|
+| All protocols (OpenVPN/Xray/WG/Ocserv/L2TP/PPTP/Hysteria2/MTProto/SSH) | OpenVPN + Xray only | ✅ | ✅ | ✅ | ✅ |
+| Networking / Subscriptions / Monitoring | ❌ | ✅ | ✅ | ✅ | ✅ |
+| Node Agent & Node Auto Installer | ❌ | ❌ | ✅ | ✅ | ✅ (no Auto Installer) |
+| Sales bot | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Finance & billing | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Node Gateway / Multi-server | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Public API & updates | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 <div align="center">
 
