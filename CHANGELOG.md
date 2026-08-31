@@ -1,3 +1,10 @@
+# v2.0.5 - Per-Protocol Domain Overrides for the Main Admin
+
+- **Main admin can now set a separate domain for each VPN protocol.** A new admin page (`/protocol-domains`, under Network & Domains) lets the main admin enter an individual domain for OpenVPN, WireGuard, Ocserv/OpenConnect, L2TP/IKEv2, PPTP, Hysteria2, SSH, Xray and Telegram Proxy.
+- **Override only where set; fall back to the panel default otherwise.** Each protocol's generated client config (OpenVPN `remote`, WireGuard `Endpoint`, Ocserv/L2TP/PPTP/SSH `Server`, Hysteria2 `hy2://` URI, Xray `vless/vmess/trojan/ss` host, Telegram `tg://proxy` and Clash/SingBox subscription servers) uses its per-protocol domain **when one is configured**, and otherwise keeps using the panel defaults (`Public Host` / `Tunnel Host`). The per-reseller `config_domain` still applies for resellers' own users, and per-node Direct Location addresses still win for node-served configs.
+- `resolve_protocol_domain(user, protocol, default)` in `provisioning.py` chains per-protocol override -> reseller override -> global default; Xray and Telegram Proxy plus Clash/SingBox subscriptions were updated (previously these bypassed overrides).
+- CSS/JS cache-buster bumped to 2.0.5.
+
 # v2.0.4 - Reseller Sales Bot via 4 API Families & Card-To-Card Modal Review
 
 - **Resellers no longer use the panel's built-in sales bot.** The "My sales bot" page (`/reseller/bot`) was rewritten as "Sales bot API": each reseller automatically owns **four dedicated API credentials** to connect an external bot:

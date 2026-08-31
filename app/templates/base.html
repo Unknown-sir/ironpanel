@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0b1220">
   <title>{% block title %}IronPanel{% endblock %}</title>
-  <link rel="stylesheet" href="/static/css/style.css?v=2.0.4">
+  <link rel="stylesheet" href="/static/css/style.css?v=2.0.5">
 </head>
 <body class="theme-{{ current_theme() }} lang-{{ lang }} iron-stable-v19103 iron-mobile-fix-v19104">
 {% set simple_ui = is_simple_ui() if current_user.is_authenticated else true %}
@@ -90,10 +90,11 @@
         {% endif %}
 
         {% if feature_allowed('network') %}
-        {% call nav_group('network','C', 'شبکه و دامنه', 'Network & domains', 'فایروال، DNS و دامنه‌ها', 'Firewall, DNS and domains', request.path in ['/firewall','/dns','/domains']) %}
+        {% call nav_group('network','C', 'شبکه و دامنه', 'Network & domains', 'فایروال، DNS و دامنه‌ها', 'Firewall, DNS and domains', request.path in ['/firewall','/dns','/domains','/protocol-domains']) %}
           <a href="/firewall" class="{{ 'active' if request.path == '/firewall' else '' }}">Firewall</a>
           <a href="/dns" class="{{ 'active' if request.path == '/dns' else '' }}">DNS</a>
           <a href="/domains" class="{{ 'active' if request.path == '/domains' else '' }}">{{ 'مدیریت دامنه' if is_fa else 'Domain manager' }}</a>
+          <a href="/protocol-domains" class="{{ 'active' if request.path == '/protocol-domains' else '' }}">{{ 'دامنه پروتکل‌ها' if is_fa else 'Per-protocol domains' }}</a>
         {% endcall %}
         {% endif %}
       </div>
@@ -176,6 +177,6 @@
     </section>
   </main>
 </div>
-<script src="/static/js/app.js?v=2.0.4"></script>
+<script src="/static/js/app.js?v=2.0.5"></script>
 </body>
 </html>

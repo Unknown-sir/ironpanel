@@ -1,0 +1,10 @@
+{% extends 'base.html' %}{% block heading %}دامنه پروتکل‌ها{% endblock %}{% block content %}
+{% set proto_names = {'openvpn':'OpenVPN','wireguard':'WireGuard','ocserv':'Ocserv / OpenConnect','l2tp':'L2TP / IKEv2','pptp':'PPTP','hysteria2':'Hysteria2','ssh':'SSH','xray':'Xray','telegram_proxy':'Telegram Proxy'} %}
+<section class="card hero"><div><p class="eyebrow">PER-PROTOCOL DOMAIN</p><h3>دامنه اختصاصی هر پروتکل</h3><p class="hint">اگر برای هر پروتکل یک دامنه ثبت کنید، کانفیگ‌های تولیدی آن پروتکل فقط از همان دامنه استفاده می‌کنند. پروتکل‌هایی که دامنه خالی دارند، از تنظیمات پیش‌فرض پنل (Public Host / Tunnel Host) استفاده می‌کنند.</p></div></section>
+<section class="card"><h3>دامنه‌های اختصاصی</h3><form method="post" class="form grid-form">
+{% for p in protocols %}
+<label>{{ proto_names.get(p, p) }}<input name="domain_{{p}}" type="text" value="{{ domains.get(p, '') }}" placeholder="مثال: vpn.{{ p }}.com"><small class="hint">خالی = استفاده از دامنه پیش‌فرض پنل</small></label>
+{% endfor %}
+<button>ذخیره دامنه‌ها</button></form></section>
+<section class="card"><h3>نکته</h3><p class="hint">دامنه هر پروتکل فقط در کانفیگ کلاینت (معمولاً فیلد remote / server / endpoint) اعمال می‌شود. پورت و سایر تنظیمات همانند قبل از تنظیمات اصلی پنل خوانده می‌شوند.</p></section>
+{% endblock %}

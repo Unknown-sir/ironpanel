@@ -22,6 +22,7 @@ from ..services.provisioning import (
     enforce_ip_limits,
     enforce_usage_limits,
     get_public_host,
+    get_protocol_domain_settings,
     get_user_ip_limit,
     ip_limit_settings,
     log,
@@ -557,6 +558,23 @@ def ip_limit_manager():
         return redirect(url_for('web.ip_limit_manager'))
     users_rows = VpnUser.query.order_by(VpnUser.username).all()
     return render_template('ip_limit.html', settings=ip_limit_settings(), users=users_rows, get_user_ip_limit=get_user_ip_limit, usage_summary=user_usage_summary)
+
+@web_bp.route('/protocol-domains', methods=['GET', 'POST'])
+@login_required
+def protocol_domains():
+    if current_user.role != 'main_admin':
+        flash('دسترسی مجاز نیست')
+        return redirect(url_for('web.dashboard'))
+    from ..services.provisioning import ADMIN_PROTOCOL_DOMAINS
+    if request.method == 'POST':
+        for proto in ADMIN_PROTOCOL_DOMAINS:
+            val = (request.form.get(f'domain_{proto}') or '').strip()
+            set_setting(f'protocol_domain_{proto}', val)
+        db.session.commit()
+        log(current_user.username, 'update_protocol_domains', ','.join(ADMIN_PROTOCOL_DOMAINS))
+        flash('دامنه پروتکل‌ها ذخیره شد')
+        return redirect(url_for('web.protocol_domains'))
+    return render_template('protocol_domains.html', domains=get_protocol_domain_settings(), protocols=ADMIN_PROTOCOL_DOMAINS)
 
 @web_bp.route('/users/bulk-action', methods=['POST'])
 @login_required

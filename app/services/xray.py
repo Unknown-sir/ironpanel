@@ -848,10 +848,9 @@ def xray_link(user: VpnUser, settings: Dict[str, str] | None = None) -> str:
     profile = XRAY_PROFILE_TYPES[settings.get('xray_profile_type', 'vless-reality')]
     protocol = profile['protocol']
     host = _public_host(settings)
-    # v19.10.27: honor the owning reseller's custom config domain (empty = default).
     try:
-        from .provisioning import reseller_config_domain_for
-        host = reseller_config_domain_for(user) or host
+        from .provisioning import reseller_config_domain_for, resolve_protocol_domain
+        host = resolve_protocol_domain(user, 'xray', '') or reseller_config_domain_for(user) or host
     except Exception:
         pass
     port = int(settings.get('xray_port') or 443)

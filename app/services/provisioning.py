@@ -182,6 +182,31 @@ def set_reseller_config_domain(admin_id, raw_value):
     return clean
 
 
+# v2.0.5: per-protocol domain overrides.
+PROTOCOL_DOMAIN_KEY = 'protocol_domain_{protocol}'
+ADMIN_PROTOCOL_DOMAINS = ['openvpn', 'wireguard', 'ocserv', 'l2tp', 'pptp', 'hysteria2', 'ssh', 'xray', 'telegram_proxy']
+
+
+def resolve_protocol_domain(user, protocol, default=''):
+    """Return per-protocol domain override if set, else fallback to default."""
+    val = get_setting(PROTOCOL_DOMAIN_KEY.format(protocol=protocol), '').strip()
+    if val:
+        from urllib.parse import urlparse
+        raw = val
+        if '://' not in raw:
+            raw = 'http://' + raw
+        try:
+            return urlparse(raw).hostname or val.split('/')[0].split(':')[0]
+        except Exception:
+            return val.split('/')[0].split(':')[0]
+    return default
+
+
+def get_protocol_domain_settings():
+    """Return dict of all protocol domain overrides."""
+    return {p: get_setting(PROTOCOL_DOMAIN_KEY.format(protocol=p), '') for p in ADMIN_PROTOCOL_DOMAINS}
+
+
 def _ensure_openvpn_tcp_port_available():
     """Prevent OpenVPN TCP from sharing one listen port with Ocserv.
 
@@ -321,8 +346,7 @@ def _gateway_endpoint_for(protocol: str, default_host: str, default_port: int | 
 
 def telegram_proxy_link_for(user: VpnUser) -> str:
     from urllib.parse import quote
-    # v19.10.27: honor the owning reseller's custom config domain.
-    host = reseller_config_domain_for(user) or _telegram_proxy_server_host()
+    host = resolve_protocol_domain(user, 'telegram_proxy', '') or reseller_config_domain_for(user) or _telegram_proxy_server_host()
     port = telegram_proxy_base_port()
     host, port = _gateway_endpoint_for('telegram_proxy', host, port)
     secret = telegram_proxy_secret_for(user)
@@ -2329,21 +2353,21 @@ def generate_profiles(user: VpnUser):
 
     ovpn_proto = openvpn_client_proto()
     ovpn_selected_port = openvpn_port()
-    ovpn_host, ovpn_selected_port = _gateway_endpoint_for('openvpn', host, ovpn_selected_port)
+    ovpn_host, ovpn_selected_port = _gateway_endpoint_for('openvpn', resolve_protocol_domain(user, 'openvpn', host), ovpn_selected_port)
     ovpn_host = _profile_host_only(ovpn_host)
     oc_tcp = get_port('ocserv_tcp')
-    oc_host, oc_tcp = _gateway_endpoint_for('ocserv', host, oc_tcp)
+    oc_host, oc_tcp = _gateway_endpoint_for('ocserv', resolve_protocol_domain(user, 'ocserv', host), oc_tcp)
     oc_host = _profile_host_only(oc_host)
     wg_port = get_port('wireguard_udp')
-    wg_host, wg_port = _gateway_endpoint_for('wireguard', host, wg_port)
+    wg_host, wg_port = _gateway_endpoint_for('wireguard', resolve_protocol_domain(user, 'wireguard', host), wg_port)
     wg_host = _profile_host_only(wg_host)
-    l2tp_host, _l2tp_unused_port = _gateway_endpoint_for('l2tp', host, get_port('l2tp_udp'))
+    l2tp_host, _l2tp_unused_port = _gateway_endpoint_for('l2tp', resolve_protocol_domain(user, 'l2tp', host), get_port('l2tp_udp'))
     l2tp_host = _profile_host_only(l2tp_host)
-    pptp_host, pptp_port_value = _gateway_endpoint_for('pptp', host, get_port('pptp_tcp'))
+    pptp_host, pptp_port_value = _gateway_endpoint_for('pptp', resolve_protocol_domain(user, 'pptp', host), get_port('pptp_tcp'))
     pptp_host = _profile_host_only(pptp_host)
-    hy_host, hy_port_value = _gateway_endpoint_for('hysteria2', host, get_port('hysteria2_udp'))
+    hy_host, hy_port_value = _gateway_endpoint_for('hysteria2', resolve_protocol_domain(user, 'hysteria2', host), get_port('hysteria2_udp'))
     hy_host = _profile_host_only(hy_host)
-    ssh_host, ssh_port_value = _gateway_endpoint_for('ssh', host, ssh_port())
+    ssh_host, ssh_port_value = _gateway_endpoint_for('ssh', resolve_protocol_domain(user, 'ssh', host), ssh_port())
     ssh_host = _profile_host_only(ssh_host)
 
     ovpn_filename = f'{_safe_cn(user.username)}.ovpn'

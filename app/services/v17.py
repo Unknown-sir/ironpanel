@@ -4,7 +4,7 @@ from pathlib import Path
 from flask import current_app
 from ..core.extensions import db
 from ..core.models import Node, AppSetting, VpnUser, BackupRecord, OutboundProfile, ProtocolOutboundMap, SubscriptionAudit
-from .provisioning import user_config_payload, user_access_status, backup_now, service_status_detailed, run_cmd, get_public_host, get_port
+from .provisioning import user_config_payload, user_access_status, backup_now, service_status_detailed, run_cmd, get_public_host, get_port, resolve_protocol_domain
 from .xray import xray_link, write_xray_config
 
 V17_VERSION = '19.10.25'
@@ -341,7 +341,7 @@ def clash_meta_subscription(user):
         'allow-lan': False,
         'mode': 'rule',
         'log-level': 'warning',
-        'proxies': [{'name': user.username, 'type': 'vless', 'server': get_public_host(), 'port': 443, 'uuid': getattr(user, 'subscription_token', '')[:36], 'network': 'tcp', 'tls': False, 'udp': True, 'xray-uri': link}],
+        'proxies': [{'name': user.username, 'type': 'vless', 'server': resolve_protocol_domain(user, 'xray', '') or get_public_host(), 'port': 443, 'uuid': getattr(user, 'subscription_token', '')[:36], 'network': 'tcp', 'tls': False, 'udp': True, 'xray-uri': link}],
         'proxy-groups': [{'name':'IronPanel','type':'select','proxies':[user.username]}],
         'rules': ['MATCH,IronPanel'],
     }
@@ -359,7 +359,7 @@ def singbox_subscription(user):
             {'type': 'urltest', 'tag': user.username, 'outbounds': ['ironpanel-xray'], 'url': 'https://www.gstatic.com/generate_204', 'interval': '5m'},
             {'type': 'direct', 'tag': 'direct'},
             {'type': 'block', 'tag': 'block'},
-            {'type': 'vless', 'tag': 'ironpanel-xray', 'server': get_public_host(), 'server_port': 443, 'uuid': getattr(user, 'subscription_token', '')[:36], 'tls': {'enabled': False}, 'xray-uri': link},
+            {'type': 'vless', 'tag': 'ironpanel-xray', 'server': resolve_protocol_domain(user, 'xray', '') or get_public_host(), 'server_port': 443, 'uuid': getattr(user, 'subscription_token', '')[:36], 'tls': {'enabled': False}, 'xray-uri': link},
         ],
         'route': {'final': 'select'}
     }, ensure_ascii=False, indent=2)
