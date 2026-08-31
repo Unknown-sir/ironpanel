@@ -286,6 +286,8 @@ class ApiToken(db.Model):
     token = db.Column(db.String(128), unique=True, default=lambda: secrets.token_urlsafe(48))
     scopes = db.Column(db.String(255), default='users:read,users:write')
     enabled = db.Column(db.Boolean, default=True)
+    owner_id = db.Column(db.Integer, db.ForeignKey('admin.id'), nullable=True)
+    api_type = db.Column(db.String(20), default='v2')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 class RemoteJob(db.Model):

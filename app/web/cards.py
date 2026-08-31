@@ -1,7 +1,10 @@
-﻿"""v2.0.3: manual card-to-card volume recharge (admin settings + approval, reseller
-charge flow, reseller sales-bot connection). No payment gateway is involved."""
+﻿"""v2.0.3/v2.0.4: manual card-to-card volume recharge (admin settings + approval,
+reseller charge flow) and reseller external sales-bot API credentials. No payment
+gateway and no built-in sales bot for resellers — bots connect through one of the
+four API families (v1, v2, MirzaBot, 3x-ui)."""
 import math
 import os
+import secrets
 from pathlib import Path
 
 from flask import abort, current_app, flash, redirect, render_template, request, send_from_directory, url_for
@@ -11,14 +14,12 @@ from werkzeug.utils import secure_filename
 from ..core.extensions import db
 from ..core.models import (
     Admin,
+    ApiToken,
     ChargeRequest,
-    SalesBotOrder,
-    SalesBotPlan,
 )
 from ..services import cards
 from ..services.provisioning import log, reconcile_reseller_access
 from . import web_bp
-from .bots import _get_sales_bot_settings, _sales_bot_restart, _set_sales_bot_setting
 from .common import _reseller_stats
 
 _ADMIN_PAGE = 'cards.html'
@@ -96,7 +97,7 @@ def cards_panel():
                 flash('درخواست شارژ یافت نشد یا قبلاً تأیید/رد شده است.')
             return redirect(url_for('web.cards_panel'))
     settings = cards.card_settings()
-    history = cards.charge_history(limit=50)
+    history = [c for c in cards.charge_history(limit=50) if c.status == 'pending']
     return render_template(
         _ADMIN_PAGE,
         settings=settings,
@@ -212,32 +213,88 @@ def _reseller_charge_submit():
     return redirect(url_for('web.reseller_storage'))
 
 
-# ---------------- Reseller sales bot connection ----------------
+# ---------------- Reseller external sales-bot API credentials ----------------
+# The panel's built-in sales bot is NOT used for resellers. Instead every reseller
+# owns four API credentials (v1 / v2 / MirzaBot / 3x-ui-style) that an external
+# bot connects to for creating users, reading them, sending the subscription or
+# deleting users. Credentials never expire but can be rotated (regenerated).
+
+_API_TYPE_INFO = {
+    'v1': {'label_fa': 'نسخه ۱ (کلاسیک)', 'endpoint_suffix': '/api/v1',
+           'usage': 'X-API-KEY', 'note_fa': 'برای اسکریپت\u200cها و ربات\u200cهای قدیمی'},
+    'v2': {'label_fa': 'نسخه ۲ (توکن)', 'endpoint_suffix': '/api/v2',
+           'usage': 'Authorization: Bearer', 'note_fa': 'برای ربات\u200cهایی که با توکن کار می\u200cکنند'},
+    'mirzabot': {'label_fa': 'میرزا بات', 'endpoint_suffix': '/api/mirzabot/v1',
+                 'usage': 'X-API-Key', 'note_fa': 'برای ربات میرزا بات'},
+    'xui': {'label_fa': '3x-ui (نسخه جدید)', 'endpoint_suffix': '/api/xui',
+            'usage': 'X-API-KEY  یا  POST /api/xui/login', 'note_fa': 'سازگار با API پنل 3x-ui', 'is_new': True},
+}
+
+
+def _reseller_token_row(reseller, api_type):
+    return ApiToken.query.filter_by(owner_id=reseller.id, api_type=api_type).first()
+
+
+def _reseller_credential(reseller, api_type, rotate=False):
+    """Return the credential secret for an owner, creating/rotating as needed."""
+    if api_type == 'v1':
+        key = str(getattr(reseller, 'api_key', '') or '').strip()
+        if rotate or not key:
+            reseller.api_key = secrets.token_urlsafe(48)
+            db.session.commit()
+        return reseller.api_key
+    tok = _reseller_token_row(reseller, api_type)
+    if rotate or not tok:
+        if not tok:
+            tok = ApiToken(name=f'{api_type}-{reseller.username}', owner_id=reseller.id,
+                           api_type=api_type, scopes='users:read,users:write', enabled=True)
+            db.session.add(tok)
+        tok.token = secrets.token_urlsafe(48)
+        db.session.commit()
+    return tok.token
+
+
+def _reseller_api_creds(reseller):
+    creds = {}
+    for api_type, info in _API_TYPE_INFO.items():
+        key = _reseller_credential(reseller, api_type, rotate=False)
+        tok = _reseller_token_row(reseller, api_type) if api_type != 'v1' else None
+        creds[api_type] = {
+            'key': key,
+            'label_fa': info['label_fa'],
+            'endpoint': f"{request.url_root.rstrip('/')}{info['endpoint_suffix']}",
+            'usage': info['usage'],
+            'note_fa': info['note_fa'],
+            'is_new': bool(info.get('is_new')),
+            'enabled': bool(tok.enabled) if tok else True,
+        }
+    return creds
+
+
 @web_bp.route('/reseller/bot', methods=['GET', 'POST'])
 @login_required
 def reseller_bot():
     if current_user.role != 'sub_admin':
         return redirect(url_for('web.dashboard'))
-    owner_id = current_user.id
-    if request.method == 'POST':
-        _set_sales_bot_setting('sales_bot_enabled', '1' if request.form.get('sales_bot_enabled') else '0', owner_id)
-        _set_sales_bot_setting('sales_bot_token', (request.form.get('sales_bot_token') or '').strip(), owner_id)
-        db.session.commit()
-        _sales_bot_restart(owner_id)
-        log(current_user.username, 'reseller_bot_connect', 'owner', str(owner_id))
-        flash('تنظیمات ربات فروش ذخیره شد و سرویس ربات sync شد.')
-        return redirect(url_for('web.reseller_bot'))
-    settings = _get_sales_bot_settings(owner_id)
+    reseller = Admin.query.get(current_user.id)
     stats = _reseller_stats(current_user)
-    try:
-        plans_count = SalesBotPlan.query.filter_by(owner_id=owner_id).count()
-    except Exception:
-        plans_count = SalesBotPlan.query.count()
-    try:
-        orders_count = SalesBotOrder.query.filter_by(owner_id=owner_id).count()
-    except Exception:
-        orders_count = SalesBotOrder.query.count()
+    rotated = ''
+    if request.method == 'POST':
+        api_type = request.form.get('api_type') or ''
+        if api_type in _API_TYPE_INFO:
+            _reseller_credential(reseller, api_type, rotate=True)
+            log(current_user.username, 'reseller_api_rotate', api_type, 'rotated')
+            rotated = api_type
+        elif request.form.get('action') == 'enable-toggle':
+            api_type = request.form.get('api_type2') or ''
+            tok = _reseller_token_row(reseller, api_type) if api_type else None
+            if tok:
+                tok.enabled = not tok.enabled
+                db.session.commit()
+                rotated = api_type
     support = cards.card_settings().get('card_support') or ''
-    return render_template(_BOT_PAGE, settings=settings, stats=stats,
-                           plans=range(plans_count), orders=orders_count,
-                           support_id=support)
+    creds = _reseller_api_creds(reseller)
+    return render_template(_BOT_PAGE, stats=stats, creds=creds, rotated=rotated,
+                           support_id=support,
+                           volume_gated=(not bool(getattr(current_user, 'enabled', True))
+                                         and str(getattr(current_user, 'disabled_reason', '') or '') == 'traffic_quota'))

@@ -6,7 +6,7 @@
 
 **Professional multi-protocol, multi-server VPN management — users, resellers, nodes and tunnels from one console**
 
-![Version](https://img.shields.io/badge/version-2.0.3-blue)
+![Version](https://img.shields.io/badge/version-2.0.4-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-informational)
 ![Flask](https://img.shields.io/badge/flask-3.0-green)
 ![Platform](https://img.shields.io/badge/platform-Ubuntu%2022.04%2F24.04%20%7C%20Debian-orange)
@@ -122,7 +122,7 @@ Enforcement uses `tc/iptables` egress shaping; each user is identified by their 
 - Automatic suspension when limits are exhausted + automatic restore of only healthy users afterwards
 - Per-reseller allowed protocols, enforced server-side too
 - **Custom config domain**: a reseller's own users get configs pointing at that domain; empty = main panel address
-- Independent owner-aware sales bot per reseller
+- **External sales bot via 4 API families**: resellers don't use the built-in bot builder — each reseller owns dedicated API keys (v1, v2, MirzaBot and a new **3x-ui compatible** API) for an external bot
 
 ---
 
@@ -132,8 +132,25 @@ Reseller panel top-ups are fully manual and **do not involve any payment gateway
 
 - The main admin configures the **"Card-to-card recharge"** page (`/cards`): destination card number, account holder, payment instructions text, price per GB (Rial) and the minimum purchase amount.
 - On **"Panel recharge"** (`/reseller/storage`) a reseller enters the required GB; the estimated amount (= GB × price per GB) is shown instantly, they transfer the money to the admin's card and upload the **receipt image** with the request.
-- Requests appear in the admin panel as **expandable cards**: receipt image, requested volume, amount and reseller are inspectable. **Approve** credits the volume to the reseller quota and re-enables a suspended panel; **Reject** closes the request without crediting anything.
-- When a reseller's volume runs out the panel is automatically suspended, the message **"Panel disabled: volume exhausted"** is shown and only the recharge section is reachable; their sales bot also blocks creating/renewing/charging services until a top-up is approved.
+- Requests show as cards that open in a **popup modal** (receipt image, requested volume, amount and reseller). **Approve** credits the volume to the reseller quota and re-enables a suspended panel; **Reject** closes the request without crediting anything. Only **pending** requests are listed — processed ones disappear.
+- When a reseller's volume runs out the panel is automatically suspended, the message **"Panel disabled: volume exhausted"** is shown and only the recharge section is reachable; every reseller API also blocks creating/renewing/charging services until a top-up is approved.
+
+---
+
+## 🤖 Reseller sales bot — connect an external bot with a dedicated API
+
+The panel built-in bot builder is **not** used for resellers. Each reseller automatically gets **four API credentials** on the **"Sales bot API"** page (`/reseller/bot`) and connects any external bot:
+
+| API | Endpoint | Auth | Notes |
+|---|---|---|---|
+| **v1** (classic) | `/api/v1` | `X-API-KEY` | legacy scripts and bots |
+| **v2** | `/api/v2` | `Authorization: Bearer <token>` | reseller-scoped token |
+| **MirzaBot** | `/api/mirzabot/v1` | `X-API-Key` | MirzaBot-compatible actions |
+| **3x-ui** (new) | `/api/xui` | `X-API-KEY` or `POST /api/xui/login` | mirrors [3x-ui](https://github.com/MHSanaei/3x-ui) |
+
+The 3x-ui family supports `POST /login`, `GET /panel/api/inbounds/list`, `POST /panel/api/inbounds/addClient` (create user → returns the **subscription URL**), `GET /panel/api/inbounds/getClientTraffics/{email}`, `POST /panel/api/inbounds/updateClient/{inboundId}/{email}`, `POST /panel/api/inbounds/delClient/{inboundId}/{email}`, `POST /panel/api/inbounds/delDepletedClients/{inboundId}` and `GET /sub/{subId}` (raw subscription content).
+
+The bot can **create** users, **read** them and their info, **send** the subscription link/config to customers, and **delete/edit** users. Every call is scoped to the reseller's own users, and while the reseller's volume is exhausted (or the user cap is reached) creating and editing/renewing return HTTP 403 — only reading, sending the subscription and deleting keep working.
 
 ---
 

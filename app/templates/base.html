@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0b1220">
   <title>{% block title %}IronPanel{% endblock %}</title>
-  <link rel="stylesheet" href="/static/css/style.css?v=2.0.3">
+  <link rel="stylesheet" href="/static/css/style.css?v=2.0.4">
 </head>
 <body class="theme-{{ current_theme() }} lang-{{ lang }} iron-stable-v19103 iron-mobile-fix-v19104">
 {% set simple_ui = is_simple_ui() if current_user.is_authenticated else true %}
@@ -59,7 +59,7 @@
         {% if current_user.is_authenticated and current_user.role == 'sub_admin' %}
         {{ nav_link('/my/config-domain', request.path == '/my/config-domain', '06', 'دامنه کانفیگ‌های من', 'My config domain', 'دامنه اختصاصی کانفیگ مشتریان', 'Custom domain for your users') }}
         {{ nav_link('/reseller/storage', request.path == '/reseller/storage', '07', 'شارژ پنل', 'Panel recharge', 'شارژ کارت به کارت و درخواست افزایش حجم', 'Manual card-to-card top-up request') }}
-        {{ nav_link('/reseller/bot', request.path == '/reseller/bot', '08', 'ربات فروش من', 'My sales bot', 'ربات اختصاصی مشتریان شما', 'Your own Telegram sales bot') }}
+        {{ nav_link('/reseller/bot', request.path == '/reseller/bot', '08', 'ربات فروش (API)', 'Sales bot API', 'اتصال ربات فروش خارجی با API اختصاصی', 'Connect an external sales bot with a dedicated API') }}
         {% endif %}
       </div>
 
@@ -176,6 +176,6 @@
     </section>
   </main>
 </div>
-<script src="/static/js/app.js?v=2.0.3"></script>
+<script src="/static/js/app.js?v=2.0.4"></script>
 </body>
 </html>

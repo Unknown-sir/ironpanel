@@ -5,7 +5,7 @@ import math
 import secrets
 from datetime import datetime, timedelta
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, g
 
 from ..core.extensions import db
 from ..core.models import VpnUser
@@ -22,6 +22,12 @@ from ..services.provisioning import (
     subscription_url_for_user,
     sync_user,
     user_access_status,
+)
+from ..services.reseller_api import (
+    resolve_api_token,
+    volume_gate_reason,
+    create_block_reason,
+    owner_protocols,
 )
 
 api_mirzabot_bp = Blueprint('api_mirzabot', __name__)
@@ -44,11 +50,24 @@ def _api_enabled() -> bool:
 
 
 def _valid_api_key() -> bool:
-    if not _api_enabled():
-        return False
-    expected = str(get_setting('mirzabot_api_key', '') or '').strip()
     supplied = str(request.headers.get('X-API-Key', '') or '').strip()
-    return bool(expected and supplied and hmac.compare_digest(expected, supplied))
+    if not supplied:
+        return False
+    if _api_enabled():
+        expected = str(get_setting('mirzabot_api_key', '') or '').strip()
+        if expected and hmac.compare_digest(expected, supplied):
+            g.mirzabot_owner = None
+            return True
+    # Reseller-scoped credentials: every reseller owns its own MirzaBot token.
+    _tok, owner = resolve_api_token(supplied, allowed_types=['mirzabot'])
+    if owner:
+        g.mirzabot_owner = owner
+        return True
+    return False
+
+
+def _owner():
+    return getattr(g, 'mirzabot_owner', None)
 
 
 def _bytes_to_limit_mb(value) -> int:
@@ -102,6 +121,9 @@ def _default_protocols() -> list[str]:
 
 
 def _find_user(username: str):
+    owner = _owner()
+    if owner:
+        return VpnUser.query.filter_by(username=str(username or '').strip(), owner_id=owner.id).first()
     return VpnUser.query.filter_by(username=str(username or '').strip()).first()
 
 
@@ -139,10 +161,14 @@ def _reactivate_and_sync(user: VpnUser, changed_protocols=None):
 
 
 def _action_create_user(data):
+    owner = _owner()
+    reason = create_block_reason(owner)
+    if reason:
+        return _reply_error('Cannot create user: ' + reason, 403)
     username = _ensure_username(data)
     if _find_user(username):
         return _reply_error('Username already exists', 409)
-    protocols = _default_protocols()
+    protocols = owner_protocols(owner, _default_protocols())
     if not protocols:
         return _reply_error('No active protocol is available', 503)
     password = generate_user_password()
@@ -154,7 +180,7 @@ def _action_create_user(data):
         protocol_permissions=','.join(protocols),
         l2tp_password=password,
         cisco_password=password,
-        owner_id=None,
+        owner_id=owner.id if owner else None,
         enabled=True,
     )
     user.set_password(password)
@@ -188,9 +214,13 @@ def _action_remove_user(data):
 
 
 def _action_reset_user(data):
+    owner = _owner()
     user = _find_user(data.get('username'))
     if not user:
         return _reply_error('User not found', 404)
+    reason = volume_gate_reason(owner)
+    if reason:
+        return _reply_error('Action blocked: ' + reason, 403)
     reset_user_usage_preserving_reseller(user)
     db.session.commit()
     log('mirzabot_api', 'reset_user', user.username)
@@ -198,9 +228,13 @@ def _action_reset_user(data):
 
 
 def _action_extend_user(data):
+    owner = _owner()
     user = _find_user(data.get('username'))
     if not user:
         return _reply_error('User not found', 404)
+    reason = volume_gate_reason(owner)
+    if reason:
+        return _reply_error('Action blocked: ' + reason, 403)
     user.data_limit_mb = _bytes_to_limit_mb(data.get('data_limit'))
     user.expires_at = _expire_from_unix(data.get('expire'))
     _reactivate_and_sync(user, changed_protocols=set(user.allowed_protocol_list() or user.protocol_list()))
@@ -234,9 +268,13 @@ def _apply_config(user: VpnUser, config: dict):
 
 
 def _action_modify_user(data):
+    owner = _owner()
     user = _find_user(data.get('username'))
     if not user:
         return _reply_error('User not found', 404)
+    reason = volume_gate_reason(owner)
+    if reason:
+        return _reply_error('Action blocked: ' + reason, 403)
     config = data.get('config')
     if not isinstance(config, dict):
         return _reply_error('Invalid config', 400)
@@ -246,9 +284,13 @@ def _action_modify_user(data):
 
 
 def _action_change_status(data):
+    owner = _owner()
     user = _find_user(data.get('username'))
     if not user:
         return _reply_error('User not found', 404)
+    reason = volume_gate_reason(owner)
+    if reason:
+        return _reply_error('Action blocked: ' + reason, 403)
     status = str(data.get('status') or '').strip().lower()
     if status not in {'active', 'disabled'}:
         return _reply_error('Invalid status', 400)
@@ -258,8 +300,12 @@ def _action_change_status(data):
 
 
 def _action_count_users(_data):
+    owner = _owner()
+    query = VpnUser.query
+    if owner:
+        query = query.filter_by(owner_id=owner.id)
     count = 0
-    for user in VpnUser.query.all():
+    for user in query.all():
         ok, _reason = user_access_status(user)
         if ok:
             count += 1
@@ -267,9 +313,13 @@ def _action_count_users(_data):
 
 
 def _action_revoke_sub(data):
+    owner = _owner()
     user = _find_user(data.get('username'))
     if not user:
         return _reply_error('User not found', 404)
+    reason = volume_gate_reason(owner)
+    if reason:
+        return _reply_error('Action blocked: ' + reason, 403)
     user.subscription_token = secrets.token_urlsafe(48)
     db.session.commit()
     # Xray identities and profile material can depend on subscription_token, so
@@ -285,9 +335,13 @@ def _action_revoke_sub(data):
 
 
 def _action_extra_volume(data):
+    owner = _owner()
     user = _find_user(data.get('username'))
     if not user:
         return _reply_error('User not found', 404)
+    reason = volume_gate_reason(owner)
+    if reason:
+        return _reply_error('Action blocked: ' + reason, 403)
     try:
         extra = max(0, int(data.get('volume') or 0))
     except Exception:
@@ -305,9 +359,13 @@ def _action_extra_volume(data):
 
 
 def _action_extra_time(data):
+    owner = _owner()
     user = _find_user(data.get('username'))
     if not user:
         return _reply_error('User not found', 404)
+    reason = volume_gate_reason(owner)
+    if reason:
+        return _reply_error('Action blocked: ' + reason, 403)
     try:
         days = int(data.get('time') or 0)
     except Exception:

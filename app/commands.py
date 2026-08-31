@@ -392,6 +392,14 @@ def _sqlite_light_migration(db):
                 except Exception:
                     pass
 
+            # v2.0.4: reseller-scoped API tokens (v1/v2/mirzabot/xui external-bot credentials).
+            if 'api_token' in tables:
+                cols = {r[1] for r in conn.exec_driver_sql('PRAGMA table_info(api_token)').fetchall()}
+                if 'owner_id' not in cols:
+                    conn.exec_driver_sql('ALTER TABLE api_token ADD COLUMN owner_id INTEGER')
+                if 'api_type' not in cols:
+                    conn.exec_driver_sql("ALTER TABLE api_token ADD COLUMN api_type VARCHAR(20) DEFAULT 'v2'")
+
 FAMOUS_DNS_PROFILES = [
     ('Cloudflare', '1.1.1.1', '1.0.0.1', True),
     ('Google', '8.8.8.8', '8.8.4.4', False),

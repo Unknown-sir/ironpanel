@@ -8,6 +8,7 @@ import secrets
 from ..services.license import filter_protocols_for_license
 from ..services.password_policy import generate_user_password
 from ..services.speed_limit import normalize_speed_limit_mbps, apply_speed_limits_runtime
+from ..services.reseller_api import volume_gate_reason, create_block_reason
 
 api_bp = Blueprint('api', __name__)
 
@@ -47,6 +48,10 @@ def _api_protocols_for_admin(admin, values):
 @api_bp.post('/users/create')
 @require_api
 def create_user():
+    admin = request.api_admin
+    reason = create_block_reason(admin if admin and admin.role == 'sub_admin' else None)
+    if reason:
+        return jsonify(success=False, error='reseller blocked: '+reason), 403
     data = request.json or {}
     username = data.get('username') or f'user{secrets.randbelow(99999)}'
     password = data.get('password') or generate_user_password()
@@ -75,6 +80,10 @@ def toggle_user(user_id):
     u = VpnUser.query.get_or_404(user_id)
     if request.api_admin and request.api_admin.role == 'sub_admin' and u.owner_id != request.api_admin.id:
         return jsonify(success=False, error='forbidden'), 403
+    if request.api_admin and request.api_admin.role == 'sub_admin':
+        reason = volume_gate_reason(request.api_admin)
+        if reason:
+            return jsonify(success=False, error='reseller blocked: '+reason), 403
     u.enabled = not u.enabled
     db.session.commit(); sync_user(u); log('api','toggle_user',u.username,str(u.enabled))
     return jsonify(success=True, user=serialize_user(u))
@@ -86,6 +95,10 @@ def api_user_speed_limit(user_id):
     u = VpnUser.query.get_or_404(user_id)
     if request.api_admin and request.api_admin.role == 'sub_admin' and u.owner_id != request.api_admin.id:
         return jsonify(success=False, error='forbidden'), 403
+    if request.api_admin and request.api_admin.role == 'sub_admin':
+        reason = volume_gate_reason(request.api_admin)
+        if reason:
+            return jsonify(success=False, error='reseller blocked: '+reason), 403
     u.speed_limit_mbps = normalize_speed_limit_mbps((request.json or {}).get('speed_limit_mbps', 0))
     db.session.commit()
     ok, out = apply_speed_limits_runtime()

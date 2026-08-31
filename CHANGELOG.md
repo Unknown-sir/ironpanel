@@ -1,3 +1,16 @@
+# v2.0.4 - Reseller Sales Bot via 4 API Families & Card-To-Card Modal Review
+
+- **Resellers no longer use the panel's built-in sales bot.** The "My sales bot" page (`/reseller/bot`) was rewritten as "Sales bot API": each reseller automatically owns **four dedicated API credentials** to connect an external bot:
+  - **v1** (classic `X-API-KEY` on `/api/v1`) – the reseller's `Admin.api_key`;
+  - **v2** (`Authorization: Bearer` on `/api/v2`) – a reseller-scoped `ApiToken`;
+  - **MirzaBot** (`X-API-Key` on `/api/mirzabot/v1`) – a per-reseller token, independent of the global key;
+  - **3x-ui** (new, `/api/xui`) – a new API family mirroring `https://github.com/MHSanaei/3x-ui` for generic bots.
+  New `api_token.owner_id` + `api_token.api_type` columns (auto-migrated on SQLite) make the v2/MirzaBot/3x-ui keys reseller-scoped; the panel's `/sales-bot` page stays admin-only and the `sales_bot` license gate no longer block `/reseller/bot`.
+- **New 3x-ui compatible API** (`app/api_xui/routes.py`): `POST /api/xui/login`, `GET /panel/api/inbounds/list`, `POST /panel/api/inbounds/addClient` (create user, returns the subscription link), `GET /panel/api/inbounds/getClientTraffics/{email}`, `POST /panel/api/inbounds/updateClient/{inboundId}/{email}`, `POST /panel/api/inbounds/delClient/{inboundId}/{email}`, `POST /panel/api/inbounds/delDepletedClients/{inboundId}` and `GET /api/xui/sub/{subId}` (raw subscription content). Responses use the 3x-ui envelope (`{success, msg, obj}`), login sets the `3x-ui` cookie and `settings` may be sent as JSON or base64 JSON.
+- **Volume gate enforced at API level for all four families.** While a reseller is volume-exhausted (or its user cap is reached) every reseller-scoped API rejects **creating** and **editing/renewing/charging** users with HTTP 403; reading info, sending the subscription and deleting users keep working. This extends the v2.0.3 bot gate to v1, v2 and MirzaBot and covers the new 3x-ui API.
+- **Admin card-to-card review as a modal.** Charge request cards now open in a popup modal on the same page (receipt preview, volume, amount, invoice/date, approve/reject); after approval or rejection the processed request **disappears from the list** — only pending requests are rendered.
+- README / README_EN document the four API families; CSS/JS cache-buster bumped to 2.0.4.
+
 # v2.0.3 - Manual Card-to-Card Recharge (No Payment Gateway)
 
 - The Dargahno payment gateway integration is **removed entirely**; reseller top-ups are now fully manual card-to-card. The admin "Payment gateway" page was replaced by "Card-to-card recharge" (`/cards`): destination card number, account holder name, payment instructions text, price per GB (Rial) and minimum request amount. The dimensions of the gateway (`dargahno_*` settings, `GatewayPayment` model, `payment_success/payment_failed` pages) are gone; a new `charge_request` table and `card_*` settings replace them.

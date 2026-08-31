@@ -31,10 +31,12 @@ def create_app(config_class=Config):
     from .api.routes import api_bp
     from .api_v2.routes import api_v2_bp
     from .api_mirzabot.routes import api_mirzabot_bp
+    from .api_xui.routes import api_xui_bp
     app.register_blueprint(web_bp)
     app.register_blueprint(api_bp, url_prefix='/api/v1')
     app.register_blueprint(api_v2_bp, url_prefix='/api/v2')
     app.register_blueprint(api_mirzabot_bp, url_prefix='/api/mirzabot/v1')
+    app.register_blueprint(api_xui_bp, url_prefix='/api/xui')
 
     from .commands import register_commands
     register_commands(app)

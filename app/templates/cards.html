@@ -5,7 +5,7 @@
   <div>
     <p class="eyebrow">MANUAL CARD-TO-CARD</p>
     <h3>{{ ui('شارژ پنل‌های نمایندگی با کارت به کارت','Reseller panel top-ups by manual card-to-card') }}</h3>
-    <p>{{ ui('بدون درگاه پرداخت: شماره کارت و اطلاعات واریز را اینجا ثبت کن. نماینده‌ها تعداد گیگ موردنیاز را وارد می‌کنند، مبلغ تقریبی را می‌بینند، به کارت تو واریز می‌کنند و تصویر رسید را بارگذاری می‌کنند؛ تو از همین صفحه درخواست را تأیید یا رد می‌کنی و حجم به پنل نماینده اضافه می‌شود.','No payment gateway: register the target card and transfer details here. Resellers enter the GB they need, see the estimated amount, transfer the money to your card and upload the receipt; you approve or reject each request from this page and the volume is credited to the reseller panel.') }}</p>
+    <p>{{ ui('بدون درگاه پرداخت: شماره کارت و اطلاعات واریز را اینجا ثبت کن. نماینده‌ها تعداد گیگ موردنیاز را وارد می‌کنند، مبلغ تقریبی را می‌بینند، به کارت تو واریز می‌کنند و تصویر رسید را بارگذاری می‌کنند؛ تو از همین صفحه درخواست را یک‌به‌یک باز، بررسی و تأیید یا رد می‌کنی. درخواست‌های تأییدشده یا ردشده از این لیست حذف می‌شوند و فقط درخواست‌های در انتظار نمایش داده می‌شوند.','No payment gateway: register the target card and transfer details here. Resellers enter the GB they need, see the estimated amount, transfer the money to your card and upload the receipt; you open, review and approve or reject each request from this page. Approved/rejected requests disappear from the list — only pending ones are shown.') }}</p>
   </div>
   <div class="clean-status-grid">
     <div><span>{{ ui('وضعیت شارژ','Recharge status') }}</span><b class="{{ 'ok-text' if card_active else 'off-text' }}">{{ ui('فعال','Active') if card_active else ui('غیرفعال','Inactive') }}</b></div>
@@ -38,7 +38,7 @@
     <div class="clean-steps" style="grid-template-columns:1fr">
       <div class="clean-step active"><span>1</span><div><b>{{ ui('نماینده گیگ وارد می‌کند','The reseller enters GB') }}</b><small>{{ ui('تعداد گیگ را وارد و مبلغ تقریبی (= گیگ × قیمت هر گیگ) را همان لحظه می‌بیند.','They enter the GB and instantly see the estimated amount (= GB x price per GB).') }}</small></div></div>
       <div class="clean-step"><span>2</span><div><b>{{ ui('واریز و بارگذاری رسید','Transfer & receipt upload') }}</b><small>{{ ui('به شماره کارت ثبت‌شده کارت به کارت می‌کند و تصویر فیش را با درخواست بارگذاری می‌کند.','They transfer to the registered card and upload the receipt image with the request.') }}</small></div></div>
-      <div class="clean-step"><span>3</span><div><b>{{ ui('بررسی و تأیید','Review & approve') }}</b><small>{{ ui('روی کارت درخواست کلیک کن: عکس فیش، حجم و مبلغ را بررسی کن؛ «تأیید» حجم را اضافه و پنلِ متوقف‌شده را دوباره فعال می‌کند، «رد» بدون اضافه‌کردن حجم درخواست را می‌بندد.','Click a request card to inspect the receipt, volume and amount; "Approve" credits the GB and re-enables any suspended panel, "Reject" closes it without crediting.') }}</small></div></div>
+      <div class="clean-step"><span>3</span><div><b>{{ ui('بررسی و تأیید','Review & approve') }}</b><small>{{ ui('روی کارت درخواست کلیک کن تا کنار صفحه باز شود: عکس فیش، حجم و مبلغ را بررسی کن؛ «تأیید» حجم را اضافه و پنلِ متوقف‌شده را دوباره فعال می‌کند، «رد» بدون اضافه‌کردن حجم درخواست را می‌بندد. درخواستِ بررسی‌شده از لیست حذف می‌شود.','Click a request card to open it as a popup: inspect the receipt, volume and amount; "Approve" credits the GB and re-enables any suspended panel, "Reject" closes it without crediting. The processed request leaves the list.') }}</small></div></div>
     </div>
   </article>
 </section>
@@ -48,24 +48,34 @@
   {% if history %}
   <div class="charge-request-grid">
     {% for c in history %}
-    <details class="charge-card clean-card">
-      <summary>
-        <div class="charge-card-head">
-          <b>{{ admin_label_by_id(c.reseller_id) or '-' }}</b>
-          <span class="badge {{ 'ok' if c.status == 'approved' else ('warn' if c.status == 'pending' else 'off') }}">{{ {'approved': ui('تأیید شده','Approved'),'pending': ui('در انتظار تأیید','Awaiting approval'),'rejected': ui('رد شده','Rejected')}.get(c.status, c.status) }}</span>
-        </div>
-        <div class="charge-meta">
-          <span><small>{{ ui('حجم','Volume') }}</small><b>{{ c.gb_amount }} GB</b></span>
-          <span><small>{{ ui('مبلغ','Amount') }}</small><b>{{ "{:,}".format(c.amount | int) }} {{ ui('ریال','Rial') }}</b></span>
-          <span><small>#{{ c.factor_number }}</small><b>{{ c.created_at.strftime('%d %b %H:%M') if c.created_at else '-' }}</b></span>
-        </div>
-      </summary>
+    <button type="button" class="charge-card clean-card charge-open" data-target="modal-{{ c.id }}">
+      <div class="charge-card-head">
+        <b>{{ admin_label_by_id(c.reseller_id) or '-' }}</b>
+        <span class="badge warn">{{ ui('در انتظار تأیید','Awaiting approval') }}</span>
+      </div>
+      <div class="charge-meta">
+        <span><small>{{ ui('حجم','Volume') }}</small><b>{{ c.gb_amount }} GB</b></span>
+        <span><small>{{ ui('مبلغ','Amount') }}</small><b>{{ "{:,}".format(c.amount | int) }} {{ ui('ریال','Rial') }}</b></span>
+        <span><small>#{{ c.factor_number }}</small><b>{{ c.created_at.strftime('%d %b %H:%M') if c.created_at else '-' }}</b></span>
+      </div>
+      <div class="charge-hint">{{ ui('برای بررسی، کلیک کن تا باز شود','Click to open and review') }}</div>
+    </button>
+    {% endfor %}
+  </div>
+
+  {% for c in history %}
+  <div class="modal-overlay" id="modal-{{ c.id }}" hidden>
+    <div class="modal-box" role="dialog" aria-modal="true">
+      <div class="modal-head">
+        <div><b>{{ admin_label_by_id(c.reseller_id) or '-' }}</b><span class="badge warn">{{ ui('در انتظار تأیید','Awaiting approval') }}</span></div>
+        <button type="button" class="modal-close" data-close aria-label="{{ ui('بستن','Close') }}">×</button>
+      </div>
       <div class="charge-detail">
         <div class="charge-detail-grid">
           <div><small>{{ ui('نماینده','Reseller') }}</small><b>{{ admin_label_by_id(c.reseller_id) or '-' }}</b></div>
           <div><small>{{ ui('حجم درخواستی','Requested volume') }}</small><b>{{ c.gb_amount }} GB</b></div>
           <div><small>{{ ui('مبلغ برآوردشده','Estimated amount') }}</small><b>{{ "{:,}".format(c.amount | int) }} {{ ui('ریال','Rial') }}</b></div>
-          <div><small>{{ ui('تاریخ','Date') }}</small><b>{{ c.created_at.strftime('%Y-%m-%d %H:%M') if c.created_at else '-' }}</b></div>
+          <div><small>{{ ui('فاکتور / تاریخ','Invoice / Date') }}</small><b>#{{ c.factor_number }} · {{ c.created_at.strftime('%Y-%m-%d %H:%M') if c.created_at else '-' }}</b></div>
         </div>
         {% if c.receipt_file %}
         <div class="receipt-box">
@@ -76,7 +86,6 @@
         <div class="alert-box empty-state"><b>{{ ui('رسیدی بارگذاری نشده است.','No receipt was uploaded.') }}</b></div>
         {% endif %}
         {% if c.note %}<p class="muted" style="margin-top:10px">{{ ui('یادداشت مدیر','Admin note') }}: {{ c.note }}</p>{% endif %}
-        {% if c.status == 'pending' %}
         <div class="charge-actions">
           <form method="post" action="{{ url_for('web.cards_panel') }}">
             <input type="hidden" name="action" value="approve">
@@ -90,13 +99,37 @@
             <button class="btn ghost">{{ ui('رد درخواست','Reject request') }}</button>
           </form>
         </div>
-        {% endif %}
       </div>
-    </details>
-    {% endfor %}
+    </div>
   </div>
+  {% endfor %}
   {% else %}
-  <div class="empty-state"><b>{{ ui('هنوز درخواست شارژی ثبت نشده است.','No charge requests yet.') }}</b><p class="muted">{{ ui('هنگامی که یک نماینده برای حجم درخواست شارژ ثبت کند، اینجا نمایش داده می‌شود.','When a reseller submits a recharge request it will show up here.') }}</p></div>
+  <div class="empty-state"><b>{{ ui('درخواست شارژی در انتظار بررسی نیست.','No charge request is awaiting review.') }}</b><p class="muted">{{ ui('هنگامی که یک نماینده برای حجم درخواست شارژ ثبت کند، اینجا نمایش داده می‌شود و پس از تأیید یا رد از لیست حذف خواهد شد.','When a reseller submits a recharge request it will show up here and disappear once approved or rejected.') }}</p></div>
   {% endif %}
 </section>
+
+<script>
+(function () {
+  var overlays = Array.prototype.slice.call(document.querySelectorAll('.modal-overlay'));
+  function open(id) {
+    var el = overlays.find(function (o) { return o.getAttribute('id') === id; });
+    if (!el) return;
+    el.hidden = false;
+    document.body.style.overflow = 'hidden';
+  }
+  function closeAll() {
+    overlays.forEach(function (o) { o.hidden = true; });
+    document.body.style.overflow = '';
+  }
+  overlays.forEach(function (o) {
+    o.addEventListener('click', function (e) { if (e.target === o) closeAll(); });
+    var x = o.querySelector('[data-close]');
+    if (x) x.addEventListener('click', closeAll);
+  });
+  Array.prototype.slice.call(document.querySelectorAll('.charge-open')).forEach(function (btn) {
+    btn.addEventListener('click', function () { open(btn.getAttribute('data-target')); });
+  });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeAll(); });
+})();
+</script>
 {% endblock %}

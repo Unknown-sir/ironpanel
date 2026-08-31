@@ -9,6 +9,7 @@ import io, secrets
 from ..services.license import filter_protocols_for_license
 from ..services.password_policy import generate_user_password
 from ..services.speed_limit import normalize_speed_limit_mbps, apply_speed_limits_runtime
+from ..services.reseller_api import resolve_api_token, volume_gate_reason, create_block_reason, owner_user_query, can_manage_user, owner_protocols
 
 api_v2_bp=Blueprint('api_v2', __name__)
 
@@ -16,9 +17,10 @@ def require_token(fn):
     @wraps(fn)
     def w(*a, **kw):
         raw=(request.headers.get('Authorization','').replace('Bearer ','') or request.headers.get('X-API-TOKEN','')).strip()
-        tok=ApiToken.query.filter_by(token=raw, enabled=True).first()
+        tok, owner = resolve_api_token(raw, allowed_types=['v2'])
         if not tok: return jsonify(success=False, error='invalid token'), 401
         request.api_token=tok
+        request.api_owner=owner
         return fn(*a, **kw)
     return w
 
@@ -36,30 +38,39 @@ def sessions(): return jsonify(success=True, sessions=[{'id':s.id,'username':s.u
 
 @api_v2_bp.get('/users')
 @require_token
-def users(): return jsonify(success=True, users=[serialize_user(u) for u in VpnUser.query.order_by(VpnUser.id.desc()).all()])
+def users():
+    owner=getattr(request, 'api_owner', None)
+    return jsonify(success=True, users=[serialize_user(u) for u in owner_user_query(owner).order_by(VpnUser.id.desc()).all()])
 
 
 @api_v2_bp.get('/users/<int:user_id>')
 @require_token
 def get_user(user_id):
-    u=VpnUser.query.get_or_404(user_id)
+    owner=getattr(request, 'api_owner', None)
+    u=owner_user_query(owner).filter_by(id=user_id).first_or_404()
     return jsonify(success=True, user=serialize_user(u))
 
 @api_v2_bp.get('/users/by-username/<path:username>')
 @require_token
 def get_user_by_username(username):
-    u=VpnUser.query.filter_by(username=username).first_or_404()
+    owner=getattr(request, 'api_owner', None)
+    u=owner_user_query(owner).filter_by(username=username).first_or_404()
     return jsonify(success=True, user=serialize_user(u))
 
 @api_v2_bp.post('/users')
 @require_token
 def create_user():
+    owner=getattr(request, 'api_owner', None)
+    reason=create_block_reason(owner)
+    if reason:
+        return jsonify(success=False, error='reseller blocked: '+reason), 403
     d=request.json or {}; password=d.get('password') or generate_user_password()
     days=int(d.get('days') or 0)
     protocols = filter_protocols_for_license(normalize_user_protocols(d.get('protocols') or [], allow_default=('protocols' not in d)))
+    protocols = owner_protocols(owner, protocols)
     if not protocols:
         return jsonify(success=False, error='at least one protocol is required'), 400
-    u=VpnUser(username=d.get('username') or 'user'+secrets.token_hex(3), data_limit_mb=int(d.get('data_limit_mb') or 0), expires_at=None if days<=0 else datetime.utcnow()+timedelta(days=days), l2tp_password=d.get('l2tp_password') or password, cisco_password=d.get('cisco_password') or password, protocols=','.join(protocols), protocol_permissions=','.join(protocols), speed_limit_mbps=normalize_speed_limit_mbps(d.get('speed_limit_mbps', 0)))
+    u=VpnUser(username=d.get('username') or 'user'+secrets.token_hex(3), owner_id=owner.id if owner else None, data_limit_mb=int(d.get('data_limit_mb') or 0), expires_at=None if days<=0 else datetime.utcnow()+timedelta(days=days), l2tp_password=d.get('l2tp_password') or password, cisco_password=d.get('cisco_password') or password, protocols=','.join(protocols), protocol_permissions=','.join(protocols), speed_limit_mbps=normalize_speed_limit_mbps(d.get('speed_limit_mbps', 0)))
     u.set_password(password); db.session.add(u); db.session.commit(); sync_user(u)
     if int(getattr(u, 'speed_limit_mbps', 0) or 0) > 0: apply_speed_limits_runtime()
     return jsonify(success=True, user=serialize_user(u), password=password)
@@ -67,7 +78,12 @@ def create_user():
 @api_v2_bp.patch('/users/<int:user_id>')
 @require_token
 def edit_user(user_id):
-    u=VpnUser.query.get_or_404(user_id); d=request.json or {}
+    owner=getattr(request, 'api_owner', None)
+    u=owner_user_query(owner).filter_by(id=user_id).first_or_404(); d=request.json or {}
+    if 'enabled' in d or 'data_limit_mb' in d or 'days' in d or 'protocols' in d or 'speed_limit_mbps' in d:
+        reason=volume_gate_reason(owner)
+        if reason:
+            return jsonify(success=False, error='reseller blocked: '+reason), 403
     affected=set(u.allowed_protocol_list() or u.protocol_list() or active_protocols())
     for k in ['enabled','data_limit_mb','connection_limit','allowed_devices']:
         if k in d: setattr(u,k,d[k])
@@ -75,6 +91,7 @@ def edit_user(user_id):
         u.speed_limit_mbps = normalize_speed_limit_mbps(d.get('speed_limit_mbps'))
     if 'protocols' in d:
         protocols = filter_protocols_for_license(normalize_user_protocols(d.get('protocols') or []))
+        protocols = owner_protocols(owner, protocols)
         if not protocols:
             return jsonify(success=False, error='at least one protocol is required'), 400
         u.protocols = ','.join(protocols)
@@ -90,12 +107,15 @@ def edit_user(user_id):
 @api_v2_bp.delete('/users/<int:user_id>')
 @require_token
 def del_user(user_id):
-    u=VpnUser.query.get_or_404(user_id); name=u.username; delete_user(u); return jsonify(success=True, deleted=name)
+    owner=getattr(request, 'api_owner', None)
+    u=owner_user_query(owner).filter_by(id=user_id).first_or_404(); name=u.username; delete_user(u); return jsonify(success=True, deleted=name)
 
 
 @api_v2_bp.get('/resellers')
 @require_token
 def api_resellers():
+    if getattr(request, 'api_owner', None):
+        return jsonify(success=False, error='forbidden'), 403
     rows=[]
     for r in Admin.query.filter_by(role='sub_admin').order_by(Admin.id.desc()).all():
         users=VpnUser.query.filter_by(owner_id=r.id).all()
@@ -105,6 +125,8 @@ def api_resellers():
 @api_v2_bp.patch('/resellers/<int:reseller_id>')
 @require_token
 def api_reseller_update(reseller_id):
+    if getattr(request, 'api_owner', None):
+        return jsonify(success=False, error='forbidden'), 403
     r=Admin.query.filter_by(id=reseller_id, role='sub_admin').first_or_404()
     d=request.json or {}
     requested_enabled = bool(d.get('enabled')) if 'enabled' in d else None

@@ -1,39 +1,79 @@
 {% extends 'base.html' %}
-{% block heading %}{{ ui('اتصال ربات فروش','Connect sales bot') }}{% endblock %}
+{% block heading %}{{ ui('اتصال ربات فروش','Sales bot connection') }}{% endblock %}
 {% block content %}
+{% if volume_gated %}
+<div class="volume-gate-banner"><b>⚠</b><span>{{ ui('حجم پنل نمایندگی شما تکمیل شده است؛ ربات نمی‌تواند سرویس جدید بسازد یا سرویسی را تمدید/شارژ کند تا زمانی که حجم بیشتری از بخش «حجم و شارژ» بخری.','Your reseller volume is exhausted; the bot cannot create new services or renew/charge any service until you buy more volume from the "Volume & recharge" section.') }}</span><a class="btn primary" href="/reseller/storage">{{ ui('خرید حجم','Buy volume') }}</a></div>
+{% endif %}
+{% if rotated %}
+<div class="alert-box ok" style="margin-bottom:16px">{% if is_fa %}<b>کلید جدید برای API «{{ creds[rotated].label_fa }}» ساخته شد.</b><small>کلید قبلی دیگر معتبر نیست؛ اگر ربات از آن استفاده می‌کرد، باید کلید جدید را جایگزین کنی.</small>{% else %}<b>A new key was generated for the "{{ creds[rotated].label_fa }}" API.</b><small>The old key is no longer valid; replace it on any bot that used it.</small>{% endif %}</div>
+{% endif %}
 <section class="clean-hero">
   <div>
-    <p class="eyebrow">RESELLER SALES BOT</p>
-    <h3>{{ ui('ربات فروش اختصاصی نمایندگی تو','Your dedicated reseller sales bot') }}</h3>
-    <p>{{ ui('اینجا می‌توانی یک ربات تلگرامی بسازی و به پنل نمایندگی خودت وصل کنی. این ربات فقط مخصوص مشتری‌های خودِ توست و تنها با کاربران و پلن‌های زیرمجموعه همین نمایندگی کار می‌کند؛ هیچ دسترسی‌ای به سایر نماینده‌ها یا پنل اصلی ندارد.','Here you can create a Telegram bot and connect it to your reseller panel. The bot serves only your own customers and works only with the users and plans under this reseller account; it has no access to other resellers or the main panel.') }}</p>
+    <p class="eyebrow">RESELLER EXTERNAL SALES BOT</p>
+    <h3>{{ ui('ربات فروش با اتصال API (بدون ربات‌ساز داخلی)','Sales bot via API connection (no built-in bot builder)') }}</h3>
+    <p>{{ ui('برای نماینده‌ها، ربات‌ساز داخلی پنل فعال نیست. یک ربات خارجی (مثلاً ربات مدیریت 3x-ui یا ساب‌بات‌ها) را با یکی از چهار API زیر به پنل نمایندگی خودت وصل کن. ربات فقط این کارها را می‌کند: ساخت کاربر، خواندن کاربران و اطلاعاتشان، ارسال سابسکریپشن (لینک کامل اتصال) و حذف یا ویرایش کاربر. تمام درخواست‌ها فقط به کاربران زیرمجموعه خودِ تو محدود است.','For resellers the panel built-in bot builder is disabled. Connect an external bot (for example a 3x-ui admin bot or a sub bot) to your reseller panel through one of the four APIs below. The bot can only: create users, read users and their info, send the subscription (full config link) and delete or edit users. Every request is scoped to your own users.') }}</p>
   </div>
   <div class="clean-status-grid">
-    <div><span>{{ ui('وضعیت ربات','Bot status') }}</span><b class="{{ 'ok-text' if settings.get('sales_bot_enabled') == '1' else 'off-text' }}">{{ ui('فعال','Enabled') if settings.get('sales_bot_enabled') == '1' else ui('غیرفعال','Disabled') }}</b></div>
     <div><span>{{ ui('حجم باقی‌مانده','Remaining volume') }}</span><b class="{{ 'off-text' if stats.remaining_gb is not none and stats.remaining_gb <= 0 else 'ok-text' }}">{{ stats.remaining_gb if stats.remaining_gb is not none else ui('نامحدود','Unlimited') }} GB</b></div>
-    <div><span>{{ ui('پلن‌ها','Plans') }}</span><b>{{ plans|length }}</b></div>
-    <div><span>{{ ui('سفارش‌ها','Orders') }}</span><b>{{ orders }}</b></div>
+    <div><span>{{ ui('لیمیت حجم','Volume limit') }}</span><b>{{ stats.traffic_quota_gb if stats.traffic_quota_gb else ui('نامحدود','Unlimited') }} GB</b></div>
+    <div><span>{{ ui('کاربران','Users') }}</span><b>{{ stats.user_count }}/{{ stats.user_limit if stats.user_limit else ui('∞','∞') }}</b></div>
+    <div><span>{{ ui('پیشتیبانی','Support') }}</span><b>{{ support_id if support_id else '-' }}</b></div>
+  </div>
+</section>
+
+<section class="card clean-card">
+  <div class="clean-card-head"><div><p class="eyebrow">API CREDENTIALS</p><h3>{{ ui('چهار کلید API اختصاصی تو','Your four dedicated API keys') }}</h3></div><span class="pill soft">{{ ui('فقط تو مجاز هستی','Only you can see these') }}</span></div>
+  <p style="color:#b6c3d4;line-height:1.9">{{ ui('این کلیدها به‌صورت خودکار برای نمایندگی تو ساخته‌شده‌اند. هر کلید مربوط به یک نسخه API است؛ بسته به نوع رباتی که داری، از یکی از آن‌ها استفاده کن. کلیدها منقضی نمی‌شوند؛ اگر لو رفتند یا ربات عوض کردی، «ساخت کلید جدید» را بزن.','These keys are automatically generated for your reseller account. Each key maps to one API family; use whichever fits your bot. Keys never expire; rotate them with "Regenerate" if leaked or when switching bots.') }}</p>
+
+  <div class="api-cred-grid">
+  {% for api_type, cred in creds.items() %}
+    <article class="api-cred clean-card">
+      <div class="api-cred-head">
+        <div><b>{{ cred.label_fa }}</b>{% if cred.is_new %}<span class="badge ok" style="margin-inline-start:6px">NEW</span>{% endif %}</div>
+        {% if api_type != 'v1' %}
+        <form method="post" class="inline-form">
+          <input type="hidden" name="action" value="enable-toggle">
+          <input type="hidden" name="api_type2" value="{{ api_type }}">
+          <button class="btn {{ 'ghost' if cred.enabled else 'primary' }} mini" type="submit">{{ ui('فعال','Enabled') if cred.enabled else ui('غیرفعال','Disabled') }}</button>
+        </form>
+        {% endif %}
+      </div>
+      <p class="muted">{{ cred.note_fa }}</p>
+      <div class="api-cred-code">
+        <small>{{ ui('نقطه اتصال','Endpoint') }}</small>
+        <code dir="ltr">{{ cred.endpoint }}</code>
+      </div>
+      <div class="api-cred-key">
+        <small>{{ ui('کلید API','API key') }}</small>
+        <div class="key-line">
+          <code class="key-secret" data-full="{{ cred.key }}" dir="ltr">{% if is_fa %}{{ cred.key[:8] }}••••••••{% else %}{{ cred.key[:8] }}...{% endif %}</code>
+          <button type="button" class="btn ghost mini key-toggle">{{ ui('نمایش','Show') }}</button>
+          <button type="button" class="btn ghost mini key-copy" data-copy="{{ cred.key }}">{{ ui('کپی','Copy') }}</button>
+        </div>
+      </div>
+      <div class="api-cred-usage"><small>{{ ui('نحوه احراز هویت','Auth') }}</small><b dir="ltr">{{ cred.usage }}</b></div>
+      <form method="post" class="inline-form" style="margin-top:12px">
+        <input type="hidden" name="api_type" value="{{ api_type }}">
+        <button class="btn primary mini" type="submit">{{ ui('ساخت کلید جدید','Regenerate') }}</button>
+      </form>
+    </article>
+  {% endfor %}
   </div>
 </section>
 
 <section class="clean-grid two">
   <article class="card clean-card">
-    <div class="clean-card-head"><div><p class="eyebrow">BOT CONNECTION</p><h3>{{ ui('اتصال ربات (BotFather)','Connect your bot (BotFather)') }}</h3></div><span class="pill">{{ ui('توکن','Token') }}</span></div>
-    <div class="help-steps" style="margin-bottom:14px">
-      <div>{% if is_fa %}<span>در تلگرام به <code>@BotFather</code> پیام بده و دستور <code>/newbot</code> را بزن و یک نام دلخواه بده.</span>{% else %}<span>Message <code>@BotFather</code> on Telegram, run <code>/newbot</code> and choose any name.</span>{% endif %}</div>
-      <div>{% if is_fa %}<span>توکنی که BotFather تحویل می‌دهد (شبیه <code>123456789:ABC...</code>) را همین‌جا کپی کن.</span>{% else %}<span>Copy the token BotFather gives you (like <code>123456789:ABC...</code>) here.</span>{% endif %}</div>
-      <div>{% if is_fa %}<span>همین‌جا ذخیره کن؛ ربات خودش بالا می‌آید و فقط مشتری‌های خودت به آن دسترسی دارند.</span>{% else %}<span>Save it here; the bot starts by itself and only your own customers can use it.</span>{% endif %}</div>
+    <div class="clean-card-head"><div><p class="eyebrow">HOW IT WORKS</p><h3>{{ ui('ربات چه کاری انجام می‌دهد؟','What does the bot do?') }}</h3></div></div>
+    <div class="clean-steps" style="grid-template-columns:1fr">
+      <div class="clean-step active"><span>1</span><div><b>{{ ui('ساخت کاربر','Create user') }}</b><small>{{ ui('ربات با یکی از کلیدها کاربر می‌سازد و حجم/مدت می‌دهد؛ در پاسخ، لینک سابسکریپشن همان کاربر برمی‌گردد.','The bot creates a user with one of the keys and gives it volume/duration; the subscription link comes back in the response.') }}</small></div></div>
+      <div class="clean-step"><span>2</span><div><b>{{ ui('ارسال یوزر','Send the user') }}</b><small>{{ ui('ربات فقط همان لینک سابسکریپشن (Subscription) را برای مشتری می‌فرستد؛ برای دریافت محتوای خود ساب نیز می‌تواند از همان لینک استفاده کند.','The bot only sends that subscription link to the customer; it can also fetch the subscription content from the same link.') }}</small></div></div>
+      <div class="clean-step"><span>3</span><div><b>{{ ui('خواندن، ویرایش و حذف','Read, edit & delete') }}</b><small>{{ ui('دریافت وضعیت/مصرف کاربر، تمدید و یا حذف کاربر هم از طریق همان API انجام می‌شود.','Fetching user status/usage, renewing or deleting the user also goes through that same API.') }}</small></div></div>
     </div>
-    <form method="post" class="clean-form">
-      <input type="hidden" name="action" value="connect">
-      <label class="switch-row"><input type="checkbox" name="sales_bot_enabled" value="1" {% if settings.get('sales_bot_enabled') == '1' %}checked{% endif %}><span>{{ ui('ربات فروش من فعال باشد','Enable my sales bot') }}</span></label>
-      <label>Bot Token<input name="sales_bot_token" placeholder="123456789:ABC..." value="{{ settings.get('sales_bot_token','') }}" autocomplete="off" dir="ltr"></label>
-      <button class="btn primary wide">{{ ui('ذخیره و ری‌استارت ربات','Save & restart bot') }}</button>
-    </form>
   </article>
 
   <article class="card clean-card">
-    <div class="clean-card-head"><div><p class="eyebrow">RULES</p><h3>{{ ui('قانون مهم: سقف حجم','Important rule: volume limit') }}</h3></div><span class="pill soft">{{ ui('مهم','Important') }}</span></div>
-    <p style="line-height:1.9;color:#d8e2ef">{{ ui('ربات فروش تو فقط تا سقف حجم پنل نمایندگی‌ات می‌تواند سرویس جدید بسازد یا سرویس مشتری را تمدید/شارژ کند:','Your sales bot can create a new service or renew/charge a customer service only up to the volume limit of your reseller panel:') }}</p>
+    <div class="clean-card-head"><div><p class="eyebrow">LIMITS</p><h3>{{ ui('قانون مهم: سقف حجم','Important rule: volume limit') }}</h3></div><span class="pill soft">{{ ui('مهم','Important') }}</span></div>
+    <p style="line-height:1.9;color:#d8e2ef">{{ ui('هر ربات متصل‌شده فقط تا سقف حجم پنل نمایندگی‌ات می‌تواند سرویس جدید بسازد یا سرویس مشتری را تمدید/شارژ کند:','Any connected bot can create a new service or renew/charge a customer service only up to the volume limit of your reseller panel:') }}</p>
     <div class="reseller-quota-cards">
       <div><span>{{ ui('لیمیت حجم','Volume limit') }}</span><b>{{ stats.traffic_quota_gb if stats.traffic_quota_gb else ui('نامحدود','Unlimited') }} GB</b></div>
       <div><span>{{ ui('مصرف ثبت‌شده','Registered usage') }}</span><b>{{ stats.used_gb }} GB</b></div>
@@ -41,16 +81,46 @@
     </div>
     <ul style="line-height:2;color:#b6c3d4;padding-inline-start:18px">
       {% if is_fa %}
-      <li>اگر حجم پنل تمام شود، ربات <b>نمی‌تواند</b> سرویس جدید بسازد و هم‌چنین <b>نمی‌تواند</b> سرویس کسی را تمدید یا شارژ کند؛ این کار به‌صورت خودکار مسدود می‌شود.</li>
-      <li>کیف پول خودِ مشتری (خرید از ربات) مستقل است و فقط با تأیید تو شارژ می‌شود.</li>
+      <li>اگر حجم پنل تمام شود، همه APIها به‌صورت خودکار <b>ساخت کاربر جدید</b> و <b>تمدید/ویرایش</b> را مسدود می‌کنند؛ خواندن اطلاعات، ارسال ساب و حذف کاربر همچنان ممکن است.</li>
+      <li>این قانون هم برای ربات و هم برای همه کلیدهای API (نسخه ۱، نسخه ۲، میرزا بات و 3x-ui) یکسان است.</li>
       <li>برای ادامه فروش، کافی است از بخش «حجم و شارژ» در همین منو حجم بیشتری بخری.</li>
       {% else %}
-      <li>When your volume runs out, the bot <b>cannot</b> create a new service and <b>cannot</b> renew or charge any customer service; this is blocked automatically.</li>
-      <li>The customer's own wallet (purchases from the bot) is independent and is only charged with your approval.</li>
+      <li>When your volume runs out, every API automatically blocks <b>creating new users</b> and <b>renewing/editing</b>; reading info, sending the subscription and deleting users still work.</li>
+      <li>The rule is identical for the bot and for all API keys (v1, v2, MirzaBot and 3x-ui).</li>
       <li>To keep selling, buy more volume from the "Volume & recharge" section in this menu.</li>
       {% endif %}
     </ul>
-    <a class="btn ghost wide" href="/sales-bot">{{ ui('مدیریت کامل ربات (پلن‌ها، پیام‌ها، سفارش‌ها)','Full bot management (plans, messages, orders)') }}</a>
+    <a class="btn ghost wide" href="/reseller/storage">{{ ui('خرید حجم بیشتر','Buy more volume') }}</a>
   </article>
 </section>
+
+<script>
+(function () {
+  document.querySelectorAll('.key-toggle').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var code = btn.parentNode.querySelector('.key-secret');
+      if (btn.textContent.trim() === '{{ ui('نمایش','Show') }}') {
+        code.textContent = code.getAttribute('data-full');
+        btn.textContent = '{{ ui('مخفی','Hide') }}';
+      } else {
+        var full = code.getAttribute('data-full') || '';
+        code.textContent = full.slice(0, 8) + '...';
+        btn.textContent = '{{ ui('نمایش','Show') }}';
+      }
+    });
+  });
+  document.querySelectorAll('.key-copy').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var val = btn.getAttribute('data-copy') || '';
+      var ta = document.createElement('textarea');
+      ta.value = val; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); } catch (e) {}
+      document.body.removeChild(ta);
+      var old = btn.textContent; btn.textContent = '{{ ui('کپی شد ✓','Copied ✓') }}';
+      setTimeout(function () { btn.textContent = old; }, 1500);
+    });
+  });
+})();
+</script>
 {% endblock %}

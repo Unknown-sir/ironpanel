@@ -1679,4 +1679,30 @@ body.menu-open::after,
 .charge-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .charge-actions form{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .charge-actions .reject-form input[type=text]{border:1px solid rgba(148,163,184,.16);border-radius:10px;background:#0b1220;color:var(--text);padding:9px 11px;min-width:220px}
+.charge-open{width:100%;text-align:right;cursor:pointer;padding:14px 16px}
+.charge-open:hover{border-color:rgba(56,189,248,.45)}
+.charge-hint{color:#64748b;font-size:12px;margin-top:12px;text-align:left}
+.modal-overlay{position:fixed;inset:0;background:rgba(2,6,23,.66);backdrop-filter:blur(4px);z-index:1200;display:flex;align-items:center;justify-content:center;padding:18px}
+.modal-box{width:100%;max-width:620px;max-height:90vh;overflow:auto;border:1px solid rgba(148,163,184,.26);border-radius:18px;background:linear-gradient(180deg,#0e1729,#0a1120);box-shadow:0 24px 70px rgba(0,0,0,.55)}
+.modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid rgba(148,163,184,.14);position:sticky;top:0;background:rgba(10,17,32,.92);backdrop-filter:blur(6px)}
+.modal-head b{font-size:15px}
+.modal-close{border:1px solid rgba(148,163,184,.2);border-radius:10px;background:rgba(2,6,23,.5);color:#cbd5e1;width:34px;height:34px;font-size:20px;line-height:1;cursor:pointer;flex:none}
+.modal-close:hover{border-color:rgba(251,113,133,.5);color:#ff6b81}
+.modal-overlay[hidden]{display:none}
+/* v2.0.4 reseller external sales-bot API credentials */
+.btn.mini{padding:6px 10px;font-size:12px;border-radius:10px}
+.inline-form{display:inline-block;margin:0}
+.api-cred-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:14px;margin-top:4px}
+.api-cred{border:1px solid rgba(148,163,184,.18);border-radius:18px;padding:16px;background:rgba(8,13,24,.36);display:grid;gap:12px;align-content:start}
+.api-cred-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.api-cred-head b{font-size:15px}
+.api-cred p{margin:0;color:#8fa0b8;font-size:13px;line-height:1.7}
+.api-cred-code,.api-cred-key,.api-cred-usage{display:grid;gap:6px}
+.api-cred-code small,.api-cred-key small,.api-cred-usage small{color:#8fa0b8;font-size:11px}
+.api-cred-code code,.key-secret{overflow-x:auto;white-space:nowrap}
+.api-cred-code code{border:1px solid rgba(148,163,184,.15);border-radius:12px;background:#0b1220;padding:9px 11px;color:#93c5fd;font-size:12px}
+.key-line{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.key-secret{border:1px solid rgba(148,163,184,.15);border-radius:12px;background:#0b1220;padding:9px 11px;color:#a7f3d0;font-size:12px;flex:1;min-width:0}
+.api-cred-usage b{border:1px solid rgba(96,165,250,.25);border-radius:999px;padding:6px 10px;background:rgba(96,165,250,.08);color:#bfdbfe;font-size:11px;font-weight:800;justify-self:start}
+@media(max-width:650px){.api-cred-grid{grid-template-columns:1fr}}
 @media(max-width:640px){.bank-strip{grid-template-columns:1fr}.charge-actions form{width:100%}.charge-actions .btn{flex:1}.charge-actions .reject-form input[type=text]{width:100%}}
