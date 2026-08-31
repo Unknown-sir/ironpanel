@@ -5,7 +5,7 @@
   <div>
     <p class="eyebrow">DARGHANO PAYMENT GATEWAY</p>
     <h3>{{ ui('تنظیمات درگاه پرداخت (درگاه نو)','Payment gateway settings (Dargahno)') }}</h3>
-    <p>{{ ui('از این‌جا اطلاعات درگاه پرداخت «درگاه نو» را وارد کن تا نماینده‌ها بتوانند از پنل خودشان حجم بخرند و با پرداخت آنلاین، حجم پنل‌شان خودکار افزایش پیدا کند.','Enter your Dargahno gateway details here so resellers can buy volume from their own panels; the purchased volume is added automatically after an online payment.') }}</p>
+    <p>{{ ui('از این‌جا اطلاعات درگاه پرداخت «درگاه نو» را وارد کن تا نماینده‌ها بتوانند از پنل خودشان حجم بخرند. پرداخت با «لینک کارت‌به‌کارت» درگاه انجام می‌شود و پس از واریز، تو شارژ را از همین صفحه تأیید می‌کنی.','Enter your Dargahno gateway details here so resellers can buy volume from their own panels. Payments use the Dargahno "card-to-card" link; after the transfer you approve the credit from this page.') }}</p>
   </div>
   <div class="clean-status-grid">
     <div><span>{{ ui('وضعیت درگاه','Gateway status') }}</span><b class="{{ 'ok-text' if gateway_configured else 'off-text' }}">{{ ui('پیکربندی شده','Configured') if gateway_configured else ui('تنظیم نشده','Not configured') }}</b></div>
@@ -21,9 +21,9 @@
     <form method="post" class="clean-form">
       <input type="hidden" name="action" value="settings">
       <label class="switch-row"><input type="checkbox" name="dargahno_enabled" value="1" {% if settings.get('dargahno_enabled') == '1' %}checked{% endif %}><span>{{ ui('درگاه پرداخت فعال باشد','Enable payment gateway') }}</span></label>
-      <label>{{ ui('نام کاربری درگاه','Gateway username') }}<input name="dargahno_username" value="{{ settings.get('dargahno_username','') }}" placeholder="username" autocomplete="off"></label>
-      <label>{{ ui('رمز عبور درگاه','Gateway password') }}<input type="password" name="dargahno_password" placeholder="{{ ui('خالی بگذار تا رمز فعلی حفظ شود','Leave blank to keep the current password') if settings.get('dargahno_password') else ui('رمز درگاه','Gateway password') }}" autocomplete="new-password"></label>
-      <label>{{ ui('شناسه درگاه (Merchant ID)','Merchant ID') }}<input name="dargahno_merchant_id" value="{{ settings.get('dargahno_merchant_id','') }}" placeholder="merchent_id" dir="ltr"></label>
+      <label>{{ ui('نام کاربری درگاه (اختیاری)','Gateway username (optional)') }}<input name="dargahno_username" value="{{ settings.get('dargahno_username','') }}" placeholder="username" autocomplete="off"></label>
+      <label>{{ ui('رمز عبور درگاه (اختیاری)','Gateway password (optional)') }}<input type="password" name="dargahno_password" placeholder="{{ ui('خالی بگذار تا رمز فعلی حفظ شود','Leave blank to keep the current password') if settings.get('dargahno_password') else ui('رمز درگاه','Gateway password') }}" autocomplete="new-password"></label>
+      <label>{{ ui('شناسه درگاه (Merchant ID) — برای لینک کارت‌به‌کارت کافی است','Merchant ID — enough for the card-to-card link') }}<input name="dargahno_merchant_id" value="{{ settings.get('dargahno_merchant_id','') }}" placeholder="merchent_id" dir="ltr"></label>
       <div class="mini-grid">
         <label>{{ ui('قیمت هر گیگ (ریال)','Price per GB (Rial)') }}<input type="number" min="1" name="dargahno_price_per_gb" value="{{ price_per_gb }}"></label>
         <label>{{ ui('حداقل مبلغ خرید (ریال)','Minimum purchase (Rial)') }}<input type="number" min="0" name="dargahno_min_purchase" value="{{ min_purchase }}"></label>
@@ -42,19 +42,20 @@
       <button class="btn ghost wide">{{ ui('تست اتصال درگاه','Test gateway connection') }}</button>
     </form>
     <div style="margin-top:18px" class="help-steps">
-      <div>{% if is_fa %}<span>در <strong>dargahno.net</strong> ثبت‌نام کن و از بخش API پنل، شناسه درگاه (merchent_id) را کپی کن.</span>{% else %}<span>Register at <strong>dargahno.net</strong> and copy the merchent_id from the API section of your panel.</span>{% endif %}</div>
-      <div>{% if is_fa %}<span>قیمت هر گیگ را به ریال تعیین کن؛ نماینده‌ها این قیمت را موقع شارژ می‌بینند.</span>{% else %}<span>Set the price per GB in Rial; resellers see this price when topping up.</span>{% endif %}</div>
-      <div>{% if is_fa %}<small style="display:block;margin-top:6px;color:#8fa0b8">هنگام پرداخت، درگاه به این آدرس برمی‌گردد و سیستم به‌صورت امن تراکنش را تأیید می‌کند: <code style="direction:ltr">/payment/dargahno/callback/&lt;فاکتور&gt;</code></small>{% else %}<small style="display:block;margin-top:6px;color:#8fa0b8">While paying, the gateway returns to this address and the system verifies the transaction securely: <code style="direction:ltr">/payment/dargahno/callback/&lt;factor&gt;</code></small>{% endif %}</div>
+      <div>{% if is_fa %}<span>در <strong>dargahno.net</strong> از پنل، بخش «لینک‌های پرداخت»، یک کارت فعال به فروشگاه وصل کن (برای لینک کارت‌به‌کارت لازم است)؛ شناسه درگاه (merchent_id) را هم از بخش API کپی کن.</span>{% else %}<span>At <strong>dargahno.net</strong>, from the "payment links" section of the panel keep at least one active card attached to the shop (needed for the card-to-card link) and copy the merchent_id from the API section.</span>{% endif %}</div>
+      <div>{% if is_fa %}<span>قیمت هر گیگ را به ریال تعیین کن؛ نماینده‌ها این قیمت را موقع شارژ می‌بینند و به صفحه کارت‌به‌کارت درگاه منتقل می‌شوند.</span>{% else %}<span>Set the price per GB in Rial; resellers see this price when topping up and are redirected to the Dargahno card-to-card page.</span>{% endif %}</div>
+      <div>{% if is_fa %}<small style="display:block;margin-top:6px;color:#8fa0b8">فرمت لینک کارت‌به‌کارت: <code style="direction:ltr">{base}/c/{merchent_id}/?amount={ریال}&amp;customer_id={نام}</code> — چون این لینک زنگ‌بازگشتی ندارد، بعد از واریز مشتری، پرداخت را از جدول پایین «تأیید» کن تا حجم به نماینده اضافه شود.</small>{% else %}<small style="display:block;margin-top:6px;color:#8fa0b8">Card-to-card link format: <code style="direction:ltr">{base}/c/{merchent_id}/?amount={rial}&amp;customer_id={name}</code> — this link has no callback, so after the customer transfers, approve the payment in the table below to credit the reseller.</small>{% endif %}</div>
     </div>
   </article>
 </section>
 
 <section class="card clean-card">
   <div class="clean-card-head"><div><p class="eyebrow">PAYMENT LOG</p><h3>{{ ui('پرداخت‌های تمام نماینده‌ها','All reseller payments') }}</h3></div></div>
+  <p class="muted" style="margin-bottom:12px">{{ ui('پرداخت‌ها با لینک کارت‌به‌کارت انجام می‌شوند. پس از واریز مشتری، وضعیت را «تأیید» کن تا حجم به نماینده اضافه شود؛ با «رد»، حجم شارژ نمی‌شود.','Payments are made through the card-to-card link. After the customer transfers, click "Approve" to credit the volume; "Reject" leaves it uncredited.') }}</p>
   {% if history %}
   <div class="table-wrap clean-table">
     <table>
-      <thead><tr><th>#</th><th>{{ ui('فاکتور','Factor') }}</th><th>{{ ui('نماینده','Reseller') }}</th><th>{{ ui('حجم','Volume') }}</th><th>{{ ui('مبلغ (ریال)','Amount (Rial)') }}</th><th>{{ ui('وضعیت','Status') }}</th><th>Authority</th><th>{{ ui('تاریخ','Date') }}</th></tr></thead>
+      <thead><tr><th>#</th><th>{{ ui('فاکتور','Factor') }}</th><th>{{ ui('نماینده','Reseller') }}</th><th>{{ ui('حجم','Volume') }}</th><th>{{ ui('مبلغ (ریال)','Amount (Rial)') }}</th><th>{{ ui('وضعیت','Status') }}</th><th>{{ ui('عملیات','Actions') }}</th><th>{{ ui('تاریخ','Date') }}</th></tr></thead>
       <tbody>
         {% for p in history %}
         <tr>
@@ -63,8 +64,13 @@
           <td>{{ admin_label_by_id(p.reseller_id) or '-' }}</td>
           <td>{{ p.gb_amount }} GB</td>
           <td>{{ "{:,}".format(p.amount) }}</td>
-          <td><span class="badge {{ 'ok' if p.status == 'success' else ('warn' if p.status == 'pending' else 'off') }}">{{ {'success': ui('موفق','Paid'),'pending': ui('در انتظار','Pending'),'failed': ui('ناموفق','Failed'),'canceled': ui('لغو شده','Canceled')}.get(p.status, p.status) }}</span>{% if p.error %}<small class="muted" style="display:block;margin-top:4px">{{ p.error[:140] }}</small>{% endif %}</td>
-          <td>{% if p.authority %}<code style="max-width:200px">{{ p.authority }}</code>{% else %}-{% endif %}</td>
+          <td><span class="badge {{ 'ok' if p.status == 'success' else ('warn' if p.status == 'pending' else 'off') }}">{{ {'success': ui('موفق','Paid'),'pending': ui('در انتظار تأیید','Awaiting approval'),'failed': ui('ناموفق','Failed'),'canceled': ui('لغو شده','Canceled')}.get(p.status, p.status) }}</span>{% if p.error %}<small class="muted" style="display:block;margin-top:4px">{{ p.error[:140] }}</small>{% endif %}</td>
+          <td>
+            {% if p.status == 'pending' %}
+            <form method="post" action="{{ url_for('web.gateway_payment_approve', payment_id=p.id) }}" style="display:inline-block"><button class="btn ghost" style="padding:4px 10px;font-size:12px">{{ ui('تأیید و شارژ','Approve') }}</button></form>
+            <form method="post" action="{{ url_for('web.gateway_payment_reject', payment_id=p.id) }}" style="display:inline-block"><button class="btn ghost" style="padding:4px 10px;font-size:12px;color:#fb7185">{{ ui('رد','Reject') }}</button></form>
+            {% else %}-{% endif %}
+          </td>
           <td>{{ p.created_at.strftime('%Y-%m-%d %H:%M') if p.created_at else '-' }}</td>
         </tr>
         {% endfor %}

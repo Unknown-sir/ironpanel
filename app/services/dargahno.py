@@ -1,10 +1,14 @@
-# v2.0.0: Dargahno (درگاه نو) online payment gateway integration.
-# Lets the main admin configure a gateway and lets resellers (sub_admin) buy
-# extra traffic volume by paying through the gateway. Success/failure callbacks
-# are verified server-side with /api/v2/transaction/check before any volume is
-# credited (never trust the callback status parameter alone).
+# v2.0.2: Dargahno (درگاه نو) card-to-card payment links.
+# The reseller is redirected to the merchant's card-to-card page
+# (https://dargahno.net/c/<merchant>/?amount=&customer_id=) which the public API
+# never generates itself. The main admin then approves the payment manually from
+# the gateway page and the purchased volume is credited to the reseller.
+# The older online flow (register -> authority -> check + callback) is kept for
+# reference and future use.
 import json
 import time
+from urllib.parse import urlencode
+
 import requests
 
 from ..core.extensions import db
@@ -80,11 +84,11 @@ def _http_post(url, *, timeout=45, tries=3, backoff=1.0, **kwargs):
 
 
 def gateway_configured() -> bool:
+    """Enabled + a real merchant id. Card-to-card links only need the merchant
+    id; the API credentials are optional for that flow."""
     s = gateway_settings()
-    return bool(s.get('dargahno_enabled') == '1'
-                and s.get('dargahno_merchant_id')
-                and s.get('dargahno_username')
-                and s.get('dargahno_password'))
+    merchant = str(s.get('dargahno_merchant_id') or '').strip()
+    return bool(s.get('dargahno_enabled') == '1' and merchant and merchant != '0')
 
 
 def price_per_gb() -> int:
@@ -108,6 +112,19 @@ def support_id():
 def price_for_gb(gb: float) -> int:
     """Return the gateway price in Rial for a given GB amount."""
     return int(round(max(0.0, float(gb or 0)) * price_per_gb()))
+
+
+def card_to_card_url(*, amount: int, customer_id: str = '') -> str:
+    """Build a Dargahno card-to-card payment link to redirect the customer to.
+
+    Format: {base}/c/{merchant_id}/?amount=<rial>&customer_id=<id>
+    The merchant panel generates these links; the public API does not return them.
+    """
+    merchant = str(get_setting('dargahno_merchant_id', '') or '').strip()
+    params = {'amount': int(amount)}
+    if customer_id:
+        params['customer_id'] = str(customer_id)[:80]
+    return f"{api_base()}/c/{merchant}/?{urlencode(params)}"
 
 
 def next_factor_number() -> int:
@@ -134,10 +151,6 @@ def save_gateway_settings(form: dict) -> list:
     username = (form.get('dargahno_username') or '').strip()
     if not merchant:
         errors.append('شناسه درگاه (Merchant ID) الزامی است.')
-    if not username:
-        errors.append('نام کاربری درگاه الزامی است.')
-    if not password:
-        errors.append('رمز عبور درگاه الزامی است.')
     try:
         price = int(float(form.get('dargahno_price_per_gb') or 0))
         if price <= 0:

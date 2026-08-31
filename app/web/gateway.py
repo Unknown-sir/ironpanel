@@ -1,5 +1,4 @@
-"""v2.0.0: Dargahno payment gateway pages (main admin) and reseller volume/bot flows."""
-import json
+"""v2.0.2: Dargahno card-to-card payment links, manual admin approval, reseller bot flows."""
 import math
 
 from flask import flash, redirect, render_template, request, url_for
@@ -13,23 +12,16 @@ from ..core.models import (
     SalesBotPlan,
 )
 from ..services import dargahno
-from ..services.provisioning import get_public_host, log, set_reseller_enabled
+from ..services.provisioning import log, set_reseller_enabled
 from . import web_bp
 from .bots import _sales_bot_restart, _set_sales_bot_setting, _get_sales_bot_settings
-from .common import _panel_base_url, _reseller_stats
+from .common import _reseller_stats
 
 _GATEWAY_PAGE = 'gateway.html'
 _STORAGE_PAGE = 'reseller_storage.html'
 _BOT_PAGE = 'reseller_bot.html'
 _SUCCESS_PAGE = 'payment_success.html'
 _FAILED_PAGE = 'payment_failed.html'
-
-
-def _gateway_public_base():
-    host = get_public_host() or ''
-    if str(host).startswith(('http://', 'https://')):
-        return str(host).rstrip('/')
-    return _panel_base_url()
 
 
 def _credit_gateway_payment(payment):
@@ -87,6 +79,41 @@ def gateway_panel():
     )
 
 
+@web_bp.route('/gateway/payment/<int:payment_id>/approve', methods=['POST'])
+@login_required
+def gateway_payment_approve(payment_id):
+    """Main admin manually approves a card-to-card payment and credits the volume."""
+    if current_user.role != 'main_admin':
+        return redirect(url_for('web.dashboard'))
+    payment = GatewayPayment.query.get(payment_id)
+    if payment and payment.status == 'pending':
+        _credit_gateway_payment(payment)
+        reseller = Admin.query.get(payment.reseller_id) if payment.reseller_id else None
+        flash(f"شارژ {payment.gb_amount:g}GB برای نماینده «{reseller.username if reseller else '-'}» تأیید و به حجم اضافه شد.")
+        log(current_user.username, 'dargahno_approve', str(payment.factor_number), f'+{payment.gb_amount}GB')
+    else:
+        flash('پرداخت یافت نشد یا قبلاً تأیید/لغو شده است.')
+    return redirect(url_for('web.gateway_panel'))
+
+
+@web_bp.route('/gateway/payment/<int:payment_id>/reject', methods=['POST'])
+@login_required
+def gateway_payment_reject(payment_id):
+    """Main admin rejects a pending card-to-card payment; no volume is added."""
+    if current_user.role != 'main_admin':
+        return redirect(url_for('web.dashboard'))
+    payment = GatewayPayment.query.get(payment_id)
+    if payment and payment.status == 'pending':
+        payment.status = 'failed'
+        payment.error = 'لغو شده توسط مدیر'
+        db.session.commit()
+        flash('پرداخت رد شد و حجم شارژ نشد.')
+        log(current_user.username, 'dargahno_reject', str(payment.factor_number), 'rejected')
+    else:
+        flash('پرداخت یافت نشد یا قبلاً تأیید/لغو شده است.')
+    return redirect(url_for('web.gateway_panel'))
+
+
 @web_bp.route('/reseller/storage', methods=['GET', 'POST'])
 @login_required
 def reseller_storage():
@@ -139,26 +166,12 @@ def _reseller_storage_buy():
     )
     db.session.add(payment)
     db.session.commit()
-    callback = f'{_gateway_public_base()}/payment/dargahno/callback/{factor}'
-    result = dargahno.register_transaction(
-        factor_number=factor,
-        price=price,
-        callback_url=callback,
-        description=f'IronPanel volume top-up {gb}GB',
-    )
-    if not result.get('ok'):
-        payment.status = 'failed'
-        payment.error = (result.get('message') or '')[:400]
-        db.session.commit()
-        log(current_user.username, 'dargahno_register', str(factor), payment.error)
-        flash(payment.error or 'ثبت تراکنش در درگاه ناموفق بود. مبلغی از حساب شما کسر نمی شود.')
-        return redirect(url_for('web.reseller_storage'))
-    payment.authority = result.get('authority', '')
-    if result.get('data'):
-        payment.raw_response = json.dumps(result['data'], ensure_ascii=False, default=str)[:2000]
+    link = dargahno.card_to_card_url(amount=price, customer_id=current_user.username)
+    payment.raw_response = link[:2000]
     db.session.commit()
-    log(current_user.username, 'dargahno_charge', str(factor), f'{gb}GB -> {price} Rial')
-    return redirect(result.get('pay_url', '/reseller/storage'))
+    log(current_user.username, 'dargahno_charge', str(factor), f'{gb}GB -> {price} Rial (card link)')
+    flash('لینک پرداخت کارت‌به‌کارت ساخته شد. پس از واریز به این درگاه، صبر کن تا مدیر اصلی شارژ را تأیید کند.')
+    return redirect(link)
 
 
 @web_bp.route('/payment/dargahno/callback/<int:factor_number>', methods=['GET'])
