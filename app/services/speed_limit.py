@@ -151,6 +151,35 @@ def cap_user_speed_for_owner(owner_id, mbps) -> int:
             return min(value, cap)
     return value
 
+# v2.0.7: a reseller can also carry a per-user daily traffic cap. When set, every
+# owned user is limited to that much traffic per calendar day (reset automatically
+# each day). Stored per-owner in AppSetting (no column migration). 0 = unlimited.
+RESELLER_DAILY_LIMIT_KEY = 'reseller_daily_limit_owner_{owner_id}'
+
+def get_reseller_daily_limit(owner_id) -> int:
+    """Return the owning reseller's per-user daily traffic cap in MB (0 = unlimited)."""
+    try:
+        oid = int(owner_id or 0)
+    except Exception:
+        oid = 0
+    if not oid:
+        return 0
+    return _sanitize_mbps(get_setting(RESELLER_DAILY_LIMIT_KEY.format(owner_id=oid), '0'))
+
+def set_reseller_daily_limit(owner_id, mb) -> int:
+    """Store a reseller's per-user daily traffic cap in MB; returns the sanitized value (0 clears it)."""
+    try:
+        oid = int(owner_id or 0)
+    except Exception:
+        oid = 0
+    if not oid:
+        return 0
+    clean = _sanitize_mbps(mb)
+    set_setting(RESELLER_DAILY_LIMIT_KEY.format(owner_id=oid), str(clean))
+    db.session.commit()
+    return clean
+
+
 def user_wide_limit(user: VpnUser) -> int:
     return normalize_speed_limit_mbps(getattr(user, 'speed_limit_mbps', 0) or 0)
 

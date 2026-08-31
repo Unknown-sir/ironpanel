@@ -3037,6 +3037,7 @@ def collect_usage_from_runtime():
         try:
             enforce_usage_limits(commit=True)
             enforce_ip_limits(commit=True)
+            enforce_reseller_daily_limits(commit=True)
             reconcile_all_resellers(source='usage-sync', sync_runtime=True)
         except Exception as exc:
             _put_setting_raw('usage_enforce_last_error', str(exc)[-700:])
@@ -3085,6 +3086,70 @@ def enforce_usage_limits(commit=True):
     if commit:
         db.session.commit()
     return len(stopped)
+
+def enforce_reseller_daily_limits(commit=True):
+    """v2.0.7: enforce each reseller's per-user daily traffic cap.
+
+    For every enabled user owned by a reseller that carries a daily cap (>0), the
+    user's *today's* usage (from DailyUsage) is compared to the cap. When today's
+    usage reaches the cap the user is disabled with disabled_reason='daily_cap'.
+
+    Because DailyUsage is keyed by calendar day, usage resets automatically each
+    new day, so a daily-capped user is re-enabled at the start of the next day and
+    limited again once today's cap is hit. This gives an automatic daily cycle.
+    """
+    from ..core.models import DailyUsage as _DailyUsage
+    from .speed_limit import get_reseller_daily_limit
+    stopped = []
+    restored = []
+    today = datetime.utcnow().strftime('%Y-%m-%d')
+    for user in VpnUser.query.all():
+        owner_id = getattr(user, 'owner_id', None) or 0
+        if not owner_id:
+            continue
+        cap = get_reseller_daily_limit(owner_id)
+        if cap <= 0:
+            # No daily cap on this reseller: make sure a previously capped user
+            # (rescoped) is not left stuck disabled.
+            if getattr(user, 'disabled_reason', '') == 'daily_cap':
+                user.enabled = True
+                user.disabled_reason = ''
+                restored.append((user.username, 'cap_removed'))
+            continue
+        row = _DailyUsage.query.filter_by(user_id=user.id, day=today).first()
+        today_mb = int((row.upload_mb or 0) if row else 0) + int((row.download_mb or 0) if row else 0)
+        if not user.enabled and getattr(user, 'disabled_reason', '') == 'daily_cap':
+            # Wait for a fresh day: if today's usage is back under the cap (new
+            # day started) re-enable; otherwise keep it limited.
+            if today_mb < cap:
+                user.enabled = True
+                user.disabled_reason = ''
+                db.session.add(user)
+                restored.append((user.username, 'daily_reset'))
+            continue
+        if user.enabled and today_mb >= cap:
+            user.enabled = False
+            user.disabled_reason = 'daily_cap'
+            db.session.add(ActivityLog(actor='system', action='auto_disable_user', target=user.username, details='daily_cap'))
+            stopped.append((user.username, 'daily_cap'))
+            db.session.add(user)
+    if stopped or restored:
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+        for name, reason in (stopped + restored):
+            try:
+                u = VpnUser.query.filter_by(username=name).first()
+                if u:
+                    changed = u.allowed_protocol_list() or u.protocol_list() or active_protocols()
+                    sync_user(u, restart=False, changed_protocols=changed)
+            except Exception:
+                pass
+    if commit:
+        db.session.commit()
+    return len(stopped)
+
 
 def activate_first_connection_expiries(online_usernames=None):
     """v19.10.28: start pending "validity from first connection" clocks.

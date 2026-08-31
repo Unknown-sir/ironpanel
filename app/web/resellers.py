@@ -18,7 +18,7 @@ from ..services.provisioning import (
     sync_user,
     subscription_url_for_user,
 )
-from ..services.speed_limit import set_reseller_speed_limit
+from ..services.speed_limit import set_reseller_speed_limit, set_reseller_daily_limit
 from ..services.v10 import refresh_online_sessions
 from .common import _normalize_reseller_path, _normalize_reseller_protocols, _reseller_stats, reseller_panel_url
 from . import web_bp
@@ -56,6 +56,10 @@ def resellers():
         saved_speed = set_reseller_speed_limit(a.id, request.form.get('speed_limit_mbps', '0'))
         if saved_speed:
             log(current_user.username, 'reseller_speed_limit', a.username, f'{saved_speed}Mbps per user')
+        # v2.0.7: optional per-user daily traffic cap for this reseller (0 = no cap).
+        saved_daily = set_reseller_daily_limit(a.id, request.form.get('daily_limit_mb', '0'))
+        if saved_daily:
+            log(current_user.username, 'reseller_daily_limit', a.username, f'{saved_daily}MB per user per day')
         flash(f'نماینده ساخته شد. آدرس پنل: {reseller_panel_url(a)}')
         return redirect(url_for('web.resellers'))
     rows = Admin.query.filter_by(role='sub_admin').order_by(Admin.id.desc()).all()
@@ -69,7 +73,7 @@ def resellers():
             changed = True
     if changed:
         db.session.commit()
-    return render_template('resellers.html', resellers=rows, reseller_stats=_reseller_stats, reseller_panel_url=reseller_panel_url, reseller_protocol_choices=_normalize_reseller_protocols(active_protocols() or [], allow_default=True), reseller_config_domain=lambda rid: get_setting(f'reseller_config_domain_owner_{int(rid)}', ''), reseller_speed_limit=lambda rid: get_setting(f'reseller_speed_limit_owner_{int(rid)}', '0'))
+    return render_template('resellers.html', resellers=rows, reseller_stats=_reseller_stats, reseller_panel_url=reseller_panel_url, reseller_protocol_choices=_normalize_reseller_protocols(active_protocols() or [], allow_default=True), reseller_config_domain=lambda rid: get_setting(f'reseller_config_domain_owner_{int(rid)}', ''), reseller_speed_limit=lambda rid: get_setting(f'reseller_speed_limit_owner_{int(rid)}', '0'), reseller_daily_limit=lambda rid: get_setting(f'reseller_daily_limit_owner_{int(rid)}', '0'))
 
 @web_bp.route('/resellers/<int:reseller_id>/update', methods=['POST'])
 @login_required
@@ -146,7 +150,15 @@ def reseller_update(reseller_id):
                 apply_speed_limits_runtime()
             except Exception:
                 pass
-    log(current_user.username, 'update_reseller', r.username, f'{r.panel_path}; protocols={r.reseller_protocols}; users_restricted={len(changed_users)}; state={reseller_state}; domain={saved_domain or "default"}; speed={saved_speed or "none"}Mbps')
+    # v2.0.7: per-user daily traffic cap for this reseller (0 = no cap).
+    saved_daily = set_reseller_daily_limit(r.id, request.form.get('daily_limit_mb', '0'))
+    if request.form.get('apply_daily_to_existing') == '1':
+        try:
+            from ..services.provisioning import enforce_reseller_daily_limits
+            enforce_reseller_daily_limits(commit=True)
+        except Exception:
+            pass
+    log(current_user.username, 'update_reseller', r.username, f'{r.panel_path}; protocols={r.reseller_protocols}; users_restricted={len(changed_users)}; state={reseller_state}; domain={saved_domain or "default"}; speed={saved_speed or "none"}Mbps; daily={saved_daily or "none"}MB')
     if reseller_state.get('enabled'):
         state_msg = f" پنل فعال است؛ {int(reseller_state.get('restored') or 0)} کاربر سالم دوباره وصل شد."
     elif reseller_state.get('reason') == 'traffic_quota':

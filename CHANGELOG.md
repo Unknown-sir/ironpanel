@@ -1,3 +1,13 @@
+# v2.0.7 - Per-Reseller Daily Traffic Cap (Per-User, Auto-Reset)
+
+- **The main admin can also set a daily traffic cap for each reseller.** Like the speed limit, this is a **per-user daily cap**: when a reseller's daily limit is set (e.g. 5120 MB = 5 GB), **every user owned by that reseller** is limited to that much traffic **per calendar day**, each user independently.
+- **"0 = unlimited" for both dimensions.** If a reseller has no speed cap AND no daily cap (both 0) its users are unrestricted. If either a speed cap or a daily cap is set, that limit applies accordingly (speed limits bandwidth, the daily cap limits traffic volume per day).
+- **Automatic daily reset.** The cap is enforced against each user's *today's* usage (tracked in `DailyUsage`, keyed by day). When a user hits today's cap they are disabled with `disabled_reason='daily_cap'`; at the start of the next day usage resets and the user is re-enabled automatically, then limited again once that day's cap is reached.
+- **Enforced from the usage-sync cycle** (every 15s) via the new `enforce_reseller_daily_limits()` in `provisioning.py`, immediately after usage accounting.
+- **New admin fields** on the Resellers page (`/resellers`): "مصرف روزانه هر کاربر (مگابایت)" (per-user daily traffic in MB) on create + edit, with an "apply daily cap to existing users" checkbox on edit.
+- Stored per-owner in `AppSetting` (`reseller_daily_limit_owner_<id>`, value in MB/day; 0 = unlimited). New helpers in `speed_limit.py`: `get_reseller_daily_limit`, `set_reseller_daily_limit`.
+- CSS/JS cache-buster bumped to 2.0.7.
+
 # v2.0.6 - Per-Reseller Speed Limit (Per-User Cap)
 
 - **The main admin can set a speed limit for each reseller independently.** On the Resellers page (`/resellers`) the admin can enter a per-user speed cap (Mb/s) when creating or editing a reseller.
