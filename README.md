@@ -6,7 +6,7 @@
 
 **پنل حرفه‌ای مدیریت VPN چندپروتکلی و چندسروری — کاربران، نمایندگان، نودها و تونل‌ها از یک کنسول واحد**
 
-![Version](https://img.shields.io/badge/version-2.0.7-blue)
+![Version](https://img.shields.io/badge/version-2.0.8-blue)
 ![Python](https://img.shields.io/badge/python-3.10%2B-informational)
 ![Flask](https://img.shields.io/badge/flask-3.0-green)
 ![Platform](https://img.shields.io/badge/platform-Ubuntu%2022.04%2F24.04%20%7C%20Debian-orange)

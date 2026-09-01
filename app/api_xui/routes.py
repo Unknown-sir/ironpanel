@@ -189,20 +189,30 @@ def login():
     password = str(data.get('password') or '').strip()
     if not password:
         return _fail('password is required', 401)
-    # Prefer reseller credentials: username (panel username) + API key as password.
-    candidate_owner = None
     username = str(data.get('username') or '').strip()
-    if username:
-        acc = Admin.query.filter_by(username=username, role='sub_admin').first()
-        candidate_owner = acc
+    # (1) Prefer reseller credentials: username (panel username) + API key as password.
     _tok, owner = resolve_api_token(password, allowed_types=['xui'])
-    if not _tok:
-        return _fail('Invalid API Key', 401)
-    if candidate_owner and _tok.owner_id and _tok.owner_id != candidate_owner.id:
-        return _fail('Invalid credentials', 401)
-    response = jsonify(success=True, msg='', obj={'token': _tok.token})
-    response.set_cookie('3x-ui', _tok.token, max_age=7 * 24 * 3600, httponly=True, samesite='Lax')
-    log('xui_api', 'login', _tok.name or ('reseller-%s' % _tok.owner_id))
+    if _tok:
+        if username:
+            candidate_owner = Admin.query.filter_by(username=username, role='sub_admin').first()
+            if candidate_owner and _tok.owner_id and _tok.owner_id != candidate_owner.id:
+                return _fail('Invalid credentials', 401)
+        return _issue_xui_token(_tok)
+    # (2) Fallback: the "password" is the reseller's real panel login password.
+    # Standard 3x-ui sales bots send username+password of the panel; let those work.
+    acc = Admin.query.filter_by(username=username, role='sub_admin').first()
+    if acc and acc.check_password(password):
+        tok = ApiToken.query.filter_by(owner_id=acc.id, api_type='xui', enabled=True).first()
+        if tok:
+            return _issue_xui_token(tok)
+        return _fail('This reseller has no active bot (xui) API key yet', 403)
+    return _fail('Invalid credentials', 401)
+
+
+def _issue_xui_token(tok):
+    response = jsonify(success=True, msg='', obj={'token': tok.token})
+    response.set_cookie('3x-ui', tok.token, max_age=7 * 24 * 3600, httponly=True, samesite='Lax')
+    log('xui_api', 'login', tok.name or ('reseller-%s' % tok.owner_id))
     return response
 
 

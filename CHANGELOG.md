@@ -1,3 +1,21 @@
+# v2.0.8 - 3x-ui Bot Login Fix (accept real panel username+password)
+
+- **Fixed: standard 3x-ui sales bots couldn't log in.** These bots send the reseller's
+  **real panel username + password** to `/api/xui/login`. Previously the login handler
+  only accepted an **API key** as the password (`resolve_api_token`), so a reseller who
+  handed the bot its panel password got `Invalid API Key` / was treated as rejected even
+  though the connection appeared to succeed — and user creation was denied.
+- Now `/api/xui/login` accepts **both** approaches:
+  1. **API key** as password (unchanged behaviour) — `password` is resolves as an `xui`
+     `ApiToken`.
+  2. **Real panel login** — if the password is not an API key, the reseller's `username`
+     is looked up as a `sub_admin` and verified with `check_password`; when valid, the
+     reseller's active `xui` `ApiToken` is issued (403 with a clear message if the
+     reseller has no `xui` key yet).
+- The `/api/xui/login` response and `3x-ui` cookie flow are unchanged, so bots keep
+  working after the fix.
+- CSS/JS cache-buster bumped to 2.0.8.
+
 # v2.0.7 - Per-Reseller Daily Traffic Cap (Per-User, Auto-Reset)
 
 - **The main admin can also set a daily traffic cap for each reseller.** Like the speed limit, this is a **per-user daily cap**: when a reseller's daily limit is set (e.g. 5120 MB = 5 GB), **every user owned by that reseller** is limited to that much traffic **per calendar day**, each user independently.
