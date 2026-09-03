@@ -1,3 +1,16 @@
+# v2.0.10 - Updater Fix: no more username prompt on public GitHub
+
+- **Fixed the GitHub updater hanging on "Username for 'https://github.com'":** on servers
+  with a leftover global `credential.helper=store`, git prompts for a username even on
+  **public** repositories. `scripts/update_from_github.sh` now wraps every fetch/clone
+  with `GIT_TERMINAL_PROMPT=0 git -c credential.helper= …`, which disables the credential
+  helper for that public operation and never blocks waiting for input.
+- Both the incremental `fetch`/`reset` path and the fresh `clone` path are covered.
+- Note: the first run still needs the server's own credential helper cleaned up once
+  (`git config --global --unset credential.helper`), after which future updates are
+  fully automatic.
+- CSS/JS cache-buster bumped to 2.0.10.
+
 # v2.0.9 - Volume-Based User Grouping + Group Bulk Actions
 
 - **The Users & Configs page now groups users automatically by their config volume** so

@@ -46,17 +46,22 @@ else
 fi
 
 echo "IRONPANEL_PROGRESS 30% - fetching latest source"
+# v2.0.10: disable any interactive credential helper for this public remote. A
+# leftover global 'credential.helper=store' makes git prompt for a username even
+# on public repos; GIT_TERMINAL_PROMPT=0 + -c credential.helper= avoids that hang
+# and lets the public fetch/clone complete without asking for credentials.
+git_cmd(){ GIT_TERMINAL_PROMPT=0 git -c credential.helper= "$@"; }
 if [[ -d "$APP_DIR/.git" ]]; then
   cd "$APP_DIR"
   git remote set-url origin "$REPO_URL" || true
-  git fetch --depth 1 origin "$BRANCH"
-  git reset --hard "origin/$BRANCH"
+  git_cmd fetch --depth 1 origin "$BRANCH"
+  git_cmd reset --hard "origin/$BRANCH"
   chmod +x "$APP_DIR/upgrade.sh" "$APP_DIR/scripts/"*.sh 2>/dev/null || true
   echo "IRONPANEL_PROGRESS 55% - running fast upgrade"
   IRONPANEL_SKIP_CORE_REPAIR=1 IRONPANEL_DEFER_RESTART=1 IRONPANEL_FULL_SERVICE_SYNC=0 timeout 900 bash "$APP_DIR/upgrade.sh" --github-fast
 else
   rm -rf "$WORK/ironpanel"
-  git clone --depth 1 --branch "$BRANCH" "$REPO_URL" "$WORK/ironpanel"
+  git_cmd clone --depth 1 --branch "$BRANCH" "$REPO_URL" "$WORK/ironpanel"
   if [[ ! -f "$WORK/ironpanel/upgrade.sh" ]]; then
     echo "ERROR: upgrade.sh not found in repository. Aborting."
     exit 2
