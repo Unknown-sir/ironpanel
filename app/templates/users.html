@@ -108,8 +108,28 @@
       </div>
     </div>
 
-    <div class="users-responsive-grid modern-user-grid user-mini-grid">
-      {% for u in users %}{% set ok, reason = user_status(u) %}{% set us = usage_summary(u) %}{% set proto_list = (u.protocols or '').split(',') %}
+    {% for group in user_groups %}
+    <div class="volume-group">
+      <div class="volume-group-head">
+        <div class="volume-group-title">
+          <span class="volume-group-badge">{{ loop.index }}</span>
+          <b>{{ group.label_fa }}</b>
+          <small>({{ group.users|length }} کاربر · {% set gkey=group.key %}{% set gfa=group.label_fa %}{% set gen=group.label_en %}{{ group.key }})</small>
+        </div>
+        <div class="volume-group-actions">
+          <form method="post" action="/users/group-action" class="inline-form"><input type="hidden" name="bucket" value="{{ group.key }}">
+            <select name="action" required>
+              <option value="">عملیات گروه «{{ group.label_fa }}»</option>
+              <option value="enable">✅ وصل / فعال همه</option>
+              <option value="disable">⛔ قطع / غیرفعال همه</option>
+              <option value="delete">🗑 حذف همه گروه</option>
+            </select>
+            <button class="btn small" onclick="return groupActionConfirm(this.form)">اجرا</button>
+          </form>
+        </div>
+      </div>
+      <div class="users-responsive-grid modern-user-grid user-mini-grid">
+      {% for u in group.users %}{% set ok, reason = user_status(u) %}{% set us = usage_summary(u) %}{% set proto_list = (u.protocols or '').split(',') %}
       <article class="user-mini {{'is-active' if ok else 'is-off'}}" data-username="{{u.username}}">
         <div class="user-mini-main" onclick="openUserModal(this.closest('.user-mini'))" title="{{ ui('نمایش اطلاعات و ویرایش', 'View details & edit') }}">
           <label class="user-bulk-check" onclick="event.stopPropagation()"><input class="bulk-user-select" type="checkbox" name="user_ids" value="{{u.id}}" form="bulk-user-actions"></label>
@@ -173,7 +193,9 @@
       {% else %}
       <div class="empty-state modern-empty">کاربری یافت نشد.</div>
       {% endfor %}
-     </div>
+      </div>
+    </div>
+    {% endfor %}
      {% include '_pagination.html' %}
    </section>
 
@@ -207,6 +229,21 @@
       return confirm('اکانت‌های انتخاب‌شده برای همیشه حذف شوند؟\n(دیتابیس + کانفیگ‌ها + گواهی‌های OpenVPN — قابل بازگشت نیست)');
     }
     return confirm('عملیات روی کاربران انتخاب‌شده انجام شود؟');
+  }
+  function groupActionConfirm(form){
+    var sel=form?form.querySelector('select[name=action]'):null;
+    var v=sel?sel.value:'';
+    if(!v){ return false; }
+    var bucketB=form.querySelector('input[name=bucket]');
+    var label='این گروه';
+    if(bucketB){ label='"'+bucketB.value+'"'; }
+    if(v==='delete'){
+      return confirm('همه کاربران گروه '+label+' برای همیشه حذف شوند؟\n(دیتابیس + کانفیگ‌ها + گواهی‌های OpenVPN — قابل بازگشت نیست)');
+    }
+    if(v==='disable'){
+      return confirm('همه کاربران گروه '+label+' قطع/غیرفعال شوند؟');
+    }
+    return confirm('همه کاربران گروه '+label+' وصل/فعال شوند؟');
   }
   function openUserModal(card){
     var dlg=document.getElementById('user-dialog');

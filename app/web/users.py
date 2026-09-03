@@ -129,6 +129,74 @@ def _page_url_for(endpoint, target_page):
     query = '&'.join(f'{k}={v}' for k, v in args.items())
     return url_for(endpoint, **args)
 
+
+# v2.0.9: volume-based grouping. Every user is assigned to a traffic "bucket" from
+# its data_limit_mb so the configs/users page can be organised and bulk-managed by
+# group (e.g. unlimited, 1-10GB, 10-50GB, ...). data_limit_mb == 0 means unlimited.
+_GB = 1024
+
+_VOLUME_BUCKETS = [
+    # key,  label_fa, label_en,  min_exclusive, max_inclusive
+    ('unlimited', 'نامحدود', 'Unlimited', 0, 0),
+    ('1-10GB', '1 تا 10 گیگ', '1-10 GB', 0, 10 * _GB),
+    ('10-50GB', '10 تا 50 گیگ', '10-50 GB', 10 * _GB, 50 * _GB),
+    ('50-100GB', '50 تا 100 گیگ', '50-100 GB', 50 * _GB, 100 * _GB),
+    ('100-500GB', '100 تا 500 گیگ', '100-500 GB', 100 * _GB, 500 * _GB),
+    ('500GB+', 'بالای 500 گیگ', '500+ GB', 500 * _GB, None),
+]
+
+
+def volume_bucket(mb):
+    """Return the (key, label_fa, label_en) bucket for a data_limit_mb value."""
+    mb = max(0, int(mb or 0))
+    for key, fa, en, lo, hi in _VOLUME_BUCKETS:
+        if key == 'unlimited':
+            if mb == 0:
+                return key, fa, en
+        elif hi is None:
+            if lo < mb:
+                return key, fa, en
+        elif lo < mb <= hi:
+            return key, fa, en
+    return 'unlimited', 'نامحدود', 'Unlimited'
+
+
+def _volume_bucket_query(q, bucket_key):
+    """Narrow a VpnUser query to users whose data_limit_mb falls in the bucket."""
+    for key, _fa, _en, lo, hi in _VOLUME_BUCKETS:
+        if key != bucket_key:
+            continue
+        if key == 'unlimited':
+            return q.filter(VpnUser.data_limit_mb == 0)
+        if hi is None:
+            return q.filter(VpnUser.data_limit_mb > lo)
+        return q.filter(VpnUser.data_limit_mb > lo, VpnUser.data_limit_mb <= hi)
+    return q.filter(VpnUser.id == -1)
+
+
+def group_users_page(users):
+    """Partition a list of users into ordered (bucket_key, label_fa, label_en, users) lists."""
+    ordered = {}
+    order = []
+    for u in users:
+        key, fa, en = volume_bucket(getattr(u, 'data_limit_mb', 0))
+        bucket = ordered.setdefault(key, [key, fa, en, []])
+        if key not in order:
+            order.append(key)
+        bucket[3].append(u)
+    return [OrderedTuple(ordered[k]) for k in order]
+
+
+class OrderedTuple(tuple):
+    """Simple named accessor over the (key, fa, en, users) group tuple."""
+
+    def __getattr__(self, name):
+        mapping = {'key': 0, 'label_fa': 1, 'label_en': 2, 'users': 3}
+        if name in mapping:
+            return self[mapping[name]]
+        raise AttributeError(name)
+
+
 @web_bp.route('/users', methods=['GET','POST'])
 @login_required
 def users():
@@ -176,9 +244,12 @@ def users():
         per_page = 25
     per_page = min(max(per_page, 10), 100)
     pagination = q.order_by(VpnUser.id.desc()).paginate(page=page, per_page=per_page, error_out=False)
+    # v2.0.9: organise the page into traffic-volume groups.
+    user_groups = group_users_page(pagination.items)
     return render_template(
         'users.html',
         users=pagination.items,
+        user_groups=user_groups,
         pagination=pagination,
         prev_url=_page_url_for('web.users', pagination.prev_num) if pagination.has_prev else None,
         next_url=_page_url_for('web.users', pagination.next_num) if pagination.has_next else None,
@@ -651,6 +722,69 @@ def users_bulk_action():
             pass
     log(current_user.username, f'bulk_{action}_users', str(len(rows)), f'changed={changed}')
     flash(f'عملیات گروهی روی {len(rows)} کاربر مجاز انجام شد')
+    return redirect(url_for('web.users'))
+
+
+# v2.0.9: act on every user that falls into a traffic-volume group. The group is
+# selected by its bucket key (unlimited / 1-10GB / ...), so arbitrary per-user
+# data_limit_mb values are folded into the same group as shown on the page.
+@web_bp.route('/users/group-action', methods=['POST'])
+@login_required
+def users_group_action():
+    bucket_key = (request.form.get('bucket') or '').strip()
+    action = (request.form.get('action') or '').strip()
+    if action not in {'enable', 'disable', 'delete'} or not bucket_key:
+        flash('عملیات گروهی نامعتبر است')
+        return redirect(url_for('web.users'))
+    q = VpnUser.query
+    if current_user.role == 'sub_admin':
+        q = q.filter(VpnUser.owner_id == current_user.id)
+    rows = _volume_bucket_query(q, bucket_key).all()
+    _fa, _en = volume_bucket(0)[1], volume_bucket(0)[2]
+    for _k, fa, en, _lo, _hi in _VOLUME_BUCKETS:
+        if _k == bucket_key:
+            _fa, _en = fa, en
+            break
+    if not rows:
+        flash(ui('در این گروه کاربری وجود ندارد', 'No users in this group'))
+        return redirect(url_for('web.users'))
+    if action == 'delete':
+        deleted = delete_users_bulk(rows)
+        try:
+            apply_speed_limits_runtime()
+        except Exception:
+            pass
+        log(current_user.username, 'group_delete_users', bucket_key, f'deleted={deleted}')
+        flash(ui(
+            f'{deleted} کاربر گروه «{_fa}» برای همیشه حذف شد',
+            f'{deleted} accounts in group "{_en}" were permanently deleted',
+        ))
+        return redirect(url_for('web.users'))
+    enabled = action == 'enable'
+    changed = 0
+    for u in rows:
+        if bool(u.enabled) != enabled:
+            u.enabled = enabled
+            u.disabled_reason = '' if enabled else 'manual'
+            changed += 1
+            db.session.add(ActivityLog(
+                actor=current_user.username,
+                action='manual_enable_user' if enabled else 'manual_disable_user',
+                target=u.username,
+                details=f'group:{bucket_key}',
+            ))
+    db.session.commit()
+    if rows:
+        sync_all_users(restart=True)
+    try:
+        apply_speed_limits_runtime()
+    except Exception:
+        pass
+    log(current_user.username, f'group_{action}_users', bucket_key, f'changed={changed}')
+    flash(ui(
+        f'کاربران گروه «{_fa}» ({len(rows)}) به‌روزرسانی شدند',
+        f'Group "{_en}" ({len(rows)} accounts) updated',
+    ))
     return redirect(url_for('web.users'))
 
 

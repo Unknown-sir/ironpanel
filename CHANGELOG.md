@@ -1,3 +1,27 @@
+# v2.0.9 - Volume-Based User Grouping + Group Bulk Actions
+
+- **The Users & Configs page now groups users automatically by their config volume** so
+  long lists are no longer one flat wall of cards.
+- **Auto-detected groups** based on each user's `data_limit_mb` (0 = unlimited):
+  `نامحدود` (Unlimited), `1 تا 10 گیگ` (1-10 GB), `10 تا 50 گیگ`, `50 تا 100 گیگ`,
+  `100 تا 500 گیگ` and `بالای 500 گیگ` (500+ GB). The panel folds every user into the
+  correct group on its own — no manual tagging needed.
+- **Group bulk actions.** Each group has its own action dropdown to operate on **all**
+  users that fall into that volume group at once:
+  - ✅ **وصل / فعال همه** (enable all in group)
+  - ⛔ **قطع / غیرفعال همه** (disable all in group)
+  - 🗑 **حذف همه گروه** (permanently delete all in group)
+- Group actions apply to **every** user matching the volume bucket (whole scope:
+  main-admin = all users, reseller = its own users), not just the few on the current
+  page. Confirmations guard the destructive/disabled ops.
+- Single-user checkboxes, search, pagination and the existing per-user bulk bar all keep
+  working unchanged.
+- Backend: `app/web/users.py` — volume bucket helpers (`_VOLUME_BUCKETS`,
+  `volume_bucket`, `_volume_bucket_query`, `group_users_page`), the `/users` view now
+  passes `user_groups`, and a new `POST /users/group-action` route. UI: `users.html` +
+  `style.css`.
+- CSS/JS cache-buster bumped to 2.0.9.
+
 # v2.0.8 - 3x-ui Bot Login Fix (accept real panel username+password)
 
 - **Fixed: standard 3x-ui sales bots couldn't log in.** These bots send the reseller's
