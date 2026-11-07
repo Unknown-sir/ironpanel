@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block heading %}{{ ui('دامنه کانفیگ‌های من', 'My config domain') }}{% endblock %}
+{% block content %}
+<div class="modern-page">
+  <section class="card modern-hero split-hero compact">
+    <div class="hero-copy">
+      <p class="eyebrow">Reseller branding</p>
+      <h3>{{ ui('دامنه اختصاصی کانفیگ مشتریان شما', 'Custom domain for your customers configs') }}</h3>
+      <p class="hint">{{ ui('اگر دامنه وارد کنید، آدرس سرور داخل کانفیگ‌های همه کاربران شما به همین دامنه تغییر می‌کند. اگر خالی بگذارید، از آدرس اصلی پنل استفاده می‌شود.', 'When set, every config of your own users uses this address. When empty, the main panel address is used.') }}</p>
+    </div>
+  </section>
+
+  <section class="card">
+    <form method="post" class="form grid-form">
+      <label>{{ ui('دامنه یا IP اختصاصی شما', 'Your custom domain or IP') }}
+        <input name="config_domain" value="{{ current_domain }}" placeholder="res.example.com" dir="ltr">
+        <small class="hint">{{ ui('مثال: res.example.com — بدون https:// و بدون پورت. برای پاک‌کردن، خالی بگذارید و ذخیره کنید.', 'Example: res.example.com — no scheme, no port. Leave empty and save to reset.') }}</small>
+      </label>
+      <button>{{ ui('ذخیره دامنه', 'Save domain') }}</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <div class="section-head"><div>
+      <h3>{{ ui('این تنظیم روی چه چیزی اثر دارد؟', 'What does this affect?') }}</h3>
+      <p class="hint">
+        {{ ui('فقط کاربران خودِ شما (تعداد: ' ~ user_count ~ ') از این دامنه استفاده می‌کنند؛ کاربران سایر نماینده‌ها و مدیر اصلی تغییری نمی‌کنند. پروتکل‌های OpenVPN، WireGuard، Ocserv، L2TP، PPTP، Hysteria2، SSH، Xray و Telegram Proxy از این آدرس پیروی می‌کنند. کانفیگ‌های «Direct Location» نودها آدرس مخصوص همان نود را نگه می‌دارند.', 'Only your own users (' ~ user_count ~ ') are affected; other resellers and the main admin are untouched. OpenVPN, WireGuard, Ocserv, L2TP, PPTP, Hysteria2, SSH, Xray and Telegram Proxy follow this address. Node Direct Location configs keep their per-node hosts.') }}
+      </p>
+    </div></div>
+  </section>
+</div>
+{% endblock %}

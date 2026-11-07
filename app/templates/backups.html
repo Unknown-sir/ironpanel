@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% block heading %}Migration Backup / Restore{% endblock %}
+{% block content %}
+<section class="card backup-hero">
+  <div class="section-head responsive-head">
+    <div>
+      <span class="eyebrow">FULL SERVER MIGRATION</span>
+      <h3>بکاپ و ریستور کامل IronPanel</h3>
+      <p class="muted">بکاپ جدید برای انتقال واقعی به سرور دیگر ساخته می‌شود: Snapshot سازگار دیتابیس، همه کاربران و مصرف‌ها، ادمین‌ها و نماینده‌ها، تنظیمات و دامنه/ساب، Tokenها، پروفایل‌ها و هویت کامل پروتکل‌ها مثل OpenVPN PKI و tls-crypt، کلید WireGuard، SSL/Let's Encrypt، Ocserv، L2TP/IKEv2، Xray و Hysteria2.</p>
+      <div class="alert warning"><b>مهم:</b> این فایل شامل کلیدهای خصوصی و Secretهای سرور است. فقط مدیر اصلی باید به آن دسترسی داشته باشد. بعد از انتقال، DNS دامنه‌های قبلی باید به IP سرور جدید اشاره کند تا کانفیگ‌های قبلی بدون تغییر به سرور جدید برسند.</div>
+    </div>
+    <form method="post" class="actions-wrap">
+      <input type="hidden" name="action" value="create">
+      <label class="checkline"><input type="checkbox" name="include_source" value="1"> سورس پنل هم داخل بکاپ باشد (اختیاری و معمولاً لازم نیست)</label>
+      <button>ساخت بکاپ کامل Migration</button>
+    </form>
+  </div>
+  <div class="backup-grid">
+    <form method="post" enctype="multipart/form-data" class="mini-card">
+      <h4>ریستور روی سرور جدید</h4>
+      <p class="muted">اول همین نسخه یا نسخه جدیدتر IronPanel را روی سرور مقصد نصب کن، سپس فایل بکاپ را اینجا Restore کن. دیتابیس و Identityهای قبلی حفظ و Runtime با همان کلیدها بازسازی می‌شود.</p>
+      <input type="hidden" name="action" value="restore_upload">
+      <input type="file" name="restore_file" accept=".gz,.tgz,.tar.gz" required>
+      <label class="checkline"><input type="checkbox" name="restore_source" value="1"> سورس داخل بکاپ هم جایگزین شود (برای Migration معمولی توصیه نمی‌شود)</label>
+      <button class="btn danger" onclick="return confirm('قبل از ریستور یک Migration Backup محافظ ساخته می‌شود. سرویس‌های VPN هنگام Restore کوتاه‌مدت Restart می‌شوند. ادامه می‌دهی؟')">ریستور کامل</button>
+    </form>
+    <div class="mini-card">
+      <h4>دستور ترمینال</h4>
+      <p class="muted">بکاپ CLI نیز دقیقاً از همین موتور Migration استفاده می‌کند:</p>
+      <code>cd /opt/ironpanel && sudo /opt/ironpanel/.venv/bin/flask --app run.py safe-backup</code>
+      <p class="muted">Auto Backup و Admin Bot هم از همین فرمت کامل استفاده می‌کنند؛ برای کاهش حجم، سورس برنامه در بکاپ‌های دوره‌ای تکرار نمی‌شود.</p>
+    </div>
+  </div>
+  {% if restore_output %}<pre class="log-output">{{ restore_output }}</pre>{% endif %}
+</section>
+
+<section class="card table-card">
+  <h3>بکاپ‌ها</h3>
+  <div class="backup-list">
+  {% for f in files %}
+    <div class="backup-row">
+      <div>
+        <b>{{ f.name }}</b>
+        <small>{{ f.created_at }} · {{ (f.size/1024/1024)|round(2) }} MB · {{ f.kind }} {{ f.version }}</small>
+        {% if f.migration_capable %}
+          <p><span class="badge success">Migration Ready v{{ f.format_version }}</span>
+          {% if f.counts %} کاربران: {{ f.counts.get('users',0) }} · ادمین/نماینده: {{ f.counts.get('admins',0) }} · دامنه‌ها: {{ f.counts.get('domains',0) }}{% endif %}</p>
+        {% else %}
+          <p class="muted">Legacy backup — ممکن است Identity پروتکل‌ها را نداشته باشد.</p>
+        {% endif %}
+        {% if f.note %}<p>{{ f.note }}</p>{% endif %}
+      </div>
+      <div class="actions-wrap">
+        <a class="btn ghost small" href="/backups/{{ f.name }}">دانلود</a>
+        <form method="post">
+          <input type="hidden" name="action" value="restore_existing">
+          <input type="hidden" name="filename" value="{{ f.name }}">
+          <button class="btn danger small" onclick="return confirm('ریستور کامل این بکاپ انجام شود؟ قبل از شروع بکاپ محافظ ساخته خواهد شد.')">ریستور</button>
+        </form>
+      </div>
+    </div>
+  {% else %}
+    <div class="alert">هنوز بکاپی ساخته نشده است.</div>
+  {% endfor %}
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+{% block heading %}Xray Core پیشرفته{% endblock %}
+{% block content %}
+<section class="card hero">
+  <div>
+    <p class="eyebrow">IronPanel v16</p>
+    <h3>مدیریت کامل Xray با یک پروفایل فعال</h3>
+    <p class="hint">مدیر فقط یک نوع کانفیگ Xray را انتخاب می‌کند و در صفحه سابسکراپشن هر کاربر فقط همان یک لینک Xray تحویل داده می‌شود. از v16.4 فایل xray.txt فقط شامل URI خام است تا کلاینت‌ها بدون خطا Import کنند.</p>
+  </div>
+  <div class="license-grid mini">
+    <div><b>وضعیت</b><span class="badge {{'ok' if runtime.enabled=='1' else 'off'}}">{{ 'فعال' if runtime.enabled=='1' else 'غیرفعال' }}</span></div>
+    <div><b>پروفایل فعلی</b><span>{{ runtime.profile_title }}</span></div>
+    <div><b>Host</b><span>{{ runtime.host }}</span></div>
+    <div><b>Port</b><span>{{ runtime.port }}</span></div>
+    <div><b>اعتبار کانفیگ</b><span class="badge {{'ok' if runtime.valid=='1' else 'bad'}}">{{ 'سالم' if runtime.valid=='1' else runtime.validation_message }}</span></div>
+  </div>
+</section>
+
+<section class="card">
+  <h3>انتخاب نوع کانفیگ Xray</h3>
+  <p class="hint">این لیست فقط برای انتخاب مدیر است؛ کاربر نهایی همه کانفیگ‌ها را دریافت نمی‌کند و فقط پروفایل انتخاب‌شده فعال می‌شود.</p>
+  <div class="plan-grid xray-type-grid">
+    {% for key, item in profile_types.items() %}
+    <article class="mini-card {{'selected' if settings.xray_profile_type == key else ''}}">
+      <h4>{{ item.title }}</h4>
+      <p>{{ item.description }}</p>
+      <small>{{ key }}</small>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="card">
+  <h3>تنظیمات هسته و Inbound</h3>
+  <form method="post" class="form grid-form">
+    <input type="hidden" name="action" value="save">
+    <label class="check"><input type="checkbox" name="xray_enabled" value="1" {{'checked' if settings.xray_enabled=='1' else ''}}> Xray فعال باشد</label>
+    <label>نوع کانفیگ فعال
+      <select name="xray_profile_type">
+        {% for key, item in profile_types.items() %}<option value="{{key}}" {{'selected' if settings.xray_profile_type==key else ''}}>{{item.title}}</option>{% endfor %}
+      </select>
+    </label>
+    <label>دامنه / Host اختصاصی Xray<input name="xray_domain" value="{{settings.xray_domain}}" placeholder="خالی = Host اصلی پنل"></label>
+    <label>پورت Xray<input name="xray_port" type="number" value="{{settings.xray_port}}"></label>
+    <label>پورت API آمار Xray<input name="xray_api_port" type="number" value="{{settings.xray_api_port}}"></label>
+    <label>Log Level<select name="xray_loglevel"><option value="warning" {{'selected' if settings.xray_loglevel=='warning' else ''}}>warning</option><option value="info" {{'selected' if settings.xray_loglevel=='info' else ''}}>info</option><option value="error" {{'selected' if settings.xray_loglevel=='error' else ''}}>error</option><option value="debug" {{'selected' if settings.xray_loglevel=='debug' else ''}}>debug</option></select></label>
+    <label>DNS Servers<input name="xray_dns_servers" value="{{settings.xray_dns_servers}}"></label>
+    <label>Routing Mode<select name="xray_routing_mode"><option value="direct" {{'selected' if settings.xray_routing_mode=='direct' else ''}}>Direct</option><option value="block-ir" {{'selected' if settings.xray_routing_mode=='block-ir' else ''}}>Block IR Geo rules</option></select></label>
+    <label class="check"><input type="checkbox" name="xray_sniffing_enabled" value="1" {{'checked' if settings.xray_sniffing_enabled=='1' else ''}}> Sniffing فعال باشد</label>
+    <label class="check"><input type="checkbox" name="xray_block_private" value="1" {{'checked' if settings.xray_block_private=='1' else ''}}> Block private IP ranges</label>
+    <label class="check"><input type="checkbox" name="xray_mux_enabled" value="1" {{'checked' if settings.xray_mux_enabled=='1' else ''}}> Mux در لینک خروجی فعال شود</label>
+    <button>ذخیره و بازسازی Xray</button>
+  </form>
+</section>
+
+<section class="card">
+  <h3>Reality / TLS / Transport</h3>
+  <form method="post" class="form grid-form">
+    <input type="hidden" name="action" value="save">
+    <input type="hidden" name="xray_enabled" value="1">
+    <input type="hidden" name="xray_profile_type" value="{{settings.xray_profile_type}}">
+    <input type="hidden" name="xray_domain" value="{{settings.xray_domain}}">
+    <input type="hidden" name="xray_port" value="{{settings.xray_port}}">
+    <input type="hidden" name="xray_api_port" value="{{settings.xray_api_port}}">
+    <label>Reality Dest<input name="xray_reality_dest" value="{{settings.xray_reality_dest}}" placeholder="www.cloudflare.com:443"></label>
+    <label>Reality SNI<input name="xray_reality_sni" value="{{settings.xray_reality_sni}}"></label>
+    <label>Reality Server Names<input name="xray_reality_server_names" value="{{settings.xray_reality_server_names}}"></label>
+    <label>Reality Private Key<input name="xray_reality_private_key" value="{{settings.xray_reality_private_key}}"></label>
+    <label>Reality Public Key<input name="xray_reality_public_key" value="{{settings.xray_reality_public_key}}"></label>
+    <label>Reality Short IDs<input name="xray_reality_short_ids" value="{{settings.xray_reality_short_ids}}"></label>
+    <label>Fingerprint<input name="xray_reality_fingerprint" value="{{settings.xray_reality_fingerprint}}"></label>
+    <label>SpiderX<input name="xray_reality_spiderx" value="{{settings.xray_reality_spiderx}}"></label>
+    <label>Flow<input name="xray_flow" value="{{settings.xray_flow}}"></label>
+    <label>TLS Cert File<input name="xray_tls_cert_file" value="{{settings.xray_tls_cert_file}}"></label>
+    <label>TLS Key File<input name="xray_tls_key_file" value="{{settings.xray_tls_key_file}}"></label>
+    <label>ALPN<input name="xray_alpn" value="{{settings.xray_alpn}}"></label>
+    <label>WS Path<input name="xray_ws_path" value="{{settings.xray_ws_path}}"></label>
+    <label>WS Host<input name="xray_ws_host" value="{{settings.xray_ws_host}}"></label>
+    <label>gRPC Service Name<input name="xray_grpc_service_name" value="{{settings.xray_grpc_service_name}}"></label>
+    <label>Shadowsocks Method<input name="xray_ss_method" value="{{settings.xray_ss_method}}" placeholder="chacha20-ietf-poly1305 یا 2022-blake3-aes-128-gcm"></label>
+    <input type="hidden" name="xray_loglevel" value="{{settings.xray_loglevel}}">
+    <input type="hidden" name="xray_dns_servers" value="{{settings.xray_dns_servers}}">
+    <input type="hidden" name="xray_routing_mode" value="{{settings.xray_routing_mode}}">
+    {% if settings.xray_sniffing_enabled=='1' %}<input type="hidden" name="xray_sniffing_enabled" value="1">{% endif %}
+    {% if settings.xray_block_private=='1' %}<input type="hidden" name="xray_block_private" value="1">{% endif %}
+    {% if settings.xray_mux_enabled=='1' %}<input type="hidden" name="xray_mux_enabled" value="1">{% endif %}
+    <button>ذخیره تنظیمات پیشرفته</button>
+  </form>
+  <form method="post" style="margin-top:12px"><input type="hidden" name="action" value="generate_reality_keys"><button class="btn ghost">ساخت خودکار کلید Reality</button></form>
+</section>
+
+
+<section class="card">
+  <h3>Xray Pro Builder - چند Inbound همزمان</h3>
+  <p class="hint">برای نزدیک‌شدن به تجربه 3x-ui، می‌توانی چند inbound فعال داشته باشی. فایل xray.txt هر کاربر در این حالت چند لینک قابل Import تحویل می‌دهد.</p>
+  <form method="post" class="form">
+    <input type="hidden" name="action" value="save_builder">
+    <label class="check"><input type="checkbox" name="xray_multi_inbound_enabled" value="1" {{'checked' if builder_enabled else ''}}> حالت چند Inbound فعال باشد</label>
+    <table>
+      <tr><th>فعال</th><th>نام</th><th>Profile</th><th>Port</th><th>Path / Service</th><th>Domain</th><th>WS Host</th></tr>
+      {% for row in builder_inbounds %}{% set idx=loop.index %}<tr>
+        <td><input type="checkbox" name="builder_enabled_{{idx}}" value="1" {{'checked' if row.enabled else ''}}></td>
+        <td><input name="builder_name_{{idx}}" value="{{row.name}}"></td>
+        <td><select name="builder_profile_type_{{idx}}">{% for key,item in profile_types.items() %}<option value="{{key}}" {{'selected' if row.profile_type==key else ''}}>{{item.title}}</option>{% endfor %}</select></td>
+        <td><input name="builder_port_{{idx}}" type="number" value="{{row.port}}" style="max-width:90px"></td>
+        <td><input name="builder_path_{{idx}}" value="{{row.path}}"></td>
+        <td><input name="builder_domain_{{idx}}" value="{{row.domain}}" placeholder="خالی = Host اصلی"></td>
+        <td><input name="builder_host_{{idx}}" value="{{row.host}}"></td>
+      </tr>{% endfor %}
+    </table>
+    <button>ذخیره Builder و بازسازی Xray</button>
+  </form>
+  <form method="post" style="margin-top:10px"><input type="hidden" name="action" value="reset_builder"><button class="btn ghost">بازنشانی Presetهای Builder</button></form>
+</section>
+
+<section class="card">
+  <h3>کاربران فعال Xray</h3>
+  <p class="hint">این کاربران در config.json هسته Xray قرار می‌گیرند. اگر کاربر منقضی/غیرفعال شود یا حجمش تمام شود، از Xray هم حذف می‌شود.</p>
+  <table>
+    <tr><th>کاربر</th><th>انقضا</th><th>Subscription</th><th>QR</th></tr>
+    {% for u in users %}<tr><td><b>{{u.username}}</b></td><td>{{u.expires_at.strftime('%Y-%m-%d') if u.expires_at else 'نامحدود'}}</td><td><a class="link" href="{{ subscription_url_for_user(u) }}" target="_blank">صفحه سابسکراپشن</a></td><td><a class="btn small ghost" href="/qr/xray/{{u.id}}.png" target="_blank">QR</a></td></tr>{% endfor %}
+  </table>
+</section>
+{% endblock %}

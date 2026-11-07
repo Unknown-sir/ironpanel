@@ -1,0 +1,8 @@
+[Unit]
+Description=IronPanel self-healing watchdog
+After=network-online.target ironpanel.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/ironpanel/scripts/ironpanel_watchdog.sh
+User=root

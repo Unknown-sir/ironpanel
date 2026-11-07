@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% set lang = current_language() %}
+{% block heading %}{{ t('appearance') }}{% endblock %}
+{% block content %}
+<section class="card appearance-card">
+  <div class="section-head responsive-head">
+    <div>
+      <span class="eyebrow">UI</span>
+      <h3>{{ t('appearance') }}</h3>
+      <p class="hint">{{ ui('زبان رابط کاربری و حالت روشن/تاریک پنل را انتخاب کنید. تغییرات برای تمام صفحات اعمال می‌شود.', 'Choose the interface language and the light or dark theme. Changes are applied to all pages.') }}</p>
+    </div>
+  </div>
+  <form method="post" class="form-grid">
+    <label>{{ t('language') }}
+      <select name="language">
+        {% for code, meta in languages.items() %}<option value="{{code}}" {{'selected' if code == language else ''}}>{{ meta.native }} / {{ meta.name }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>{{ t('theme') }}
+      <select name="theme_mode">
+        {% for code, name in themes.items() %}<option value="{{code}}" {{'selected' if code == theme else ''}}>{{ t(code) if code in ['light','dark'] else name }}</option>{% endfor %}
+      </select>
+    </label>
+    <div class="wide theme-preview-grid">
+      <article class="theme-preview theme-preview-dark"><b>{{ t('dark') }}</b><span>{{ ui('برای محیط‌های کم‌نور', 'For low-light environments') }}</span></article>
+      <article class="theme-preview theme-preview-light"><b>{{ t('light') }}</b><span>{{ ui('برای محیط اداری روشن', 'For a clean office workspace') }}</span></article>
+    </div>
+    <div class="wide sticky-actions"><button class="btn primary">{{ t('save') }}</button></div>
+  </form>
+</section>
+{% endblock %}

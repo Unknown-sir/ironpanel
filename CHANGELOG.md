@@ -1,0 +1,1029 @@
+# v2.0.11 - IronAPP Android Client Compatibility
+
+- **New public JSON API for the open-source IronAPP Android client** (`IronAPP` repo):
+  `GET /s/<token>/app.json` (full snapshot: quota, expiry, allowed protocols,
+  raw configs, Xray links, clash/sing-box/hiddify/raw subscription URLs) and
+  `GET /s/<token>/status` (lightweight quota/expiry polling). The subscription
+  token in the URL is the credential, same trust model as `/s/<token>` pages.
+- **Quota/expiry gate is enforced on both sides:** `app.json`/`status` always
+  answer HTTP 200 with `access_ok: false` + reason for expired/out-of-traffic
+  accounts so the app can block (re)connects with a clear message; every raw
+  feed, download, QR and VPN auth hook keeps returning 403 server-side, so a
+  modified client cannot bypass limits.
+- New module `app/web/app_api.py` (registered on the shared `web` blueprint),
+  plus `docs/IRONAPP.md` documenting the contract for client developers.
+- CSS/JS cache-buster bumped to 2.0.11.
+
+# v2.0.10 - Updater Fix: no more username prompt on public GitHub
+
+- **Fixed the GitHub updater hanging on "Username for 'https://github.com'":** on servers
+  with a leftover global `credential.helper=store`, git prompts for a username even on
+  **public** repositories. `scripts/update_from_github.sh` now wraps every fetch/clone
+  with `GIT_TERMINAL_PROMPT=0 git -c credential.helper= …`, which disables the credential
+  helper for that public operation and never blocks waiting for input.
+- Both the incremental `fetch`/`reset` path and the fresh `clone` path are covered.
+- Note: the first run still needs the server's own credential helper cleaned up once
+  (`git config --global --unset credential.helper`), after which future updates are
+  fully automatic.
+- CSS/JS cache-buster bumped to 2.0.10.
+
+# v2.0.9 - Volume-Based User Grouping + Group Bulk Actions
+
+- **The Users & Configs page now groups users automatically by their config volume** so
+  long lists are no longer one flat wall of cards.
+- **Auto-detected groups** based on each user's `data_limit_mb` (0 = unlimited):
+  `نامحدود` (Unlimited), `1 تا 10 گیگ` (1-10 GB), `10 تا 50 گیگ`, `50 تا 100 گیگ`,
+  `100 تا 500 گیگ` and `بالای 500 گیگ` (500+ GB). The panel folds every user into the
+  correct group on its own — no manual tagging needed.
+- **Group bulk actions.** Each group has its own action dropdown to operate on **all**
+  users that fall into that volume group at once:
+  - ✅ **وصل / فعال همه** (enable all in group)
+  - ⛔ **قطع / غیرفعال همه** (disable all in group)
+  - 🗑 **حذف همه گروه** (permanently delete all in group)
+- Group actions apply to **every** user matching the volume bucket (whole scope:
+  main-admin = all users, reseller = its own users), not just the few on the current
+  page. Confirmations guard the destructive/disabled ops.
+- Single-user checkboxes, search, pagination and the existing per-user bulk bar all keep
+  working unchanged.
+- Backend: `app/web/users.py` — volume bucket helpers (`_VOLUME_BUCKETS`,
+  `volume_bucket`, `_volume_bucket_query`, `group_users_page`), the `/users` view now
+  passes `user_groups`, and a new `POST /users/group-action` route. UI: `users.html` +
+  `style.css`.
+- CSS/JS cache-buster bumped to 2.0.9.
+
+# v2.0.8 - 3x-ui Bot Login Fix (accept real panel username+password)
+
+- **Fixed: standard 3x-ui sales bots couldn't log in.** These bots send the reseller's
+  **real panel username + password** to `/api/xui/login`. Previously the login handler
+  only accepted an **API key** as the password (`resolve_api_token`), so a reseller who
+  handed the bot its panel password got `Invalid API Key` / was treated as rejected even
+  though the connection appeared to succeed — and user creation was denied.
+- Now `/api/xui/login` accepts **both** approaches:
+  1. **API key** as password (unchanged behaviour) — `password` is resolves as an `xui`
+     `ApiToken`.
+  2. **Real panel login** — if the password is not an API key, the reseller's `username`
+     is looked up as a `sub_admin` and verified with `check_password`; when valid, the
+     reseller's active `xui` `ApiToken` is issued (403 with a clear message if the
+     reseller has no `xui` key yet).
+- The `/api/xui/login` response and `3x-ui` cookie flow are unchanged, so bots keep
+  working after the fix.
+- CSS/JS cache-buster bumped to 2.0.8.
+
+# v2.0.7 - Per-Reseller Daily Traffic Cap (Per-User, Auto-Reset)
+
+- **The main admin can also set a daily traffic cap for each reseller.** Like the speed limit, this is a **per-user daily cap**: when a reseller's daily limit is set (e.g. 5120 MB = 5 GB), **every user owned by that reseller** is limited to that much traffic **per calendar day**, each user independently.
+- **"0 = unlimited" for both dimensions.** If a reseller has no speed cap AND no daily cap (both 0) its users are unrestricted. If either a speed cap or a daily cap is set, that limit applies accordingly (speed limits bandwidth, the daily cap limits traffic volume per day).
+- **Automatic daily reset.** The cap is enforced against each user's *today's* usage (tracked in `DailyUsage`, keyed by day). When a user hits today's cap they are disabled with `disabled_reason='daily_cap'`; at the start of the next day usage resets and the user is re-enabled automatically, then limited again once that day's cap is reached.
+- **Enforced from the usage-sync cycle** (every 15s) via the new `enforce_reseller_daily_limits()` in `provisioning.py`, immediately after usage accounting.
+- **New admin fields** on the Resellers page (`/resellers`): "مصرف روزانه هر کاربر (مگابایت)" (per-user daily traffic in MB) on create + edit, with an "apply daily cap to existing users" checkbox on edit.
+- Stored per-owner in `AppSetting` (`reseller_daily_limit_owner_<id>`, value in MB/day; 0 = unlimited). New helpers in `speed_limit.py`: `get_reseller_daily_limit`, `set_reseller_daily_limit`.
+- CSS/JS cache-buster bumped to 2.0.7.
+
+# v2.0.6 - Per-Reseller Speed Limit (Per-User Cap)
+
+- **The main admin can set a speed limit for each reseller independently.** On the Resellers page (`/resellers`) the admin can enter a per-user speed cap (Mb/s) when creating or editing a reseller.
+- **It is a per-user cap, not a shared pool.** When a reseller limit is set, e.g. 8 Mb/s, **every user owned by that reseller** gets a speed limit of 8 Mb/s — none of the reseller's users can use more than that, each independently (not shared across users).
+- **Enforced everywhere a reseller creates or edits users:** the reseller's own panel (quick-create, users, bulk), the v1 API (`/api/v1/users/create` + `/speed-limit`), the v2 API (`/api/v2/users` + PATCH `/users/:id`), MirzaBot and the 3x-ui API. A reseller can never set a user's speed above its inherited cap (0 cap on a reseller means no restriction).
+- **"Apply to existing users"** option in the reseller edit form re-caps all currently owned users and refreshes the speed-limit runtime.
+- Stored per-owner in `AppSetting` (`reseller_speed_limit_owner_<id>`, value in Mb/s; 0 = unlimited) — no schema migration needed. New helpers in `speed_limit.py`: `get_reseller_speed_limit`, `set_reseller_speed_limit`, `enforce_reseller_speed_limit`, `cap_user_speed_for_owner`.
+- CSS/JS cache-buster bumped to 2.0.6.
+
+# v2.0.5 - Per-Protocol Domain Overrides for the Main Admin
+
+- **Main admin can now set a separate domain for each VPN protocol.** A new admin page (`/protocol-domains`, under Network & Domains) lets the main admin enter an individual domain for OpenVPN, WireGuard, Ocserv/OpenConnect, L2TP/IKEv2, PPTP, Hysteria2, SSH, Xray and Telegram Proxy.
+- **Override only where set; fall back to the panel default otherwise.** Each protocol's generated client config (OpenVPN `remote`, WireGuard `Endpoint`, Ocserv/L2TP/PPTP/SSH `Server`, Hysteria2 `hy2://` URI, Xray `vless/vmess/trojan/ss` host, Telegram `tg://proxy` and Clash/SingBox subscription servers) uses its per-protocol domain **when one is configured**, and otherwise keeps using the panel defaults (`Public Host` / `Tunnel Host`). The per-reseller `config_domain` still applies for resellers' own users, and per-node Direct Location addresses still win for node-served configs.
+- `resolve_protocol_domain(user, protocol, default)` in `provisioning.py` chains per-protocol override -> reseller override -> global default; Xray and Telegram Proxy plus Clash/SingBox subscriptions were updated (previously these bypassed overrides).
+- CSS/JS cache-buster bumped to 2.0.5.
+
+# v2.0.4 - Reseller Sales Bot via 4 API Families & Card-To-Card Modal Review
+
+- **Resellers no longer use the panel's built-in sales bot.** The "My sales bot" page (`/reseller/bot`) was rewritten as "Sales bot API": each reseller automatically owns **four dedicated API credentials** to connect an external bot:
+  - **v1** (classic `X-API-KEY` on `/api/v1`) – the reseller's `Admin.api_key`;
+  - **v2** (`Authorization: Bearer` on `/api/v2`) – a reseller-scoped `ApiToken`;
+  - **MirzaBot** (`X-API-Key` on `/api/mirzabot/v1`) – a per-reseller token, independent of the global key;
+  - **3x-ui** (new, `/api/xui`) – a new API family mirroring `https://github.com/MHSanaei/3x-ui` for generic bots.
+  New `api_token.owner_id` + `api_token.api_type` columns (auto-migrated on SQLite) make the v2/MirzaBot/3x-ui keys reseller-scoped; the panel's `/sales-bot` page stays admin-only and the `sales_bot` license gate no longer block `/reseller/bot`.
+- **New 3x-ui compatible API** (`app/api_xui/routes.py`): `POST /api/xui/login`, `GET /panel/api/inbounds/list`, `POST /panel/api/inbounds/addClient` (create user, returns the subscription link), `GET /panel/api/inbounds/getClientTraffics/{email}`, `POST /panel/api/inbounds/updateClient/{inboundId}/{email}`, `POST /panel/api/inbounds/delClient/{inboundId}/{email}`, `POST /panel/api/inbounds/delDepletedClients/{inboundId}` and `GET /api/xui/sub/{subId}` (raw subscription content). Responses use the 3x-ui envelope (`{success, msg, obj}`), login sets the `3x-ui` cookie and `settings` may be sent as JSON or base64 JSON.
+- **Volume gate enforced at API level for all four families.** While a reseller is volume-exhausted (or its user cap is reached) every reseller-scoped API rejects **creating** and **editing/renewing/charging** users with HTTP 403; reading info, sending the subscription and deleting users keep working. This extends the v2.0.3 bot gate to v1, v2 and MirzaBot and covers the new 3x-ui API.
+- **Admin card-to-card review as a modal.** Charge request cards now open in a popup modal on the same page (receipt preview, volume, amount, invoice/date, approve/reject); after approval or rejection the processed request **disappears from the list** — only pending requests are rendered.
+- README / README_EN document the four API families; CSS/JS cache-buster bumped to 2.0.4.
+
+# v2.0.3 - Manual Card-to-Card Recharge (No Payment Gateway)
+
+- The Dargahno payment gateway integration is **removed entirely**; reseller top-ups are now fully manual card-to-card. The admin "Payment gateway" page was replaced by "Card-to-card recharge" (`/cards`): destination card number, account holder name, payment instructions text, price per GB (Rial) and minimum request amount. The dimensions of the gateway (`dargahno_*` settings, `GatewayPayment` model, `payment_success/payment_failed` pages) are gone; a new `charge_request` table and `card_*` settings replace them.
+- Reseller recharge flow: on "Panel recharge" (`/reseller/storage`) the reseller enters the requested GB, sees the estimated amount = GB x price-per-GB instantly, transfers the money to the admin's card and uploads the **receipt image** (jpg/jpeg/png/webp/gif, max 8MB), stored under `CONFIG_ROOT/receipts` with a factor number.
+- Admin panel charge requests are rendered as **expandable cards**: receipt image, requested volume, estimated amount, reseller and date. "Approve" credits the GB to the reseller quota and re-enables any panel auto-disabled by volume exhaustion (via `reconcile_reseller_access`); "Reject" (with an optional note) closes the request without crediting.
+- Volume-exhausted resellers now see "Panel disabled: volume exhausted" and are restricted to the recharge page only (`/reseller/storage`, logout, static assets) until a top-up is approved; all other pages redirect to the charge form. Both login paths allow a traffic-quota-disabled reseller to sign in.
+- The reseller sales bot gate message was reworded; while gated, the bot keeps blocking user creation, renewal and charging, and the admin and reseller pages link to the card-to-card settings/recharge pages.
+- README / README_EN now document the manual card-to-card flow and add a **license features** comparison (Beginner / Plus / Pro / Admin / Trial). CSS/JS cache-buster bumped to 2.0.3.
+
+# v2.0.2 - Card-to-Card Payment Links & Manual Approval
+
+- The reseller top-up flow switched from the online (register -> authority -> check + callback) pipeline to Dargahno's **card-to-card** payment link, matching the real links generated by the merchant panel (`https://dargahno.net/c/{merchent_id}/?amount={rial}&customer_id={name}`). This flow makes **no outbound API call at all**, so it also works on servers whose outbound HTTPS to dargahno.net is (temporarily) unreachable - the reseller is redirected straight to the secure card-to-card page.
+- Because the card-to-card link has no callback, payments are now **approved manually by the main admin**: every pending payment in the gateway payment log gets "Approve" / "Reject" buttons. Approve credits the GB to the reseller's quota, re-enables a suspended panel and leaves an audit log entry; Reject marks the payment failed and credits nothing. Approving is idempotent (a non-pending payment can never be credited twice).
+- The gateway is considered configured with just the Merchant ID enabled (credentials are now optional and only needed for the connection test / future online flow), and the form labels plus help steps were updated to explain the card-to-card format and the manual-approval flow in both languages.
+- Reseller pages tell the customer in both languages that after transferring money they must wait for the admin's approval; the "pending" badge is now "در انتظار تأیید / Awaiting approval".
+# v2.0.1 - Gateway Connection Hardening & Full UI Language Support
+
+- Connection to Dargahno is more resilient: HTTP timeout raised to 45s with up to 3 attempts (a Cloudflare front can stall on a cold start), and the gateway API base is now configurable ("Gateway API base (optional)" on the gateway page) in case the account is served from a different host.
+- The gateway test error message now clearly explains what to verify (outbound HTTPS/DNS to the gateway host) instead of a bare connection error.
+- All new v2.0.0 pages now localize completely: gateway, reseller storage, reseller sales bot and both standalone payment pages show Persian text in the Persian theme and full English text in any other language (dynamic lang/dir attributes included), instead of hard-coded Persian strings.
+- Small English labels remain for brand/technical terms (Merchant ID, Bot Token, Authority, PAYMENT VERIFIED).
+# v2.0.0 - Dargahno Payment Gateway & Reseller Volume Top-ups
+
+- New Dargahno (درگاه نو) online payment gateway integration. The main admin configures the gateway (username/password, Merchant ID, price per GB in Rial, minimum purchase amount, support ID) under a new "Payment gateway" page (`/gateway`) and can run a live connection test. Gateway credentials/tokens are cached and never stored as plain settings beyond the existing AppSetting store.
+- New reseller "Volume & recharge" page (`/reseller/storage`): each reseller sees their volume limit, registered usage and remaining quota, and can buy extra volume online. After entering the requested GB the price is computed from the admin's price-per-GB, the customer is redirected to the gateway, and on a server-side verified payment the purchased volume is added to the reseller's quota immediately.
+- All payments are verified server-side with `POST /api/v2/transaction/check` before any volume is credited; the callback `status` parameter alone is never trusted. Ambiguous/unverifiable transactions stay "pending" and surface the support ID for follow-up.
+- New designed standalone payment pages: a success page showing factor number, amount and added GB, and a failure/undetermined page that shows the reference factor and the configured support ID.
+- New reseller "My sales bot" page (`/reseller/bot`): a reseller connects their own Telegram bot token (owner-scoped, isolated from the main admin bot) that serves only their own plan/customers.
+- Hard volume gate for reseller sales bots: a reseller's bot can no longer create a new user, renew/charge an existing service, create a free trial or free config once the reseller's volume is exhausted (or the reseller panel is disabled) - enforced inside `bot/main.py` at the user-creation/renewal level plus early UX checks in the buy/renew/trial/free-config flows. Buying volume re-enables the panel and unlocks the bot automatically.
+- A record of every gateway payment (factor number, authority, GB, Rial amount, status, raw gateway response) is kept in a new `GatewayPayment` model, visible to resellers (their own) and to the main admin (all).
+- Front-end: new nav entries for admin ("Payment gateway") and resellers ("Volume & recharge", "My sales bot"); CSS/JS cache-buster bumped to 2.0.0.
+# v19.10.31 - Admin-Only Language & Theme
+
+- Language and theme (light/dark) settings are now editable by the main admin only. Resellers/sub-admins can no longer change them: the `/appearance` route redirects non-main-admins and the topbar "Language & theme" button is hidden for resellers (it had been shown to every logged-in user, while the sidebar entry had always been admin-only).
+# v19.10.30 - Compact User Cards with In-Place Details Modal
+
+- The Users page cards were redesigned from tall info-heavy cards into compact tiles: username, live status dot, remaining quota hint and only the two critical actions (connect/disconnect toggle + delete).
+- Clicking a tile opens a native modal in the same page with the full profile: badges, usage metrics, first-connection date (or awaiting-first-connection state), protocol chips, quick actions (configs, subscription, speed-limit, traffic reset, node assignment) and the complete edit form inline — saving syncs the runtime without leaving the page.
+- Edit form fields were extracted into a shared `_user_edit_fields.html` partial reused by both the modal and the standalone edit page (which also keeps Apply-Plan).
+# v19.10.29 - True Per-User Speed Limits (Protocol Defaults and User-Wide)
+
+- Semantics enforced: a per-protocol default limit caps EVERY user individually on that protocol, and a user-wide limit caps ALL protocols of that single user only.
+- Fixed per-user speed limits silently doing nothing for Xray and Hysteria2: these protocols had no online-session detector, so generated tc rows stayed "pending" forever and the apply script skipped them.
+- New Xray session detector: every client already carries email=ip-{id}-{username}; when limits are configured the panel automatically switches xray_loglevel to info (with logrotate), parses /var/log/xray/access.log and records each user's real public IP as an online session - giving exact per-user destination-IP tc rules on the shared port.
+- New best-effort Hysteria2 detector reads per-user IPs from the systemd journal; Telegram Proxy keeps its always-precise dedicated-port matching, and shared ports fall back to a whole-port cap only when exactly one enabled user carries a limit (otherwise an explicit "# NOTE pending" entry is surfaced in the Speed Limits status output instead of failing silently).
+- Added an mangle FORWARD hook next to OUTPUT so node-gateway/DNAT relayed client traffic is shaped too.
+# v19.10.28 - Delete-All Users and First-Connection Validity
+
+- Added a main-admin "Danger zone" action on the Users page to delete every VPN user at once (configs, OpenVPN certificates and WireGuard identities included) through the existing bulk-delete runtime rebuild, with confirmation dialog and audit log.
+- New per-user option "start validity on first connection" available in the create form, Quick Create, bulk creation and the edit form. While armed, the account never expires; each user independently gets its pending days applied at its own first successful connection, and first_connected_at is recorded.
+- First connection is detected instantly for OpenVPN (client-connect auth script) and within one 15s usage-sync cycle for every other protocol, including node/Direct Location sessions reported by agents.
+- first_connected_at (and pending state) is shown on user cards and in the edit form; new SQLite light-migration columns keep existing installs compatible without manual migration.
+# v19.10.27 - Reseller Config Domain and Authoritative Protocol Checkboxes
+
+- Quick Create presets no longer override the manual protocol checkboxes. Previously the default "all protocols" preset ignored unchecked boxes, so removing e.g. SSH still created its runtime account and advertised it on the user subscription page; now unchecking any protocol always excludes it, with presets acting as a filter over the checked set.
+- Added per-reseller custom config domains. A reseller (or the main admin, from the reseller edit form) can save a dedicated domain/IP under a new "My config domain" page (`/my/config-domain`); every config generated for that reseller's own users (OpenVPN remote, WireGuard Endpoint, Ocserv/L2TP/PPTP/SSH/Hysteria2 hosts, Xray link host and Telegram Proxy server) then uses that address. Empty value falls back to the main panel address, other resellers are unaffected, and Node Direct Location configs keep their per-node hosts. Stored as an AppSetting key so no database migration is required.
+- Eliminated the misleading generic "Details" / "Additional information" placeholders that appeared on buttons, labels and hints across every page in non-Persian UI modes. 30+ context-correct English mappings were registered for legacy Persian literals (e.g. Select all / Clear selection, From number / To number, Letters & digits / Numbers only, Submit, Unit, Body, Limit, Start:, Important:, Every hour, Supported actions, Quick preset, Per-user speed limit (Mbps), MirzaBot-compatible API, e.g. examples, Go to Auto SSL, Release registered., ...). The final i18n fallback now keeps the original text instead of inventing a wrong generic label, so unknown phrases can never show a semantically incorrect English word again.
+# v19.10.26 - Responsive Panel: Background Status, 4 Workers, Pagination, Blueprint Split
+
+- Split the monolithic `app/web.py` (~3,000 lines, 120+ routes) into a `app/web/` package with domain modules (auth, dashboard, users, resellers, subscriptions, nodes, network, billing, ops, system, bots) that all register on the same `web` blueprint. All existing `url_for('web.*')` endpoints, templates and external links keep working unchanged.
+- Service status checks no longer run inside web requests. The systemctl probe moved to a shared JSON snapshot under CONFIG_ROOT refreshed by the existing 15s usage-sync timer (`refresh_service_status_cache`); pages serve cached data instantly and only spawn a throttled non-blocking background refresh when data goes stale. A completely cold start performs one synchronous probe so the first render is correct.
+- Gunicorn now runs 4 gthread workers with 2 threads each (installer, upgrade unit rewrite and SSL TLS drop-in), so slow runtime operations can no longer queue every panel request behind two workers.
+- Added server-side pagination to Users, Activity Logs and Login History (shared `_pagination.html` include + `.pager` styles). Filters and search terms are preserved across pages; per-page size is clamped between sane bounds instead of loading hundreds of rows per view.
+# v19.10.25 - Full Migration Backup / Restore
+
+- Replaced partial backups with a migration-grade archive that preserves the complete SQLite state plus protocol/server identities required for moving IronPanel to another server without rotating existing client credentials.
+- SQLite backups now use the SQLite backup API and run `integrity_check`, avoiding inconsistent direct copies while WAL/background usage writes are active.
+- Backup now includes OpenVPN PKI/tls-crypt, WireGuard server identity, Letâ€™s Encrypt/SSL, Ocserv, L2TP/IKEv2/strongSwan, PPTP/PPP, Xray, Hysteria2, Telegram Proxy state, IronPanel environment/secrets and systemd units.
+- Restore validates archive paths, links, database checksum/schema and critical identity fingerprints before/after copying.
+- Restore creates a complete rollback backup first, upgrades the restored DB with current code, rebuilds all user runtime configs with restored identities, and reapplies firewall/speed/node-gateway rules.
+- Existing backup callers (panel, CLI, scheduled v17 backup, admin bot and compatibility `backup_now`) now use the same full migration engine.
+- Migration archives are mode 0600 and backup download is restricted to the main admin because archives contain private keys.
+- Application source remains optional and is excluded from scheduled backups to avoid unnecessary backup size.
+
+# v19.10.24 - OpenVPN Fresh Install PKI Completion Fix
+
+- Fixed fresh Ubuntu 24.04/GitHub installs that could leave only the Easy-RSA CA/CRL while `server.crt`, `server.key`, `dh.pem` and `tls-crypt.key` were missing.
+- Preserves a valid existing CA/private-key pair and repairs Easy-RSA metadata instead of creating a second CA.
+- Adds bounded server-certificate issuance recovery for an interrupted/stale `CN=server` leaf state.
+- Synchronizes all OpenVPN runtime files strictly from `/etc/openvpn/easy-rsa/pki`.
+- Validates CA/key match, server cert/key match, certificate chain, DH parseability and tls-crypt header/footer before OpenVPN is allowed to start.
+- Fresh install now retries the idempotent OpenVPN PKI preparation once and refuses to start OpenVPN with an incomplete PKI, preventing systemd restart loops.
+- OpenVPN repair and protocol health checks now verify the canonical PKI server identity in addition to runtime files.
+- The same prerequisite repair is used by node-core installation, so new nodes receive the fix as well.
+
+# v19.10.23 - Reseller Limit Recovery and Disabled-User Ownership
+
+- Added durable `disabled_reason` state for resellers and VPN users, with safe SQLite migration.
+- Resellers auto-suspend when real traffic quota is exhausted or owned-user count exceeds the configured cap.
+- Editing limits to a healthy state automatically restores the reseller panel and only children disabled by reseller suspension.
+- Expired, traffic-exhausted, IP-limited, protocol-restricted and manually disabled users are never accidentally re-enabled by reseller recovery.
+- Manual reseller stop/start now cascades safely to active children and restores only reseller-suspended healthy accounts.
+- Usage Sync periodically reconciles reseller state; deleting users can immediately recover a reseller suspended by account-count limit.
+- Main-admin user cards retain an explicit reseller-owner badge even while the account is disabled, and status text identifies reseller-related disable reasons.
+- Added `flask reconcile-resellers` for repair/upgrade reconciliation.
+
+# v19.10.22 - MirzaBot Custom Panel API Compatibility
+
+- Added a new independent `/api/mirzabot/v1` adapter; existing IronPanel `/api/v1` and `/api/v2` contracts are unchanged.
+- Implements all MirzaBot Custom Panel API v1.0.0 actions with `X-API-Key` authentication.
+- Added admin page `/mirzabot-api` with a dedicated key, enable switch, endpoint display, and default protocol selection.
+- Mirza-created users are provisioned immediately in running cores and receive the normal IronPanel subscription URL.
+- Subscription revocation rotates the IronPanel token and re-provisions token-derived configs such as Xray.
+
+# v19.10.21 - Instant Reseller Provision + One-click Expired Cleanup
+
+- Fixed reseller-created users requiring **Sync All Users** before they could connect.
+- Single-user create now uses Smart Runtime Provisioning: WireGuard is live-synced, Xray and shared Telegram Proxy are reloaded only when affected, while OpenVPN/password daemons are not restarted unnecessarily.
+- The same immediate provisioning path is used by Quick Create and normal Create for both main admin and reseller-owned users.
+- Simplified expired/quota cleanup to one clear button. The server still deletes only accounts identified as automatically disabled because of expiry or traffic exhaustion, and a reseller remains scoped to owned users.
+- Full Sync remains available as a repair action but is no longer required after normal reseller user creation.
+
+# v19.10.20 - Direct per-user Speed Limit
+
+- Added a direct `Speed Limit (Mbps)` field to every VPN user. Main admin can set it for any user; a reseller can set it only for users owned by that reseller.
+- User-wide speed limit takes precedence over protocol defaults and protocol-specific overrides, while value `0` disables the user-wide override.
+- Added quick Speed Limit editing directly on each user card, plus create, quick-create, bulk-create and edit support.
+- Runtime speed rules now share one tc class/mark group across all matching protocols of a user when a user-wide cap is configured, avoiding a separate cap per protocol.
+- Fixed the HTB tree itself: the missing root class `1:1` is now created before per-user child classes, preventing silent tc class failures.
+- WireGuard limits match the live peer endpoint (public IP + NAT UDP port) instead of the internal tunnel IP, so per-user shaping targets the correct peer.
+- Usage Sync refreshes speed rules only when the generated live session/peer map changes; an offline user therefore gets the configured limit automatically after connecting without rebuilding tc every minute when nothing changed.
+- Changing, enabling, disabling or deleting a limited user immediately rebuilds speed-limit runtime rules.
+- Existing databases are upgraded safely with `vpn_user.speed_limit_mbps` defaulting to `0`.
+
+# v19.10.19 - User runtime control, safe expired cleanup, smart protocol repair, Safari copy
+
+- Added per-user connect/disconnect controls for main admins and owner-scoped reseller controls, with protocol runtime enforcement.
+- Added bulk removal of genuinely auto-disabled expired/quota-exhausted accounts; manual state changes are tracked so manually disabled users are not selected accidentally.
+- Reworked install/update protocol maintenance to health-check first and skip healthy cores. Each repair is timeout-bounded and license-aware.
+- Existing/reinstall flows now use the same health-first gate instead of re-running the monolithic all-core installer.
+- OpenVPN PKI recovery no longer copies complete historical Easy-RSA trees during normal update; it keeps a lightweight recovery snapshot and archives the old canonical PKI with a fast same-filesystem rename before adoption.
+- OpenVPN repair now reuses a healthy active server certificate/key and DH parameters when they match the canonical CA, and avoids unconditional CRL/DH regeneration.
+- Added targeted prerequisite modes for WireGuard, PPTP, Xray and Hysteria2 to avoid reinstalling unrelated packages during a single-core repair.
+- Fixed iOS/iPhone Safari subscription copy actions with a synchronous textarea/execCommand fallback before the async Clipboard API path.
+
+# v19.10.18 - Protocol install hardening, license runtime unlock, password policy
+
+- Hardened fresh protocol installation against interrupted dpkg state and incomplete runtime dependencies.
+- OpenVPN now uses one canonical Easy-RSA PKI for the server and every generated client certificate; split-CA installs are detected, recovered and synchronized automatically.
+- WireGuard server configuration now persists UDP input, forwarding and interface-scoped NAT rules so connectivity survives service restart/reboot; generated clients default to IPv4 routing unless IPv6 is explicitly added later.
+- Fixed Telegram Proxy repair shell parsing and removed the conflicting standalone npm package dependency.
+- Free/Beginner still exposes only OpenVPN + Xray, while all protocol prerequisites stay prepared for a later paid upgrade.
+- Saving a valid Plus/Pro/Admin/Trial license now immediately expands the saved protocol set and queues an idempotent runtime reconcile: dependencies are verified, newly granted daemons are repaired/started, runtime configs are applied and users are resynchronized without reinstalling IronPanel.
+- Fresh installation performs the same final license reconcile so paid-only daemons do not remain enabled on Beginner.
+- Added persistent automatic user-password policy: minimum 3 characters, configurable length, letters-only, numbers-only or letters+numbers. Web create, quick-create, bulk-create and API-created users share the same policy when no password is supplied.
+
+# v19.10.17
+- Fixed manual Doctor/Flask commands using an unintended empty `/opt/ironpanel/ironpanel.db`.
+- Doctor now loads `/etc/ironpanel/ironpanel.env`, validates the configured DB, and refuses repair against an uninitialized SQLite file.
+- Default DB fallback moved to `/etc/ironpanel/ironpanel.db` (or `IRONPANEL_CONFIG_ROOT`).
+- Safe update, backup, and usage diagnostic commands now preserve/export the runtime database environment.
+
+## v19.10.16 - Protocol prerequisites and installation validation
+
+- Added a shared prerequisite installer for all supported protocol cores.
+- Fixed partial OpenVPN PKI installations by validating and repairing every required file independently.
+- Added strict post-install health checks for binaries, keys/certificates, configs, services and listeners.
+- Added Ubuntu universe enablement and a PPTP source-build fallback when `pptpd` is unavailable.
+- Updated main and node installers, repair scripts, OpenVPN topology and upgrade validation.
+
+## v19.10.15 - Reseller protocol permissions
+
+- Added per-reseller protocol allow-lists.
+- Resellers only see and assign permitted protocols in quick, normal, bulk and edit user workflows.
+- Enforced permissions in reseller API, plan application and owner-specific sales bot provisioning.
+- Optional reconciliation removes revoked protocols from existing reseller users; users with no remaining protocol are disabled safely.
+
+# v19.10.14 - V2Ray/Xray Traffic Accounting Fix
+
+- Fixed the Xray command helper signature: the collector passed `timeout=8`, but the helper did not accept a timeout argument, so every Xray usage cycle failed before running `statsquery`.
+- Added a version-compatible Xray stats parser for quoted int64 JSON (`"value": "2040"`), unquoted JSON numbers, compact JSON, and legacy text-protobuf output.
+- Switched the collector to the documented all-stats query and filters only `user>>>email>>>traffic>>>uplink/downlink` records in Python.
+- Updated the node agent to detect the actual Xray API port from the active config instead of assuming `10085`.
+- Made node Xray user identity metadata deterministic and consistent with the email stored in Xray client entries.
+- Extended `scripts/usage_diagnose.sh` with the active Xray binary, API endpoint, and raw Stats API sample.
+
+# v19.10.13 - Usage Accounting and Subscription Display Fix
+
+- Fixed stale traffic values in the user list, user config page, usage report, traffic multiplier page, and public subscription page by refreshing accounting before rendering.
+- Added a cross-process lock so the web request and `ironpanel-usage-sync.timer` cannot count the same runtime snapshot concurrently.
+- Added local accounting for Cisco/Ocserv, L2TP/PPTP PPP sessions, and Hysteria2 in addition to OpenVPN, WireGuard, Xray, and Telegram Proxy.
+- Added safe disconnect event spooling for Ocserv and PPP; hooks never open the panel database and always exit successfully.
+- Extended node-agent usage reports to Ocserv, L2TP, PPTP, Hysteria2, and Telegram Proxy with persistent event delivery and stable per-session sources.
+- Replaced per-user Xray subprocess loops with one Stats API query for faster panels with many users.
+- Added collector health/status settings and `scripts/usage_diagnose.sh`.
+- Corrected project/API/node version metadata to `19.10.13`.
+
+# v19.10.11
+
+- Xray subscription/share-link display names now use only the user username. The old visible `IronPanel-` / `ironpanel-` prefix is no longer added to VLESS/Trojan/ShadowSocks remarks or VMess `ps`.
+- This is a display-name cleanup only; UUID, password, ports, paths, and security settings are unchanged.
+
+
+## v19.10.10 - Admin Bot 24h Backup Automation
+- Admin Telegram bot now enables automatic server backup delivery by default after activation.
+- Added 24-hour backup scheduler with duplicate-run protection using `admin_bot_last_backup_sent_at`.
+- Admin Bot settings no longer reset backup/report toggles when only editing admin access fields.
+- Added background trigger after saving Admin Bot settings so the web panel does not wait for backup creation/upload.
+- Added manual systemd timer installer: `scripts/install_admin_bot_backup_timer.sh`.
+- Includes the WireGuard QR subscription patch from v19.10.9 hotfix.
+
+## v19.10.10 - OpenVPN TCP 1195 Runtime/Profile Fix
+- Fixed OpenVPN TCP mode by using explicit server/client protocol names: `tcp-server` and `tcp-client`.
+- Normalized Public/Tunnel Host before writing VPN client profiles so URLs or panel ports do not break OpenVPN `remote`.
+- Settings Save now queues lightweight OpenVPN repair in the background so changed TCP/1195 settings are applied to the running daemon.
+- Added OpenVPN/Ocserv TCP port conflict protection; OpenVPN TCP is prioritized when both are accidentally set to the same port.
+- Rewrote `scripts/repair_openvpn.sh` to avoid heavy full-core repair and unnecessary all-service restarts.
+
+## v19.10.10 - OpenConnect 1195, Async Health Repair, Web Performance
+
+- Fixed Ocserv/OpenConnect repair so it reads saved DB port settings when run from Health Doctor or manually.
+- Prevented custom OpenConnect ports such as tcp/1195 from being reset to defaults during repair.
+- Added port-conflict warning for OpenVPN TCP and Ocserv sharing the same TCP port.
+- Health Doctor repairs now run in the background and no longer block Flask requests.
+- Full Health Repair is leaner and uses targeted repair scripts with timeouts instead of full core reinstall by default.
+- Reduced dashboard/web latency by caching service status and refreshing online sessions/usage in background.
+- Runtime apply no longer performs disruptive full user sync/restart internally.
+
+# v19.10.10 - OpenVPN profile PEM/certificate generator fix
+- Fixed broken `.ovpn` exports that contained empty `<cert>` / `<key>` blocks.
+- OpenVPN profiles are now generated only when CA, client certificate and private key contain valid PEM blocks.
+- The panel retries per-user EasyRSA client certificate generation and records a clear error instead of exporting an invalid profile.
+- Disabled or expired users no longer receive a broken OpenVPN profile file.
+
+# v19.10.10 - Required languages and theme cleanup
+
+- Removed the automatic/system theme option; only Light and Dark remain selectable.
+- Added the required panel languages: English, Arabic, Chinese, French and Persian.
+- Extended server-side and client-side localization for pages, forms, placeholders, helper text, guide text and button labels.
+- Bundled the corrected mobile drawer stylesheet so the full project package includes the menu visibility fix.
+
+# v19.10.10 - Mobile Drawer Menu Tap Fix
+
+- Fixed mobile/tablet drawer menu item taps not reaching links.
+- Backdrop is clipped outside the opened drawer, so it no longer covers navigation items on RTL/LTR.
+- Added cache-busted CSS/JS references for immediate layout refresh after upgrade.
+- Preserved v19.10.x i18n and stable layout fixes.
+
+# v19.10.10 - Global layout and menu collision fix
+
+- Added a new isolated stable shell class `iron-stable-v19103`.
+- Repaired sidebar/menu collisions across all pages that extend the base layout.
+- Fixed `user_edit.html` where a plan form was accidentally rendered inside the heading block.
+- Re-normalized desktop sidebar, mobile drawer, content width, forms, tables and action bars.
+
+# v19.10.2 - Stable layout and mobile menu repair
+
+- Repaired the main application shell so sidebar, menu and page content never overlap on desktop or mobile.
+- Removed duplicate mobile menu event handlers that could open and immediately close the drawer.
+- Added a final stable CSS layer for RTL/LTR, light/dark theme, responsive tables, forms, checkboxes and page cards.
+- Kept the full language cleanup from v19.10.1 and left user-provided text untouched.
+
+# v19.10.1 - Full multi-language UI sweep
+
+- Added generated i18n coverage for all Persian UI literals found in templates, JavaScript, Flask flash messages and bot-facing panel helpers.
+- Non-Persian panel languages now translate legacy labels, placeholders, help texts, buttons and form hints through a server-side response bridge.
+- Fixed JavaScript runtime labels such as copy status and license remaining text so they follow the selected language instead of RTL direction.
+- Added Arabic and Russian fallback phrase maps instead of English-only fallback.
+- Preserved user-entered content where possible; the bridge targets known UI phrases and UI keywords.
+
+# v19.10.0 - Full UI language cleanup and README banner update
+
+- Bumped IronPanel to 19.10.0.
+- Added server-side localization cleanup for legacy Persian labels in all rendered admin pages when the selected language is not Persian.
+- Added a template helper so the main menu, top bar and account labels respect English, Arabic and Russian modes instead of falling back to Persian/English-only conditionals.
+- Hardened form/control text fallback across pages, tables, buttons, placeholders and titles.
+- Updated README banner image to https://s34.picofile.com/file/8491039084/IronpanelN.png.
+
+# v19.9.31 - Office UI polish, i18n cleanup and smart subscription detection
+
+- Reworked the final UI layer to be more modern, office-friendly and responsive.
+- Fixed oversized/misaligned checkbox and protocol selection controls on mobile and desktop.
+- Added a client-side i18n fallback that removes common Persian hard-coded labels when the selected language is English, Arabic or Russian.
+- Added smart subscription detection for `/s/<token>/auto` and `/s/<token>/smart`, with explicit `?format=` override.
+- Preserved v19.9.30 reseller quota reset, strict protocol permissions and hard traffic cap fixes.
+
+# v19.9.31 - Reseller reset safety, strict protocol permissions, hard traffic caps
+
+- Reset traffic for reseller-owned users now clears only the child user's counters and never refunds/subtracts reseller ledger usage.
+- Subscription buttons in reseller/admin Telegram flows now open the subscription URL directly.
+- User and plan protocol checkboxes are strict; selected protocols are no longer expanded to all protocols.
+- Profile downloads are filtered by the user's allowed protocols.
+- Traffic accounting clamps displayed usage to the configured cap and disables/de-provisions users immediately after they reach the limit.
+- Usage accounting timer runs more frequently to reduce cap overshoot windows.
+
+# Changelog
+
+## v19.9.29 - Formal responsive admin redesign
+
+- Replaced the previous playful/experimental look with a formal office-grade UI.
+- Reworked the sidebar information architecture with clear groups and fewer visual distractions.
+- Added a one-column professional login screen.
+- Rebuilt dashboard sections for decision-making: KPIs, resources, service status, and common actions.
+- Improved RTL/LTR, light/dark themes, mobile drawer navigation, tables, forms, cards, and buttons.
+
+
+## v19.9.29 - Professional Office UI Redesign
+
+- Replaced the playful UI layer with a formal administrative design system.
+- Added one-column professional login page.
+- Standardized sidebar grouping, page spacing, cards, tables, forms and buttons.
+- Improved responsive behavior for RTL/LTR, mobile drawer, and small-screen tables.
+- Kept all prior IronPanel features and node/bot fixes intact.
+
+## 19.9.29
+- UI refresh inspired by modern proxy panels: cleaner spacing, stable sidebar, responsive cards/tables/forms and a more professional login surface.
+- Hardened Telegram admin checks: normalizes Persian/Arabic digits and mixed separators, silently ignores unauthorized callback noise, and avoids random "â›” ط¯ط³طھط±ط³غŒ ظ…ط¬ط§ط² ظ†غŒط³طھ" messages to admins/users when Telegram IDs are configured with spaces or localized digits.
+- Sales bot admin list parsing now matches admin bot parsing for reliable permissions across both bots.
+
+## 19.9.24
+- Node user synchronization is now hot-sync only and no longer restarts protocol cores.
+- Periodic heartbeat auto-sync queues `sync_users_bulk` instead of full protocol/config sync.
+- Node Agent skips unchanged config files and restarts only protocols whose runtime config actually changed.
+- Auth files such as ocserv/PPP credentials are synced without service restarts.
+- Busy protocol restart guard prevents disconnecting active users; pending restarts are recorded on the node.
+
+
+## 19.9.24
+- Added a separate Node SSL Domain field for Direct Location nodes.
+- Node SSL Domain is used only for node-side ACME/TLS certificates and must resolve to the node IP; Config Domain remains the host delivered to users.
+- Auto SSH installer, node runtime env, node jobs and node core installer now transport and apply the SSL domain.
+- Hysteria2/Ocserv/Xray TLS certificate paths on nodes are aligned with the node SSL certificate when available.
+
+## v19.9.22
+
+- Fixed direct node installation when Xray upstream installer reports progress but leaves no `xray` binary on Ubuntu 22.04 nodes.
+- Added a release-zip fallback installer for Xray with binary lookup across `/usr/local/bin`, `/usr/bin`, `/usr/local/xray`, and `/opt/xray`.
+- Added API v2 user-read endpoints for external sales bots.
+
+## 19.9.22 - Sales bot automation, plan edit and sidebar fix
+- Fixed More Settings sidebar overlap on compact/mobile layouts by forcing sidebar navigation to a flex column with internal scroll.
+- Admin receipt review now sends the user's payment slip media with the approve/reject buttons in the same Telegram message.
+- Added SalesBot plan editing in both Telegram admin flow and the web panel.
+- Added optional timed auto-approval for receipt-sent orders; users receive configs automatically and admins get a notification.
+
+## 19.9.20 - Node curl heartbeat transport fix
+- Added curl-based heartbeat probing in the node installer for environments where the runtime package downloads successfully but Python urllib times out on HTTPS/IP fallback.
+- Added curl fallback transport to the node agent for heartbeat and job-result API calls.
+- Kept token validation strict so invalid node tokens still fail fast.
+- Preserved node direct ports, Hysteria2 sync repair, Cisco hook removal and sales-bot random names.
+
+## 19.9.20 - Sales bot random config names and node Hysteria2 health fix
+
+- Changed sales-bot VPN username generation from Telegram chat ID based names to collision-safe five-digit random names.
+- Added optional config name prefix mode: when enabled usernames are generated as `prefix-12345`; when disabled they are just `12345`.
+- Added panel fields for sales-bot config name prefix settings.
+- Admin free-config command now accepts optional custom prefix after `TelegramID PlanID Count`.
+- Hardened node direct-port JSON parsing to remove legacy trailing braces.
+- Fixed Telegram Proxy node sync false-negative health failures after the service already started on the requested direct port.
+- Fixed Hysteria2 node sync failure where services were configured on the direct UDP port but final verification reported `inactive=hysteria2 unhealthy=hysteria2`.
+- Node installer now creates/repairs `hysteria-server.service`, ensures TLS/auth helper files exist, and starts Hysteria2 on the node direct UDP port.
+
+## v19.9.16 - Node Direct Ports and Sales Bot V2Ray QR Delivery
+
+- Fixed malformed node direct-port JSON with extra trailing braces before SSH bootstrap, node env persistence, core install and agent job execution.
+- Added resilient node-side parsing so legacy malformed values no longer break Telegram Proxy/core installation.
+- Sales Bot now sends Xray/V2Ray config as plain text plus QR Code image instead of a `.txt` document.
+- Preserved the Cisco/Ocserv CSTP fix by keeping failing session hooks out of generated ocserv configs.
+
+## v19.9.15 - Direct Node Runtime and Cisco CSTP Fix
+- Fixed Cisco/AnyConnect CSTP/cookie failures caused by failing ocserv session hooks.
+- Removed ocserv connect/disconnect hook injection from repair and provisioning paths.
+- Node installer now prioritizes configured SSL domains/public URLs and tests both HTTP/HTTPS candidates before insecure TLS fallback.
+- Telegram Proxy node runtime is installed from the current panel package and forced to listen on the node's direct port.
+- Legacy Node Gateway links and auto-apply/install behavior are disabled for the new Direct Location node model.
+
+## v19.9.14 - Node SSL Auto-Detect and Direct Port Runtime Fix
+
+- Fixed node auto-install download failures when the panel may be HTTP or HTTPS on the same custom port.
+- Added multi-host panel candidate probing using node_master_url, request URL, public_host, subscription_domain and tunnel_host.
+- Fixed direct node runtime ports so services listen on the port entered for the node, not the main-panel port.
+- Fixed Telegram Proxy node config JSON port normalization.
+- Exported direct ports to node core installation and firewall opening.
+- Passed direct ports during the very first SSH installer run, not only after later config sync.
+- Added direct-port data to `ensure_protocols` jobs so node core repair never falls back to main-server ports.
+- Telegram Proxy health now checks the real configured TCP listener instead of reporting systemd Active alone.
+
+## 19.9.12 â€” Cisco Plain-Auth Path Hotfix
+
+- Fixed the real Cisco/ocserv authentication regression visible as `plain-auth: error authenticating user ...` while `ocserv.service` was active.
+- `generate_profiles()` no longer rewrites `/etc/ocserv/ocserv.conf` to a per-user path like `/etc/ironpanel/profiles/<username>/ocpasswd`.
+- Cisco/ocserv now always reads the canonical auth database from `/etc/ocserv/ocpasswd`; `/etc/ironpanel/ocpasswd` is only kept as a legacy symlink/mirror.
+- Rebuilt Cisco auth hashes directly with SHA-512 crypt format accepted by ocserv plain-auth instead of relying on interactive `ocpasswd` prompts.
+- Added `scripts/repair_cisco_auth.sh` to rebuild Cisco users, repair ocserv, restart the service, and print the active auth path/user count.
+- Node Agent Cisco auth now uses the same canonical `/etc/ocserv/ocpasswd` path and mirrors the compact legacy hash file for compatibility.
+
+## 19.9.10 â€” Cisco Authentication + Node Connectivity Full Repair
+
+- Fixed the Cisco/ocserv repair path that truncated `/etc/ironpanel/ocpasswd`, causing every valid username/password to be rejected after repair or update.
+- Rebuilt ocserv configuration atomically, validated it before replacement, preserved managed TLS certificates, opened TCP/UDP firewall rules, enabled forwarding/NAT, and verified the real listening port.
+- Unified the ocserv address pool and NAT source network on `10.44.0.0/24` across main-server install, node install, runtime config, and outbound routing.
+- Fast GitHub updates now run a lightweight critical ocserv/auth repair and queue full node runtime synchronization even when heavy core reinstall is skipped.
+- Disabled the large inline web-updater backup by default as well; optional update backup remains available with `IRONPANEL_UPDATE_BACKUP=1`.
+- User create/edit/delete and full repair now synchronize credentials and runtime configuration to nodes automatically.
+- Node config bundles no longer copy the whole `/etc/ironpanel` directory, preventing database, environment, license, backup, and stale authentication files from being transferred to nodes.
+- For backward compatibility with already-installed v19.9.9 Agents, only the compact hashed `ocpasswd` file is explicitly synchronized so existing Cisco nodes recover credentials before a one-time Agent reinstall.
+- Node ocserv and PPP authentication databases are rebuilt atomically from compact synchronized user metadata; partial L2TP/PPTP syncs no longer erase the other protocol's credentials.
+- Fixed direct-node Xray port handling: the configured subscription port is now applied to the public Xray inbound instead of only changing the client link.
+- Added SSH direct-port normalization and stricter node runtime health verification for service state, configuration validity, interfaces, and actual listening ports.
+- Installer heartbeat probes no longer lease real node jobs, and node-only jobs remain isolated from the master worker.
+- Node installation now downloads an authenticated runtime package from the exact running panel version instead of cloning a fixed GitHub repository, preventing stale Agent/core scripts on new or repaired nodes.
+- Added validated-TLS-first/self-signed fallback handling for node package download and heartbeat setup, plus root/sudo-safe installation commands.
+- Main-server Cisco health now checks `ocserv -t`, real TCP/UDP listeners, the configured password file, and actual auth-user count instead of reporting systemd Active as healthy.
+- Direct OpenVPN node profiles now use the port matching the selected TCP/UDP transport, and node config jobs fail when a service is active but its real runtime/listener is unhealthy.
+
+## 19.9.9 â€” Verified Node Runtime + Grouped Subscriptions + Fast Updates
+
+- Fixed a critical job-routing bug where the master worker consumed node-agent jobs and marked them successful without executing them on the remote node.
+- Restricted master and node workers to their own supported action sets; master-only SSH install jobs are never sent to Node Agent.
+- Node installation now requires an authenticated heartbeat, verified core binaries, successful config/user sync, active protocol services, and a running Agent service.
+- Fixed copied Xray/Hysteria node configs that could remain bound to localhost; public inbounds are now normalized to listen on node interfaces.
+- Auto SSH installation drains and verifies the initial node jobs synchronously and reports a real failure when a core, config, credential sync, or service start fails.
+- Added node-native OpenVPN/Hysteria2 authentication metadata and real SSH account synchronization; full panel database copies are no longer required for these node protocols.
+- Added Telegram Proxy runtime transfer to node config bundles.
+- Subscription profiles are now grouped with the main server first, followed by each node with its location flag, server name, host, and node-specific downloads.
+- Fixed node profile 404 errors by persisting deterministic per-node files and added a complete ZIP download.
+- Xray raw subscriptions now preserve the main link first and append separate direct-node links.
+- Automatic backups are skipped by default during update/reinstall for faster deployment. Set `IRONPANEL_UPDATE_BACKUP=1` or `IRONPANEL_INSTALL_BACKUP=1` to opt in.
+
+## 19.9.8 â€” Node Direct Location Rebuild + Panel Watchdog
+
+- ط¨ط®ط´ Nodes ط§ط² ظ†ظˆ ط¨ط§ط²ظ†ظˆغŒط³غŒ ط´ط¯ ظˆ ظ…ط¯ظ„ ظ¾غŒط´â€Œظپط±ط¶ ط¢ظ† Direct Location Subscription ط´ط¯.
+- ظپط±ظ… ط¬ط¯غŒط¯ ظ†ظˆط¯ ط´ط§ظ…ظ„ ظ†ط§ظ… ط³ط±ظˆط±طŒ ظ†ط§ظ… ظ†ظˆط¯طŒ ط¢ط¯ط±ط³ ط³ط±ظˆط± ظ†ظˆط¯طŒ ط¯ط§ظ…ظ†ظ‡ ع©ط§ظ†ظپغŒع¯طŒ ظ¾ط±ظˆطھع©ظ„â€Œظ‡ط§ ظˆ ظ¾ظˆط±طھ ط¬ط¯ط§ع¯ط§ظ†ظ‡ ظ‡ط± ظ¾ط±ظˆطھع©ظ„ ط§ط³طھ.
+- ظ‡ظ†ع¯ط§ظ… ط«ط¨طھ ظ†ظˆط¯طŒ ط§ط·ظ„ط§ط¹ط§طھ SSH ط¨ظ‡â€Œطµظˆط±طھ ط±ظ…ط²ظ†ع¯ط§ط±غŒâ€Œط´ط¯ظ‡ ط°ط®غŒط±ظ‡ ظˆ ظ†طµط¨ ط®ظˆط¯ع©ط§ط± ط¯ط± طµظپ Job ظ‚ط±ط§ط± ظ…غŒâ€Œع¯غŒط±ط¯ط› ظ†طµط¨ ط¯غŒع¯ط± ط¯ط§ط®ظ„ request ظˆط¨ ط§ط¬ط±ط§ ظ†ظ…غŒâ€Œط´ظˆط¯ ظˆ ط¨ط§ط¹ط« Down ط´ط¯ظ† ظ¾ظ†ظ„ ظ†ظ…غŒâ€Œط´ظˆط¯.
+- ظ†طµط¨ ط®ظˆط¯ع©ط§ط± ط§ط² ط·ط±غŒظ‚ SSH ظ‡ط³طھظ‡â€Œظ‡ط§ ط±ط§ ظ†طµط¨/Repair ظ…غŒâ€Œع©ظ†ط¯طŒ Agent ظ†ظˆط¯ ط±ط§ ظˆطµظ„ ظ…غŒâ€Œع©ظ†ط¯طŒ ع©ط§ظ†ظپغŒع¯ ظ¾ط±ظˆطھع©ظ„â€Œظ‡ط§ ظˆ ع©ط§ط±ط¨ط±ط§ظ† ط±ط§ Sync ظ…غŒâ€Œع©ظ†ط¯ ظˆ Health Check ظ…غŒâ€Œط³ط§ط²ط¯.
+- ع©ط§ظ†ظپغŒع¯â€Œظ‡ط§غŒ ظ†ظˆط¯ ط¨ظ‡ Subscription ط§ط¶ط§ظپظ‡ ظ…غŒâ€Œط´ظˆظ†ط¯ ظˆظ„غŒ UUID/Password/Identity ط§ط² ظ¾ظ†ظ„ ط§طµظ„غŒ ظ…غŒâ€Œط¢غŒط¯ط› ظ…طµط±ظپ Main ظˆ ظ‡ظ…ظ‡ ظ†ظˆط¯ظ‡ط§ ط±ظˆغŒ ظ‡ظ…ط§ظ† quota ظ…ط´طھط±ع© ع©ط§ط±ط¨ط± ظ…ط­ط§ط³ط¨ظ‡ ظ…غŒâ€Œط´ظˆط¯.
+- Heartbeat ظ†ظˆط¯ ع¯ط²ط§ط±ط´ ظ…طµط±ظپ ط±ط§ ط§ط±ط³ط§ظ„ ظ…غŒâ€Œع©ظ†ط¯ ظˆ ظ¾ظ†ظ„ ط§طµظ„غŒ delta ظ…طµط±ظپ ط±ط§ ط±ظˆغŒ ع©ط§ط±ط¨ط± ط§ط¹ظ…ط§ظ„ ظ…غŒâ€Œع©ظ†ط¯.
+- Watchdog ط¬ط¯غŒط¯ ط§ط¶ط§ظپظ‡ ط´ط¯ طھط§ ط§ع¯ط± ironpanel ظپط¹ط§ظ„ ظ†ط¨ظˆط¯ غŒط§ /healthz ظ¾ط§ط³ط® ظ†ط¯ط§ط¯طŒ ط³ط±ظˆغŒط³ ط±ط§ ط®ظˆط¯ع©ط§ط± restart ع©ظ†ط¯.
+- systemd ظ¾ظ†ظ„ harden ط´ط¯: Restart ط³ط±غŒط¹â€Œطھط±طŒ KillMode mixedطŒ TimeoutStopSec ظˆ watchdog timer.
+
+
+## 19.9.7 - Node Page 500 Fix
+- Fixed `/nodes` HTTP 500 caused by missing Direct Location template helpers after v19.9.5.
+- Added a runtime Node schema guard so the Nodes page can self-heal missing SQLite columns before querying Node records.
+- Added safe fallback rendering for the Nodes page so a migration/schema issue is shown as an admin warning instead of crashing the panel.
+- Added defensive Direct Location port parsing for add/edit node forms.
+
+## 19.9.6 - SQLite Migration Lock Guard
+
+- Added SQLite busy timeout and WAL tuning for the default IronPanel database.
+- Wrapped `init-db` and `upgrade-db` with retry/backoff when SQLite is temporarily locked.
+- Added `scripts/upgrade_db_safe.sh` to stop background DB writers, run migrations safely, and restore timers/services.
+- Updated `upgrade.sh`, Safe Update, Repair DB, and Xray repair flows to use the safe migration wrapper.
+- This fixes upgrade failures like `sqlite3.OperationalError: database is locked` when usage sync, node sync, bots, or the web service are still holding the database.
+
+# Changelog
+
+## 19.9.5 â€” Direct Location Subscriptions
+- Add Direct Location delivery mode for nodes: relay/direct/both/disabled.
+- Nodes can appear as separate locations in subscriptions with their own host and per-protocol public ports.
+- Master-generated identity is reused on every location, so one user can have many configs while traffic quota remains shared.
+- Xray raw subscriptions now include main plus direct-location links.
+- Profile payloads can include extra OpenVPN/WireGuard/text configs per location.
+- Node heartbeat reports best-effort per-user usage counters for Xray, WireGuard and OpenVPN; master applies deltas to the same VpnUser quota.
+- Node auto-sync continues every few minutes for configs/users and now carries usage-related identity metadata.
+
+## 19.9.4 - LicensePanel Guide Site SEO & Motion Refresh
+
+- Full package updates the LicensePanel-installed IronPanel guide website with a more modern animated responsive design.
+- Added IronPanel-focused SEO metadata and structured data for the public documentation site.
+- Removed the unwanted LicensePanel installation text from the guide-site hero section.
+
+## 19.9.3 - LicensePanel Guide Site
+
+- Added documentation for the LicensePanel-installed IronPanel guide website on port 443.
+- Full package includes the actual guide-site installer and static website assets.
+
+
+## v19.9.2 - Modern Pages UI Refresh
+
+- ط¨ط§ط²ط·ط±ط§ط­غŒ ط¨طµط±غŒ طµظپط­ط§طھ Quick CreateطŒ Users & ConfigsطŒ Usage & ReportsطŒ Online UsersطŒ ط­ط³ط§ط¨ ظ…ظ†طŒ Core SettingsطŒ Firewall ظˆ Update Manager.
+- ط§ط¶ط§ظپظ‡ ط´ط¯ظ† hero cardظ‡ط§غŒ ظ…ط¯ط±ظ†طŒ ع©ط§ط±طھâ€Œظ‡ط§غŒ KPIطŒ ظپط±ظ…â€Œظ‡ط§غŒ ط®ظ„ظˆطھâ€Œطھط±طŒ ط¢ع©ط§ط±ط¯ط¦ظˆظ† ط¨ط±ط§غŒ طھظ†ط¸غŒظ…ط§طھ ظ¾غŒط´ط±ظپطھظ‡ ظˆ action grid ط±غŒط³ظ¾ط§ظ†ط³غŒظˆ.
+- طµظپط­ظ‡ Users & Configs ع©ط§ط±طھâ€Œط¨ظ†ط¯غŒ ط´ط¯ ظˆ ظپط±ظ… ط³ط§ط®طھ ع©ط§ط±ط¨ط± ط¯ط§ط®ظ„ ط¨ط®ط´ ع©ط´ظˆغŒغŒ ظ‚ط±ط§ط± ع¯ط±ظپطھ طھط§ ظ„غŒط³طھ ع©ط§ط±ط¨ط±ط§ظ† ط´ظ„ظˆط؛ ظ†ط¨ط§ط´ط¯.
+- طµظپط­ظ‡ Core Settings ط¨ظ‡ ع©ط§ط±طھâ€Œظ‡ط§غŒ ط¬ط¯ط§ع¯ط§ظ†ظ‡ ظˆ ط¨ط®ط´â€Œظ‡ط§غŒ ع©ط´ظˆغŒغŒ ط¨ط±ط§غŒ ظ¾ظˆط±طھâ€Œظ‡ط§طŒ WireGuard/Hysteria2 ظˆ Telegram طھظ‚ط³غŒظ… ط´ط¯.
+- طµظپط­ظ‡ Firewall ظˆ Update Manager ط¨ط§ ط¬ط¯ظˆظ„â€Œظ‡ط§غŒ responsiveطŒ ع©ط§ط±طھâ€Œظ‡ط§غŒ ط§ظ…ظ†â€Œطھط± ظˆ ظ„ط§ع¯/ظ¾غŒط´ط±ظپطھ ط®ظˆط§ظ†ط§طھط± ط¨ظ‡â€Œط±ظˆط²ط±ط³ط§ظ†غŒ ط´ط¯ظ†ط¯.
+- ط¨ظ‡ط¨ظˆط¯ طھط¬ط±ط¨ظ‡ ظ…ظˆط¨ط§غŒظ„ ط¨ط§ breakpointظ‡ط§غŒ ط¬ط¯غŒط¯طŒ ع©ط§ط±طھâ€Œظ‡ط§غŒ ظ‚ط§ط¨ظ„ ظ„ظ…ط³ ظˆ ظپط±ظ…â€Œظ‡ط§غŒ طھع©â€Œط³طھظˆظ†ظ‡ ط¯ط± طµظپط­ظ‡â€Œظ‡ط§غŒ ع©ظˆع†ع©.
+
+# 19.9.1 - README Refresh
+
+- README ط§طµظ„غŒ ط¨ط§ط²ظ†ظˆغŒط³غŒ ظˆ ظ…ط±طھط¨ ط´ط¯.
+- طھط§ط±غŒط®ع†ظ‡ ط·ظˆظ„ط§ظ†غŒ ظ†ط³ط®ظ‡â€Œظ‡ط§ ط§ط² README ط­ط°ظپ ط´ط¯ ظˆ ط¨ظ‡ CHANGELOG/docs ط§ط±ط¬ط§ط¹ ط¯ط§ط¯ظ‡ ط´ط¯.
+- ظ…ط¹ط±ظپغŒ ط§ظ…ع©ط§ظ†ط§طھ IronPanelطŒ Node GatewayطŒ Transparent RelayطŒ Auto SSH Node InstallerطŒ ظ¾ظ„ظ†â€Œظ‡ط§ ظˆ ط¯ط³طھظˆط±ط§طھ ع©ط§ط±ط¨ط±ط¯غŒ ط´ظپط§ظپâ€Œطھط± ط´ط¯.
+
+# 19.9.0 â€” Node Auto SSH Installer
+
+- Added Pro/Admin-only Auto SSH Installer for nodes.
+- Supports encrypted saved SSH password/private-key credentials.
+- Runs node install/repair, core install, config sync, user sync and health check from the panel.
+- Added install logs and credential clearing UI.
+
+## 19.8.22 - Transparent Node Relay Mode
+- Keep client configs pointed at the main panel in gateway mode.
+- Add userspace transparent relay service for TCP/UDP node forwarding so replies return through the main panel.
+- Use REDIRECT to local relay ports for TCP/UDP protocols; keep DNAT/SNAT only as GRE fallback.
+- Add relay logs and systemd service for easier troubleshooting.
+
+## 19.8.21 - Node Direct Endpoint Fallback
+- Generate direct node endpoints for protocols forced to Fixed/Fixed Only nodes, while keeping main-panel DNAT forwarding as backwards-compatible fallback for old client configs.
+- Xray subscription links now use the selected node host/port when Xray is forced to a node.
+- OpenVPN, WireGuard, Ocserv, L2TP, PPTP, Hysteria2, Telegram Proxy and SSH generated profiles now also honor forced node endpoints.
+- Flush stale conntrack entries for forwarded protocol ports when applying Node Gateway rules.
+
+## 19.8.20 - Node Gateway Return Path Fix
+- Harden Node Gateway forwarding with deterministic SNAT/MASQUERADE return path.
+- Add bidirectional FORWARD rules for node forwarded protocol ports.
+- Disable rp_filter per interface to avoid asymmetric DNAT drops on VPS kernels.
+- Add node TCP port probes and more complete Gateway NAT/FORWARD/POSTROUTING logs.
+- Keep node core/config/user sync flow from 19.8.19.
+
+## v19.8.19 â€” Node Auto Sync
+- ظ†طµط¨ ظ†ظˆط¯ ط¨ط¹ط¯ ط§ط² ط¨ط§ظ„ط§ ط¢ظ…ط¯ظ† AgentطŒ ظ†طµط¨ ظ‡ط³طھظ‡â€Œظ‡ط§طŒ Sync ع©ط§ظ†ظپغŒع¯ ظ¾ط±ظˆطھع©ظ„â€Œظ‡ط§ ظˆ Sync ع©ط§ط±ط¨ط±ط§ظ† ط±ط§ ظ‡ظ…ط§ظ† ظ„ط­ط¸ظ‡ ط¯ط±ط®ظˆط§ط³طھ ظˆ ط§ط¬ط±ط§ ظ…غŒâ€Œع©ظ†ط¯.
+- ظ‡ط± ع†ظ†ط¯ ط¯ظ‚غŒظ‚ظ‡طŒ ط¨ط± ط§ط³ط§ط³ `node_auto_sync_interval_sec`طŒ ع©ط§ظ†ظپغŒع¯ ظ¾ط±ظˆطھع©ظ„â€Œظ‡ط§غŒ Force ط´ط¯ظ‡ ظˆ ع©ط§ط±ط¨ط±ط§ظ† ظپط¹ط§ظ„ ط¯ظˆط¨ط§ط±ظ‡ ط±ظˆغŒ ظ†ظˆط¯ Sync ظ…غŒâ€Œط´ظˆظ†ط¯.
+- ظ‡ظ†ع¯ط§ظ… Force ع©ط±ط¯ظ† ظ¾ط±ظˆطھع©ظ„ ط¨ظ‡ ظ†ظˆط¯طŒ full sync ط´ط§ظ…ظ„ core/config/users طµظپ ظ…غŒâ€Œط´ظˆط¯ طھط§ ظ†ظˆط¯ ظپظ‚ط· ظ¾ظˆط±طھ ظپظˆط±ظˆط§ط±ط¯ ظ†ط¯ط§ط´طھظ‡ ط¨ط§ط´ط¯ ظˆ ظˆط§ظ‚ط¹ط§ظ‹ ط¢ظ…ط§ط¯ظ‡ ط§طھطµط§ظ„ ط¨ط§ط´ط¯.
+
+## 19.8.19 - Node Gateway Direct DNAT + Node Egress Fix
+- Make Node Gateway DNAT rules match incoming protocol traffic directly and exclude node-source loops.
+- Add restricted NAT OUTPUT hook for local forwarding tests.
+- Normalize synced Xray configs on nodes by removing copied `sendThrough` bindings so egress leaves through the node IP.
+- Add clearer gateway logs/counters and note that client configs still show the main-panel address by design.
+
+## 19.8.17 - Node Gateway Xray Public Ports
+- Exclude Xray internal/API/stat ports such as 10085 from Node Gateway plan and forwarding rules.
+- Normalize synced Xray and Hysteria2 node configs so public inbounds listen on 0.0.0.0 on the node instead of the main server IP.
+- Add gateway counter snapshots to /var/log/ironpanel-node-gateway.log for easier DNAT/FORWARD verification.
+
+## 19.8.16 - Node Gateway Pipefail and HTTPS Fix
+- Fix apply_node_gateway.sh exiting before applying rules when there are no old MASQUERADE rules under set -euo pipefail.
+- Keep the actual current request scheme for node install commands, so panels running HTTPS on custom ports such as 8001 generate HTTPS master URLs instead of forcing HTTP.
+- Improve Node Gateway apply logging and fail when no rules are applied or host resolution fails.
+- Keep force-protocol route crash-safe and continue syncing protocol configs from the main server to nodes.
+
+## 19.8.15 - Node Dynamic Protocol Ports
+- Node Gateway now reads actual configured ports for Xray, Hysteria2 and Telegram Proxy instead of fixed defaults.
+- Xray Gateway forwards all enabled Xray Builder inbound ports.
+- Hysteria2 and Telegram Proxy ports are detected from AppSetting aliases and runtime config files.
+- Node config sync runs core/firewall repair again after configs are copied, so node-side firewall opens the real protocol ports.
+- Gateway plan table now shows the exact ports that will be forwarded to nodes.
+
+## 19.8.14 - Node Force Route Crash Fix + Verified Forwarding
+- Fix Internal Server Error on `/nodes/<id>/force-protocols` by calling the force routine correctly and adding safe rollback.
+- Queue protocol core/config sync whenever a node is created, repaired, or forced for a protocol.
+- Restrict Node Gateway DNAT to traffic whose destination is the main server local IP, preventing unrelated forwarded traffic from being captured.
+- Add safer gateway apply logging and panel-port skip protection.
+- Extend node config sync to include common IronPanel runtime SSL/settings/scripts needed by protocol auth hooks.
+
+## 19.8.13 - Node Real Forward + Config Sync + Reset
+- Apply real iptables DNAT/FORWARD/MASQUERADE for protocols forced to nodes.
+- Forward all protocol-specific ports, including OpenVPN UDP/TCP, Ocserv TCP/UDP, L2TP/IPsec ports and PPTP GRE.
+- Sync selected protocol config files from main server to target nodes and restart related services.
+- Add Node Gateway reset action to clear all forwards and return protocols to the main server.
+- Install Node Gateway forwarding as a systemd oneshot service for reboot persistence.
+
+## 19.8.12 - Node Force Route Cores Metrics
+- Add Fixed Only mode to route selected protocols only to one node with no local/other-node failover.
+- Add per-node quick action to force one or more protocols to the selected node.
+- Include selected protocol core installation in node install commands.
+- Add node core installer for VPN/proxy prerequisites and firewall openings.
+- Improve Node Agent CPU/RAM/Disk/Ping/health reporting and persist ping metrics on master.
+
+## 19.8.11 - Node Heartbeat Verify
+- Fix Node installer accepting https://IP:custom-port based on a superficial ping/root check.
+- Prefer http://IP:panel-port for raw IP panels on custom ports such as 8001.
+- Verify the real /api/v2/node/heartbeat endpoint with the node token before saving the master URL.
+- Re-order Node Agent fallback candidates so stale https://IP:8001 configs try HTTP first.
+- Add clearer installer diagnostics for token, firewall, SSL, and master URL problems.
+
+## 19.8.10 - Node Connection Fix
+- Add a public `/api/v2/node/ping` endpoint for node installer connectivity checks.
+- Make `install_node.sh` resolve legacy/broken master URLs such as `https://IP` to the reachable panel URL with the real port, including common panel port fallback.
+- Harden Node Agent heartbeat with HTTP fallback, optional insecure TLS for IP/self-signed HTTPS, better errors, and one-shot post-install heartbeat test.
+- Install `ca-certificates` and create an `ironpanel-node-agent` systemd alias for compatibility.
+
+## 19.8.9 - Node Master Port + Node Edit Delete
+- Generate Node Agent install commands with the actual panel port, for example http://IP:8001 instead of https://IP without a port.
+- Avoid forcing HTTPS for raw IP/localhost master URLs on non-443 panel ports.
+- Add edit and delete actions for every node in the Nodes page.
+- Clean up user node assignments, sessions, port rows, routing maps and queued jobs when a node is deleted.
+
+## 19.8.8 - Firewall IP Ban
+- Add full IP/CIDR ban controls to the IronPanel Firewall page.
+- Rebuild a dedicated IRONPANEL-BAN chain for INPUT, FORWARD, and OUTPUT.
+- Persist ban rules with iptables-save/netfilter-persistent when available.
+- Add toggle/delete/reapply controls for firewall rules and IP bans.
+- Add safety checks against banning the whole internet, loopback, or the current admin IP by accident.
+
+## 19.8.3 - Plan Protocol Matrix
+- Beginner/Free now only allows OpenVPN and Xray.
+- Plus allows all VPN protocols but disables Nodes/Node Agent, Sales Bot and Billing.
+- Pro enables all operational features except Billing.
+- Admin enables the full panel.
+- LicensePanel sales bot no longer offers Admin plans for public purchase.
+
+## 19.8.2 - Real Update Completion + Menu/Health Fix
+- Fix inline Update Manager false 100% by waiting for upgrade.exit=0 instead of scanning command text for a marker.
+- Defer panel restart until the tracked upgrade process really exits successfully.
+- Run inline/terminal updates in fast safe mode and leave heavy protocol repairs to Health & Repair.
+- Fix More Settings sidebar layout so details menus do not collapse or overlap on mobile/tablet/desktop.
+- Always show Repair for every protocol row in Health & Repair, even when healthy.
+- Keep Plus license access to Nodes and Node Agent enabled in IronPanel and LicensePanel feature flags.
+
+# Changelog
+
+## 19.8.1 - Menu Health Plus Nodes
+- Fix More Setting sidebar overlap/collapse behavior on desktop and mobile.
+- Always show protocol Repair buttons in Health & Repair, including healthy protocols.
+- Add dedicated L2TP repair script.
+- Enable Nodes and Node Agent for Plus licenses.
+- Parse newer Xray Reality x25519 output labels correctly.
+- Make terminal GitHub update skip heavy protocol repair loops by default so source updates can finish cleanly.
+
+## 19.8.0 - Smart Core Reload + Reliable Update Manager
+- Add Smart Core Reload so user create/edit/delete only reloads affected VPN protocol cores.
+- Apply WireGuard peer updates with `wg syncconf` when available instead of restarting all WireGuard sessions.
+- Avoid restarting OpenSSH for normal SSH user sync.
+- Fix Update Manager false 100% by clearing stale update logs per run and relying on current-run completion markers.
+- Add updater progress markers to terminal/GitHub update logs.
+
+## 19.7.0 - License Control Center Compatibility
+- Send richer telemetry to LicensePanel: users, online users, disk, health, update and SSL state.
+- Execute only safe remote actions queued by LicensePanel and report results back.
+- Keep README focused on IronPanel with install/update commands and feature tables.
+
+## 19.6.0 - Stability Doctor + Safe Updater + Safe Backup
+- Add Health Doctor with full service, port, file, DB, SSL, node and speed-limit checks.
+- Add per-row Repair actions and full Repair from panel.
+- Add Safe Backup/Restore with pre-restore backup and archive path validation.
+- Add safe terminal updater: `sudo bash /opt/ironpanel/scripts/safe_update.sh`.
+- Improve Update Manager completion detection with status polling and completion markers.
+
+## 19.5.0 - Full Node Manager + Per-User Speed Limits
+- Complete Node Gateway management with fixed node, least-users, best-ping and balanced strategies.
+- Add node health/protocol health, heartbeat jobs, user sync queue and simple one-command node install flow.
+- Add failover and rebalance actions for auto-assigned users.
+- Change speed limits from shared per-protocol caps to per-user per-protocol limits with optional user overrides.
+- Update README with IronPanel-only node/speed-limit docs and tables.
+
+## 19.4.1 - Responsive Users & Configs
+- Replace the wide users table with responsive user cards.
+- Hide long per-user protocol lists behind a compact info button.
+- Make user actions wrap cleanly on desktop and mobile.
+- Clean up user config cards to prevent horizontal scrolling.
+
+## 19.4.0 - Reseller Usage Ledger + Reseller Sales Bots
+- Charge reseller quota from actual traffic usage, not allocated config volume.
+- Keep reseller consumed quota cumulative even if child users/configs are deleted or reset.
+- Enforce exhausted reseller quota by disabling the reseller child users.
+- Add owner-aware sales bot settings/plans/orders/customers for main admin and each reseller on Pro/Sales Bot licenses.
+- Add systemd template sync for reseller sales bot services.
+
+## 19.3.0 - Pro Node Gateway + Update 100% Fix
+- Add Pro-only Node Gateway / Load Balancer page.
+- Route each protocol to Local, a fixed node, least-users node, best-ping node, or balanced strategy.
+- Gate node pages and node agent features to Pro only.
+- Fix Update Manager progress by detecting completion log marker and forcing 100%.
+- Add reseller-created badge in the users list.
+- Refresh README with IronPanel-only content and tables.
+
+## 19.2.0 - LicensePanel Install Telemetry
+- Send periodic install/active/online heartbeat from every IronPanel server to LicensePanel.
+- Add systemd heartbeat timer so installed panels are counted even when the UI is idle.
+- Report free Beginner installs without requiring a paid license key.
+
+## 19.1.0 - Speed Limits and Routing Rules
+- Add per-protocol Mbps speed limit UI and runtime tc apply script.
+- Add modern Routing Rules page for protocol-to-outbound mapping.
+- Fix inline Update Manager completion progress to 100%.
+- Add terminal update command to README.
+
+## 19.0.0 - Famous DNS Presets for WireGuard
+- Add famous DNS presets to WireGuard settings: Cloudflare, Google, Quad9, OpenDNS, AdGuard, DNS.SB, Shecan, Electro and Begzar.
+- Auto-seed famous DNS profiles in DNS Manager during install/upgrade without deleting custom profiles.
+- Add one-click Apply to WireGuard DNS from DNS Manager.
+- Keep README tables for protocols, licenses and features updated.
+
+## 17.1.2 - Account, WireGuard DNS and Clean Subscription
+- Added self-service account page for admin/resellers to change username and password.
+- Added full reseller delete action for main admin.
+- Added configurable WireGuard DNS for generated client configs.
+- Cleaned subscription popups and per-protocol outputs.
+
+
+
+## v17.1.2 - Account Settings + WireGuard DNS
+
+- طµظپط­ظ‡ **ط­ط³ط§ط¨ ظ…ظ†** ط¨ط±ط§غŒ طھط؛غŒغŒط± ظ†ط§ظ… ع©ط§ط±ط¨ط±غŒ ظˆ ط±ظ…ط² ط¹ط¨ظˆط± ط®ظˆط¯ ط§ط¯ظ…غŒظ†/ظ†ظ…ط§غŒظ†ط¯ظ‡ ط§ط¶ط§ظپظ‡ ط´ط¯.
+- ط§ط¯ظ…غŒظ† ط§طµظ„غŒ ظ…غŒâ€Œطھظˆط§ظ†ط¯ ظ†ظ…ط§غŒظ†ط¯ظ‡ ط±ط§ ط­ط°ظپ ع©ظ†ط¯ط› ع©ط§ط±ط¨ط±ط§ظ† ط²غŒط±ظ…ط¬ظ…ظˆط¹ظ‡ ط¨ظ‡â€Œطµظˆط±طھ ظ¾غŒط´â€Œظپط±ط¶ ط­ط°ظپ ظ†ظ…غŒâ€Œط´ظˆظ†ط¯ ظˆ ظپظ‚ط· ط§ط² ظ†ظ…ط§غŒظ†ط¯ظ‡ ط¬ط¯ط§ ظ…غŒâ€Œط´ظˆظ†ط¯.
+- طھظ†ط¸غŒظ… **WireGuard DNS** ط¨ظ‡ ظ¾ظ†ظ„ ط§ط¶ط§ظپظ‡ ط´ط¯ ظˆ DNS ع©ط§ظ†ظپغŒع¯â€Œظ‡ط§غŒ WireGuard ط¯غŒع¯ط± ط«ط§ط¨طھ ظ†غŒط³طھ.
+- ط¬ط¯ظˆظ„ ط§ظ…ع©ط§ظ†ط§طھ ظˆ ظ„ط§غŒط³ظ†ط³â€Œظ‡ط§ ط¯ط± README ط­ظپط¸ ظˆ ط¨ظ‡â€Œط±ظˆط²ط±ط³ط§ظ†غŒ ط´ط¯.
+
+## 17.1.1 - Subscription Popup UI
+
+- Redesigned public subscription page to show protocol icons/cards only.
+- Added per-protocol modal popup for config preview, copy, QR and download.
+- Improved mobile readability by hiding raw config clutter until user opens a protocol.
+
+# 17.1.0 â€” Matrix Login + Login Alerts
+
+- Matrix animated login page.
+- Login failure shake animation and clear error message.
+- Safe Telegram admin-bot alerts for successful and failed login attempts.
+- Preserved custom Telegram Proxy port during update/repair.
+- README tables refreshed.
+
+# 17.0.1 â€” Login UI + Simple Update Manager
+
+- Redesigned the login page with a modern glass/aurora visual style and responsive login layout.
+- Added Update Manager as a direct item in the Simple UI menu for main admins.
+- Updated project README/README_FA with the new UI and update-manager notes.
+
+# 17.0.0 â€” SSH Protocol
+
+- Added SSH Tunnel / SSH Proxy protocol with default port `422/tcp`.
+- Added OpenSSH repair/install script, Settings UI, user config delivery and README/docs updates.
+
+# v18.6.11 â€” Telegram Proxy Service Crash Fix
+
+- Hardened `ironpanel-tgproxy.service` startup after reports of `status=1/FAILURE`.
+- Rebuilt `repair_telegram_proxy.sh` to validate/rebuild `config.json`, stop legacy per-user units, kill orphan proxy wrappers, choose the real NodeJS binary, check wrapper syntax, open firewall, and write clear diagnostics.
+- Added `/var/log/ironpanel-tgproxy.log` with persistent wrapper logs and surfaced recent lines in Telegram Proxy Manager.
+- Reworked the shared MTProto wrapper to keep the process alive on client/upstream socket exceptions and to log fatal listener errors such as a busy port.
+- Kept the shared-port/per-user-secret accounting model; users still connect to one port, while usage is written per user ID to `usage.json`.
+- Updated README/README_FA and version docs.
+
+# v18.6.10 â€” Telegram Proxy Core + Update Fetch Fix
+
+- Installed and enabled the shared Telegram MTProto proxy core during install/upgrade.
+- Added robust `repair_telegram_proxy.sh --sync` behavior for service, runtime config, firewall, and user secret sync.
+- Fixed Telegram proxy links by sanitizing server host values.
+- Fixed Update Manager `failed fetch` near 45% by tracking the long upgrade phase via a visible pollable task.
+- Updated README documentation.
+
+## v18.6.9 â€” Shared Telegram Proxy Fix
+- Changed Telegram Proxy from per-user ports to a single shared port with per-user secrets.
+- Added IronPanel MTProto wrapper with per-secret accounting.
+- Fixed non-working delivered Telegram proxy links caused by per-user port/service mode.
+- Usage quotas now include Telegram Proxy bytes collected from usage.json.
+
+## 18.6.8 - Telegram Proxy Manager + Update Manager Repair
+- Keep full Persian README inside the project package.
+- Fix Update Manager autostart and controlled restart flow from the same page.
+- Add Telegram MTProto Proxy management page for admins.
+- Add Telegram Proxy settings: enable toggle, base port and secret salt.
+- Improve per-user Telegram Proxy traffic accounting from iptables counters.
+- Re-sync/stop per-user Telegram Proxy services when users hit quota.
+
+
+## v18.6.7 â€” Telegram Proxy + WireGuard MTU 1280
+- Default WireGuard MTU changed to 1280.
+- Added per-user Telegram MTProto proxy protocol powered by JSMTProxy-style instances.
+- Added per-user Telegram proxy links and downloads in subscription profiles.
+- Added Telegram proxy traffic accounting by per-user TCP port and quota enforcement integration.
+- Added Telegram proxy repair/install script and Settings controls.
+
+## 18.6.6 - Inline Update Progress + Responsive Subscription Downloads
+- Update Manager: step-by-step same-page GitHub update with progress bar.
+- Downloaded OpenVPN/WireGuard/Xray/Hysteria2 filenames now use the VPN username.
+- Subscription page redesigned to v5 and hardened for mobile responsiveness.
+- Global admin UI responsive guard improved for tables, forms, cards and sidebar.
+
+## v18.6.5
+- LicensePanel manual licenses can be linked to a Telegram Chat ID.
+- Fixed Xray Reality builder link generation and Xray firewall repair.
+- Added Hysteria2 hy2:// client alias and UDP firewall repair.
+
+
+## 18.6.4 - License Reset Manager
+
+- Added LicensePanel web edit page for existing licenses.
+- Added admin reset for all activations or one registered server.
+- Added Telegram bot My Licenses menu for users to manage only their own licenses.
+- Added owner-side activation release from Telegram bot for moving a license to a new server.
+- Logged all reset/release actions.
+
+## 18.6.3 - Full Responsive UI + Reliable GitHub Update Manager
+
+- Fixed GitHub Update Manager by launching upgrades through an independent systemd transient unit instead of a child process of the web panel.
+- Added update unit/status visibility and stronger log output in the Update Manager page.
+- Improved responsive behavior across the panel with a mobile sidebar drawer, safer grids, mobile-safe forms, responsive tables and overflow guards.
+- Rebuilt the public Subscription page with a newer animated v4 glass/aurora design and stronger mobile layout.
+
+
+## 18.6.2 - Responsive UI and Subscription Domain Fix
+- Fixed user-list subscription buttons to open with the configured Subscription Domain.
+- Exposed subscription URL helpers globally to admin templates.
+- Updated API serializers to return absolute subscription URLs.
+- Added broad responsive CSS improvements for mobile.
+- Redesigned the public Subscription page with a modern animated responsive layout.
+
+## 18.6.1 - WireGuard MTU + Subscription Domain
+
+- Added a dedicated Settings card for custom WireGuard MTU.
+- Added a dedicated Settings card for custom subscription domain/subdomain.
+- Public subscription links, QR codes, Telegram sales bot messages and reseller API now use the dedicated subscription domain when configured.
+- Kept WireGuard MTU default at 1360 and PersistentKeepalive at 25.
+
+# 18.6.0 - Priority Infrastructure, WireGuard MTU, i18n Theme Pack
+
+- Added WireGuard MTU default 1360 and PersistentKeepalive controls across installer, settings, server config, repair scripts and client profiles.
+- Converted installer questions and actionable install output to English for safer international deployments.
+- Added stronger language/theme foundation with Light/Dark/Auto UI modes, language selector and appearance page.
+- Added automatic local job worker service/timer for queued maintenance tasks.
+- Added reseller-scoped API endpoints for users, sessions, stats and subscription links.
+- Added improved activity logs dashboard with filters and quick operational summaries.
+- Added high-priority operations documentation.
+
+
+## 18.5.9 - Reseller UI, Full GitHub Upgrade & Subscription Redesign
+
+- Fixed reseller UI visibility by adding dashboard and sidebar entry points.
+- Added automatic portal path generation for existing sub-admin/reseller accounts.
+- Improved reseller table with quota, status, portal URL, copy, edit, suspend and resume controls.
+- Removed custom repository/branch install block from README files and updated README image URL.
+- Hardened GitHub quick upgrade to run full DB/service/systemd/VPN synchronization.
+- Redesigned the public subscription page with modern cards, QR actions and responsive layout.
+
+## 18.5.8 â€” DB Migration Fix
+- Fixed installer/init-db crash on upgraded SQLite databases missing `admin.enabled`.
+- Runs lightweight SQLite migration before the first Admin ORM query.
+- Keeps reseller portal columns backward-compatible during reinstall/upgrade.
+
+## 18.5.7 - Reseller Portal Link & Quota Controls
+
+- Added generated reseller portal URLs (`/r/<path>` and `/reseller/<path>`).
+- Added reseller quota editing for user count and traffic allocation.
+- Added reseller panel suspend/resume controls.
+- Enforced reseller quota while creating or increasing users.
+
+## 18.5.6 - Installer Bash Compatibility Fix
+
+- Fixed `install.sh: invalid indirect expansion` on one-step GitHub install and local install.
+- The installer now reads prompted defaults without unsupported indirect-expansion syntax.
+- Direct GitHub install remains: `bash <(curl -fsSL https://raw.githubusercontent.com/Unknown-sir/ironpanel/main/install.sh)`.
+
+## 18.5.5 - Cleaner Bot Pages & Start Menus
+- Cleaner Sales Bot and Admin Bot configuration pages.
+- Configurable /start welcome text for both bots.
+- Inline glass-button menus are shown on /start.
+- Admin bot buttons remain restricted to allowed Telegram admin IDs.
+
+# 18.5.4 â€” GitHub Update Alert & Quick Upgrade
+
+- ط§ط¶ط§ظپظ‡ ط´ط¯ظ† ط§ط¹ظ„ط§ظ† ظ†ط³ط®ظ‡ ط¬ط¯غŒط¯ GitHub ط¯ط± ط¯ط§ط´ط¨ظˆط±ط¯ main admin.
+- ط§ط¶ط§ظپظ‡ ط´ط¯ظ† ط¯ع©ظ…ظ‡ آ«ط¢ظ¾ع¯ط±غŒط¯ ط³ط±غŒط¹آ» ط¨ط±ط§غŒ ط§ط¬ط±ط§غŒ upgrade ط§ط² ط¯ط§ط®ظ„ ظ¾ظ†ظ„.
+- ط§ط¬ط±ط§غŒ ط¢ظ¾ع¯ط±غŒط¯ ط¯ط± ظ¾ط³â€Œط²ظ…غŒظ†ظ‡ ط¨ط±ط§غŒ ط¬ظ„ظˆع¯غŒط±غŒ ط§ط² ظ‚ط·ط¹ ط´ط¯ظ† request ظ‡ظ†ع¯ط§ظ… restart ظ¾ظ†ظ„.
+- ع©ط´ ع©ط±ط¯ظ† ظ†طھغŒط¬ظ‡ ط¨ط±ط±ط³غŒ VERSION ظˆ ظ…ظ‚ط§غŒط³ظ‡ ط¹ط¯ط¯غŒ ظ†ط³ط®ظ‡â€Œظ‡ط§.
+- ظ…ظ‚ط§ظˆظ…â€Œطھط± ط´ط¯ظ† scripts/update_from_github.sh ط¨ط§ ط¨ع©ط§ظ¾ source ظˆ /etc/ironpanel ظ‚ط¨ظ„ ط§ط² ط¢ظ¾ع¯ط±غŒط¯.
+- ط§ط¶ط§ظپظ‡ ط´ط¯ظ† ظ„ط§ع¯ /var/log/ironpanel-github-upgrade.log.
+
+## 18.5.2
+- ظ†طµط¨ ط¨ظ‡ غŒع© ظ…ط³غŒط± ظˆط§ط­ط¯ `install.sh` طھط¨ط¯غŒظ„ ط´ط¯ط› ط³ط¤ط§ظ„â€Œظ‡ط§غŒ ط§طµظ„غŒ ظ¾ط±ط³غŒط¯ظ‡ ظ…غŒâ€Œط´ظˆظ†ط¯ ظˆ ظ…ظ‚ط¯ط§ط± ظ¾غŒط´â€Œظپط±ط¶ ط§ظ…ظ† ط¯ط§ط±ظ†ط¯.
+- ط¯ط³طھظˆط± ظ†طµط¨ ظ…ط³طھظ‚غŒظ… ط§ط² GitHub ط¨ظ‡ README ط§ط¶ط§ظپظ‡ ط´ط¯.
+- Hysteria2 auth commandطŒ fallback certificateطŒ server config ظˆ client output ط§طµظ„ط§ط­ ط´ط¯.
+- ط´ظ„ظˆط؛غŒ ظ…طھظ†â€Œظ‡ط§ ظˆ ظ†ط§ظ…â€Œظ‡ط§غŒ ظ…ظ†ظˆ ع©ظ…طھط± ط´ط¯.
+
+
+## 18.5.1 ط³ط§ط¨ظ‚
+- ظ†طµط¨ ط³ط§ط¯ظ‡ ظˆ ظ…ظ‚ط§ظˆظ…â€Œطھط± ط¨ط§ `install.sh` ظˆ ظ„ط§ع¯ ظ†طµط¨.
+- ط­ط§ظ„طھ ظ¾غŒط´â€Œظپط±ط¶ ط±ط§ط¨ط· ع©ط§ط±ط¨ط±غŒ ط³ط§ط¯ظ‡ ط´ط¯ ظˆ ع¯ط²غŒظ†ظ‡â€Œظ‡ط§غŒ طھط®طµطµغŒ ط¯ط± Advanced ط¬ظ…ط¹ ط´ط¯ظ†ط¯.
+- ط§ط¨ط²ط§ط± Doctor ط¨ط±ط§غŒ ط¨ط±ط±ط³غŒ ظˆ طھط±ظ…غŒظ… ط³ط±غŒط¹ ط³ط±ظˆغŒط³â€Œظ‡ط§ ط§ط¶ط§ظپظ‡ ط´ط¯.
+
+## 18.5.0 - 3x-ui Parity UX Pack
+- Quick Create User, Xray Pro Builder, IP Limit, GeoFile Manager, Subscription Theme Manager and Admin Telegram Bot settings.
+
+## v18.4.4 - Traffic usage multiplier
+- Added a license-independent Traffic Multiplier page for the main admin.
+- Raw traffic is kept intact, while effective/charged usage, remaining quota and subscription display can be multiplied by the configured factor.
+- Quota enforcement now disables users when effective traffic reaches the user's volume limit.
+- Subscription, user list, usage reports and API outputs now expose raw and multiplier-adjusted usage.
+
+## v18.4.3 - Certbot compatibility repair
+- Prefer isolated Snap certbot for Auto SSL to avoid system Python pyOpenSSL/cryptography crashes.
+- Detect the X509_V_FLAG_NOTIFY_POLICY certbot failure and automatically try Snap, apt repair, then a dedicated certbot venv.
+- Store the selected certbot path for SSL renewal and expose it in SSL status.
+- Added scripts/repair_certbot.sh for servers with broken certbot packages.
+
+## v18.4.2 - Auto SSL protocol matrix
+- Clarified that Hysteria2 and Ocserv/AnyConnect require domain TLS certificates and are wired automatically after Auto SSL issuance.
+- Added an Auto SSL service matrix so admins can see which protocols use Letâ€™s Encrypt and which protocols use their own crypto model.
+- Made Xray TLS switching optional; Reality remains the default because it does not require a public TLS certificate.
+
+# Changelog
+
+## 18.4.1
+- Added Auto SSL center available to all license tiers.
+- Automatically issues Letâ€™s Encrypt certificates, stores them under /etc/ironpanel/ssl, and wires them to panel TLS, Ocserv, Hysteria2 and Xray TLS settings.
+- Added renewal hook and regenerated runtime configs after SSL changes.
+
+## 18.4
+- Beginner is now a built-in free edition with no key and no expiration.
+- Added the Upgrade center for Plus, Pro and Admin activation.
+- Invalid or expired paid licenses fall back to Beginner instead of locking the panel.
+- Added 24-hour paid-feature grace for temporary license-server outages.
+- Updated dashboard, settings, installer and feature gating for the free model.
+- Updated LicensePanel compatibility and paid-plan sales flow.
+
+## v18.2
+- Cisco / Ocserv repair was rebuilt using the working configuration: socket-file, occtl-socket-file, device, port 8445, self-signed certificate, IPv4 pool, DNS, default route and NAT.
+- Hysteria2 no longer writes the old Let's Encrypt YOUR_DOMAIN placeholder.
+- Hysteria2 now works without public SSL/domain certificates by generating a local self-signed certificate and issuing client configs with insecure=true.
+- Hysteria2 restart-loop recovery was added with service reset and regenerated config.
+- Kept v18 UI, PPTP, Hysteria2, modern subscription page and QR output.
+
+
+## v18.3
+- Fixed dashboard system metrics rendering for CPU, RAM, Disk, Swap and license remaining days.
+- Added safe template fallbacks and robust metrics API refresh.
+- Updated LicensePanel package to match the IronPanel v18 VPN-UI teal design language.
+
+## v18.5.3 - Admin Bot + Cisco Online + IronBot Sales Parity
+- Fixed Cisco/Ocserv online user visibility with daemon hooks and stronger occtl parsing.
+- Added admin Telegram bot inline buttons for online users, user info, panel report and backup request.
+- Added daily admin report/backup timer.
+- Expanded sales bot with wallet, wallet payment, special-customer request, QR subscription delivery, rules/guide texts and bulk free config creation.
+
+## v19.10.12
+
+- ط§ط¶ط§ظپظ‡ ط´ط¯ظ† ط³ط§ط®طھ ط¹ظ…ط¯ظ‡ ع©ط§ط±ط¨ط± ط§ط² طµظپط­ظ‡ ع©ط§ط±ط¨ط±ط§ظ† ط¨ط§ ظ†ط§ظ… ظ¾ط§غŒظ‡ + ط¨ط§ط²ظ‡ ط´ظ…ط§ط±ظ‡.
+- ط§ظ…ع©ط§ظ† طھط¹غŒغŒظ† ط·ظˆظ„ ط±ظ…ط² ط­ط¯ط§ظ‚ظ„ 3 ع©ط§ط±ط§ع©طھط± ظˆ ظ†ظˆط¹ ط±ظ…ط²: ظپظ‚ط· ط¹ط¯ط¯طŒ ظپظ‚ط· ط­ط±ظپطŒ غŒط§ ط­ط±ظپ ظˆ ط¹ط¯ط¯.
+- ع©ط§ط±ط¨ط±ط§ظ† ط¹ظ…ط¯ظ‡ ط¨ظ‡ طµظˆط±طھ طھع©â€Œع©ط§ط±ط¨ط±ظ‡ ط³ط§ط®طھظ‡ ظ…غŒâ€Œط´ظˆظ†ط¯ط› ط­ط¬ظ… 0 ظˆ ط±ظˆط² 0 ط¨ظ‡ ظ…ط¹ظ†غŒ ظ†ط§ظ…ط­ط¯ظˆط¯ ط§ط³طھ.

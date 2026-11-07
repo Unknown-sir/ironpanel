@@ -1,0 +1,8 @@
+{% extends 'base.html' %}
+{% block heading %}{{ ui('ویرایش کاربر', 'Edit user') }} {{user.username}}{% endblock %}
+{% block content %}
+
+<section class="card"><h3>ویرایش کاربر</h3><p class="hint">حجم 0 یعنی نامحدود. برای تاریخ انقضا می‌توانی گزینه نامحدود را فعال کنی یا تاریخ جدید ثبت کنی.</p><form method="post" class="form grid-form">
+{% include '_user_edit_fields.html' %}
+<button>ذخیره و همگام‌سازی</button><a class="btn ghost" href="/users">بازگشت</a>
+</form></section><section class="card"><h3>اعمال پلن</h3><form method="post" action="{{ url_for('web.user_apply_plan', user_id=user.id) }}"><select name="plan_id">{% for p in plans %}<option value="{{p.id}}">{{p.name}}</option>{% endfor %}</select><button>اعمال</button></form></section>{% endblock %}

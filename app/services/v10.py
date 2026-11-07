@@ -1,0 +1,525 @@
+from datetime import datetime, timedelta
+from pathlib import Path
+import json, re
+from flask import current_app
+from ..core.extensions import db
+from ..core.models import Node, VpnUser, OnlineSession, ActivityLog, RemoteJob, AppSetting
+from .provisioning import run_cmd, get_setting, set_setting, service_status, backup_now, telegram_notify, sync_all_users
+
+
+def server_metrics():
+    import psutil, os
+    vm=psutil.virtual_memory(); sw=psutil.swap_memory(); du=psutil.disk_usage('/')
+    net=psutil.net_io_counters()
+    return {
+        'cpu': psutil.cpu_percent(interval=0.05), 'load': list(os.getloadavg()) if hasattr(os,'getloadavg') else [0,0,0],
+        'ram': {'percent': vm.percent, 'used': vm.used, 'total': vm.total},
+        'swap': {'percent': sw.percent, 'used': sw.used, 'total': sw.total},
+        'disk': {'percent': du.percent, 'used': du.used, 'total': du.total},
+        'network': {'bytes_sent': net.bytes_sent, 'bytes_recv': net.bytes_recv},
+        'uptime': int(datetime.utcnow().timestamp() - psutil.boot_time()),
+    }
+
+
+def geoip_country(ip):
+    if not ip or ip.startswith(('10.','192.168.','172.16.','172.17.','172.18.','172.19.','172.20.','172.21.','172.22.','172.23.','172.24.','172.25.','172.26.','172.27.','172.28.','172.29.','172.30.','172.31.','127.')):
+        return 'Private'
+    return 'Unknown'
+
+
+def _safe_dt_from_timestamp(value, default):
+    try:
+        ts = int(str(value or '').strip())
+        if ts > 0:
+            return datetime.utcfromtimestamp(ts)
+    except Exception:
+        pass
+    return default
+
+
+def _find_user_identity(identity):
+    ident = (identity or '').strip()
+    if not ident:
+        return None
+    user = VpnUser.query.filter_by(username=ident).first()
+    if user:
+        return user
+    safe = re.sub(r'[^A-Za-z0-9_.-]', '_', ident)[:64]
+    for u in VpnUser.query.all():
+        if re.sub(r'[^A-Za-z0-9_.-]', '_', u.username or '')[:64] == safe:
+            return u
+    return None
+
+
+def _upsert_online(username, protocol, remote_ip='', connected_at=None, device_id='', node_id=None):
+    username = (username or '').strip()
+    if not username or username.lower() in ('unknown', 'anonymous'):
+        return None
+    now = datetime.utcnow()
+    user = _find_user_identity(username)
+    # Do not show disabled/expired users as valid online accounts, but keep best-effort unknowns.
+    if user and (not user.enabled or user.expired):
+        return None
+    q = OnlineSession.query.filter_by(username=(user.username if user else username), protocol=protocol, active=True)
+    if remote_ip:
+        existing = q.filter_by(remote_ip=remote_ip).first()
+    else:
+        existing = q.first()
+    if not existing:
+        existing = OnlineSession(
+            username=(user.username if user else username),
+            user_id=(user.id if user else None),
+            protocol=protocol,
+            remote_ip=remote_ip or '',
+            country=geoip_country(remote_ip),
+            device_id=device_id or '',
+            node_id=node_id,
+            connected_at=connected_at or now,
+            last_seen=now,
+            active=True,
+        )
+    else:
+        existing.user_id = user.id if user else existing.user_id
+        existing.remote_ip = remote_ip or existing.remote_ip
+        existing.country = geoip_country(existing.remote_ip)
+        existing.device_id = device_id or existing.device_id
+        existing.node_id = node_id if node_id is not None else existing.node_id
+        existing.last_seen = now
+        existing.active = True
+    db.session.add(existing)
+    return existing
+
+
+def _openvpn_status_paths():
+    return [
+        Path('/var/log/openvpn/status.log'),
+        Path('/run/openvpn-server/status-server.log'),
+        Path('/etc/openvpn/server/status.log'),
+        Path('/var/log/openvpn/openvpn-status.log'),
+    ]
+
+
+def _refresh_openvpn_sessions():
+    count = 0
+    for path in _openvpn_status_paths():
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(errors='ignore').splitlines()
+        except Exception:
+            continue
+        in_v1_clients = False
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            if line.startswith('HEADER,CLIENT_LIST'):
+                continue
+            if line.startswith('CLIENT_LIST,'):
+                parts = line.split(',')
+                if len(parts) >= 9:
+                    # status-version 2:
+                    # CLIENT_LIST,CN,Real Address,Virtual Address,Virtual IPv6 Address,Bytes Received,Bytes Sent,Connected Since,Connected Since (time_t),...
+                    username = parts[1].strip()
+                    remote_ip = (parts[2].split(':')[0] if len(parts) > 2 else '').strip()
+                    connected_at = _safe_dt_from_timestamp(parts[8], datetime.utcnow())
+                elif len(parts) >= 5:
+                    username = parts[1].strip()
+                    remote_ip = (parts[2].split(':')[0] if len(parts) > 2 else '').strip()
+                    connected_at = datetime.utcnow()
+                else:
+                    continue
+                if _upsert_online(username, 'openvpn', remote_ip, connected_at):
+                    count += 1
+                continue
+            # OpenVPN status-version 1 fallback.
+            if line.startswith('Common Name,Real Address,Bytes Received,Bytes Sent,Connected Since'):
+                in_v1_clients = True
+                continue
+            if line.startswith('ROUTING TABLE'):
+                in_v1_clients = False
+            if in_v1_clients and ',' in line and not line.startswith('Updated,'):
+                parts = line.split(',')
+                if len(parts) >= 5:
+                    username = parts[0].strip()
+                    remote_ip = parts[1].split(':')[0].strip()
+                    if _upsert_online(username, 'openvpn', remote_ip, datetime.utcnow()):
+                        count += 1
+        break
+    return count
+
+
+def _refresh_xray_sessions():
+    """v19.10.29: true per-user Xray sessions from the access log.
+
+    Every Xray client carries email=ip-{id}-{username}; at loglevel info the
+    access.log records the client public IP next to that email, which gives an
+    exact username<->IP mapping for per-user tc speed limits.
+    """
+    log_path = Path('/var/log/xray/access.log')
+    if not log_path.exists():
+        return 0
+    try:
+        from .xray import _safe_email
+    except Exception:
+        return 0
+    emails = {}
+    for u in VpnUser.query.all():
+        try:
+            emails[_safe_email(u)] = u.username
+        except Exception:
+            continue
+    if not emails:
+        return 0
+    try:
+        with log_path.open('rb') as fh:
+            fh.seek(0, 2)
+            size = fh.tell()
+            fh.seek(max(0, size - 512 * 1024))
+            blob = fh.read().decode('utf-8', errors='ignore')
+    except Exception:
+        return 0
+    lines = blob.splitlines()
+    if len(lines) > 1:
+        lines = lines[1:]  # drop possibly truncated first line
+    ip_re = re.compile(r'\b(\d{1,3}(?:\.\d{1,3}){3}):\d+\b')
+    email_re = re.compile(r'email:\s*([^\s\]]+)')
+    latest = {}
+    now = datetime.utcnow()
+    cutoff = now - timedelta(minutes=5)
+    # Newest lines are at the bottom; first hit per email wins. 5min = real concurrent only.
+    for line in reversed(lines):
+        m = email_re.search(line)
+        if not m:
+            continue
+        email = m.group(1).strip()
+        username = emails.get(email)
+        if not username or username in latest:
+            continue
+        ip_m = None
+        for cand in ip_re.finditer(line):
+            candidate_ip = cand.group(1)
+            if candidate_ip.startswith(('10.', '127.', '172.16.', '172.17.', '172.18.', '172.19.', '172.2', '172.3', '192.168.')):
+                continue
+            ip_m = cand
+            break
+        if not ip_m:
+            continue
+        ts_m = re.match(r'^(\d{4}/\d{2}/\d{2}) (\d{2}:\d{2}:\d{2})', line.strip())
+        connected_at = now
+        if ts_m:
+            try:
+                connected_at = datetime.strptime(ts_m.group(1) + ' ' + ts_m.group(2), '%Y/%m/%d %H:%M:%S')
+            except Exception:
+                connected_at = now
+        if connected_at < cutoff:
+            continue
+        latest[username] = (ip_m.group(1), connected_at)
+    count = 0
+    for username, (remote_ip, seen_at) in latest.items():
+        if _upsert_online(username, 'xray', remote_ip, seen_at):
+            count += 1
+    return count
+
+
+def _refresh_hysteria2_sessions():
+    """Best-effort per-user Hysteria2 sessions from the systemd journal."""
+    users = {u.username: u.username for u in VpnUser.query.all()}
+    if not users:
+        return 0
+    p = run_cmd(['bash', '-lc',
+                 "journalctl -u hysteria-server -u hysteria2 --since '-6 min' --no-pager 2>/dev/null | tail -n 300 || true"], timeout=10)
+    lines = (p.stdout or '').splitlines()
+    ip_re = re.compile(r'\b(\d{1,3}(?:\.\d{1,3}){3}):\d+\b')
+    latest = {}
+    for line in reversed(lines):
+        low = line.lower()
+        if 'auth' not in low and 'client' not in low and 'connected' not in low:
+            continue
+        matched_user = ''
+        for name in users:
+            if name.lower() in low:
+                matched_user = name
+                break
+        if not matched_user or matched_user in latest:
+            continue
+        ip_m = ip_re.search(line)
+        if not ip_m:
+            continue
+        latest[matched_user] = ip_m.group(1)
+    count = 0
+    for username, remote_ip in latest.items():
+        if _upsert_online(username, 'hysteria2', remote_ip):
+            count += 1
+    return count
+
+
+def _refresh_wireguard_sessions():
+    count = 0
+    now = datetime.utcnow()
+    users = {u.wg_public_key: u for u in VpnUser.query.all() if u.wg_public_key}
+    # Prefer dump because it includes endpoint, latest handshake and transfer in one call.
+    p = run_cmd(['bash', '-lc', 'wg show wg0 dump 2>/dev/null || true'])
+    for line in (p.stdout or '').splitlines():
+        parts = line.split('\t')
+        if len(parts) < 8:
+            parts = line.split()
+        # First line may be the interface line: private_key public_key listen_port fwmark
+        if len(parts) < 8:
+            continue
+        pub = parts[0]
+        endpoint = parts[2] if len(parts) > 2 else ''
+        allowed_ips = parts[3] if len(parts) > 3 else ''
+        latest = parts[4] if len(parts) > 4 else '0'
+        user = users.get(pub)
+        if not user:
+            continue
+        try:
+            ts = int(latest or 0)
+        except Exception:
+            ts = 0
+        if ts <= 0:
+            continue
+        # WireGuard sends handshake every ~2min while traffic flows; 4min = real online only.
+        if datetime.utcfromtimestamp(ts) < now - timedelta(minutes=4):
+            continue
+        remote_ip = endpoint.split(':')[0].strip('[]') if endpoint and endpoint != '(none)' else ''
+        if _upsert_online(user.username, 'wireguard', remote_ip, datetime.utcfromtimestamp(ts), allowed_ips):
+            count += 1
+    # Fallback for older wg versions without dump.
+    if count == 0:
+        endpoints = {}
+        ep = run_cmd(['bash', '-lc', 'wg show wg0 endpoints 2>/dev/null || true'])
+        for line in (ep.stdout or '').splitlines():
+            ps = line.split()
+            if len(ps) >= 2:
+                endpoints[ps[0]] = ps[1]
+        hs = run_cmd(['bash', '-lc', 'wg show wg0 latest-handshakes 2>/dev/null || true'])
+        for line in (hs.stdout or '').splitlines():
+            ps = line.split()
+            if len(ps) >= 2 and ps[1].isdigit():
+                user = users.get(ps[0])
+                if not user:
+                    continue
+                ts = int(ps[1])
+                if ts > 0 and datetime.utcfromtimestamp(ts) > now - timedelta(minutes=4):
+                    epv = endpoints.get(ps[0], '')
+                    remote_ip = epv.split(':')[0].strip('[]') if epv and epv != '(none)' else ''
+                    if _upsert_online(user.username, 'wireguard', remote_ip, datetime.utcfromtimestamp(ts)):
+                        count += 1
+    return count
+
+
+def _ocserv_remote_from_item(item):
+    for key in ('remote_ip','real_ip','ip','remote-addr','remote_addr','ip_real','cstp_remote_addr'):
+        val = item.get(key) if isinstance(item, dict) else None
+        if val:
+            return str(val).split(':')[0].strip('[]')
+    return ''
+
+
+def _refresh_ocserv_sessions():
+    """Refresh Cisco AnyConnect/Ocserv sessions.
+
+    v18.5.3 adds three data sources because occtl output differs between
+    Debian/Ubuntu ocserv builds:
+      1) hook-written rows from ocserv_session_hook.sh,
+      2) occtl JSON/text output via the configured unix socket,
+      3) journal fallback for recent connect lines.
+    """
+    count = 0
+    now = datetime.utcnow()
+    # NOTE: no blind hook refresh any more — old hook rows without occtl confirmation
+    # caused massive over-count (every disconnect stayed 12min as "online").
+    # Only occtl-confirmed users are counted; hooks are fallback only when occtl fails.
+    raw_outputs = []
+    commands = [
+        'occtl -j show users 2>/dev/null || true',
+        'occtl --json show users 2>/dev/null || true',
+        'occtl -s /var/run/ocserv-socket -j show users 2>/dev/null || true',
+        'occtl -s /var/run/ocserv-socket show users 2>/dev/null || true',
+        'occtl -s /var/run/occtl.socket -j show users 2>/dev/null || true',
+        'occtl -s /var/run/occtl.socket show users 2>/dev/null || true',
+        'occtl show users 2>/dev/null || true',
+    ]
+    for cmd in commands:
+        p = run_cmd(['bash', '-lc', cmd])
+        raw = (p.stdout or '').strip()
+        if raw and raw not in raw_outputs:
+            raw_outputs.append(raw)
+
+    for raw in raw_outputs:
+        # JSON mode on some ocserv builds.
+        try:
+            data = json.loads(raw)
+            rows = data.get('users') if isinstance(data, dict) else data
+            if isinstance(rows, dict):
+                rows = list(rows.values())
+            if isinstance(rows, list):
+                for item in rows:
+                    if not isinstance(item, dict):
+                        continue
+                    username = str(item.get('username') or item.get('user') or item.get('name') or item.get('id') or '').strip()
+                    remote_ip = _ocserv_remote_from_item(item)
+                    if _upsert_online(username, 'ocserv', remote_ip):
+                        count += 1
+                continue
+        except Exception:
+            pass
+
+        current = {}
+        def flush_current():
+            nonlocal count, current
+            username = current.get('username') or current.get('user') or current.get('name') or current.get('id')
+            remote_ip = current.get('remote_ip') or current.get('real_ip') or current.get('ip') or current.get('remote') or current.get('ip_real') or ''
+            if username and _upsert_online(str(username).strip("'\" "), 'ocserv', str(remote_ip).split(':')[0].strip('[]')):
+                count += 1
+            current = {}
+
+        for line in raw.splitlines():
+            s = line.strip()
+            if not s:
+                flush_current(); continue
+            # Examples:
+            #   username: ali
+            #   User: ali
+            #   Remote IP: 1.2.3.4
+            m = re.match(r'(?i)^(username|user|name|id|ip|remote ip|remote-ip|real ip|real-ip|remote|ip real|ip-real)\s*[:=]\s*(.+)$', s)
+            if m:
+                key = m.group(1).lower().replace(' ', '_').replace('-', '_')
+                current[key] = m.group(2).strip()
+                continue
+            # Examples seen in occtl table-like output:
+            #   ali   1.2.3.4:54211  ...
+            #   user 'ali' connected from 1.2.3.4
+            m = re.search(r"(?i)(?:user(?:name)?\s+)?['\"]?(?P<user>[A-Za-z0-9_.@-]{2,80})['\"]?.*?(?P<ip>\b(?:\d{1,3}\.){3}\d{1,3}\b)", s)
+            if m and not s.lower().startswith(('id ', 'user ', 'username ', 'name ', 'rate ', 'bytes ')):
+                if _upsert_online(m.group('user'), 'ocserv', m.group('ip')):
+                    count += 1
+        flush_current()
+
+    # Journal fallback for builds where occtl cannot read the socket from the panel process.
+    if count == 0:
+        p = run_cmd(['bash','-lc', "journalctl -u ocserv -n 300 --no-pager 2>/dev/null | grep -Ei 'user|authenticated|connected|from' || true"])
+        for line in (p.stdout or '').splitlines():
+            m = re.search(r"(?i)(?:user|username)\s+['\"]?(?P<user>[A-Za-z0-9_.@-]{2,80})['\"]?.*?(?:from|addr|ip).*?(?P<ip>\b(?:\d{1,3}\.){3}\d{1,3}\b)", line)
+            if m and _upsert_online(m.group('user'), 'ocserv', m.group('ip')):
+                count += 1
+    return count
+
+def _refresh_l2tp_sessions():
+    # Best effort fallback. New installs also register PPP ip-up/ip-down hooks that
+    # write exact L2TP sessions into online_session via ironpanel_session_account.py.
+    count = 0
+    p = run_cmd(['bash', '-lc', "ip -o addr show 2>/dev/null | awk '/ppp[0-9]+/ {print $2, $4}' || true"])
+    for line in (p.stdout or '').splitlines():
+        parts = line.split()
+        if len(parts) >= 2:
+            iface = parts[0]
+            ip = parts[1].split('/')[0]
+            username = f'l2tp-{iface}'
+            # If PPP hooks already recorded named sessions, do not create duplicates for the same iface.
+            existing = OnlineSession.query.filter_by(protocol='l2tp', device_id=iface, active=True).first()
+            if existing:
+                existing.last_seen = datetime.utcnow(); db.session.add(existing); count += 1
+            else:
+                if _upsert_online(username, 'l2tp', ip, device_id=iface):
+                    count += 1
+    return count
+
+
+def refresh_online_sessions():
+    """Refresh and return online VPN sessions — only truly concurrent traffic.
+
+    Stale window is 5 min (not 12) so disconnected users do not stay as "online".
+    WireGuard 4min, Xray/Hysteria 5min, OpenVPN from status.log is authoritative.
+    """
+    now = datetime.utcnow()
+    # 5 min = real concurrent. 12min caused 2-3x overcount on panels.
+    OnlineSession.query.filter(OnlineSession.last_seen < now - timedelta(minutes=5)).update({'active': False})
+    errors = []
+    for name, fn in (
+        ('openvpn', _refresh_openvpn_sessions),
+        ('wireguard', _refresh_wireguard_sessions),
+        ('ocserv', _refresh_ocserv_sessions),
+        ('l2tp', _refresh_l2tp_sessions),
+        ('xray', _refresh_xray_sessions),
+        ('hysteria2', _refresh_hysteria2_sessions),
+    ):
+        try:
+            fn()
+        except Exception as exc:
+            errors.append(f'{name}: {exc}')
+    if errors:
+        try:
+            row = AppSetting.query.filter_by(key='online_sessions_last_error').first()
+            if row:
+                row.value = '; '.join(errors)[-1000:]
+            else:
+                db.session.add(AppSetting(key='online_sessions_last_error', value='; '.join(errors)[-1000:]))
+        except Exception:
+            pass
+    db.session.commit()
+    return OnlineSession.query.filter_by(active=True).order_by(OnlineSession.last_seen.desc()).all()
+
+
+def kick_session(session_id):
+    sess=OnlineSession.query.get(session_id)
+    if not sess: return False
+    sess.active=False; db.session.commit()
+    # Disable the user for a deterministic kick when the session is tied to a user.
+    # Admin can re-enable from the users page.
+    if sess.user_id:
+        u=VpnUser.query.get(sess.user_id)
+        if u:
+            u.enabled=False
+            u.disabled_reason='manual'
+            db.session.add(ActivityLog(actor='system', action='kick_disable_user', target=u.username, details=f'{sess.protocol} {sess.remote_ip}'))
+            db.session.commit()
+    sync_all_users(restart=True)
+    return True
+
+
+def select_node_for_new_user(protocols=None):
+    nodes = [n for n in Node.query.all() if getattr(n, 'enabled', True)] or Node.query.all()
+    if not nodes:
+        return None
+    if get_setting('load_balancer_enabled', '0') != '1':
+        return nodes[0]
+    counts = {n.id: 0 for n in nodes}
+    for u in VpnUser.query.all():
+        nid = getattr(u, 'preferred_node_id', None)
+        if nid in counts:
+            counts[nid] += 1
+    return sorted(nodes, key=lambda n: (counts.get(n.id, 0), getattr(n, 'online_users', 0) or 0, n.id))[0]
+
+
+def health_auto_repair():
+    bad=[svc for svc,state in service_status().items() if state not in ('active','unknown')]
+    if bad and get_setting('auto_failover_enabled','1')=='1':
+        run_cmd(['bash','-lc','systemctl restart openvpn-server@server ocserv wg-quick@wg0 xl2tpd strongswan-starter strongswan 2>/dev/null || true'])
+        telegram_notify('IronPanel auto-repair executed for: '+', '.join(bad))
+    return bad
+
+
+def run_remote_job(node_id, action):
+    job=RemoteJob(node_id=node_id, action=action, status='running')
+    db.session.add(job); db.session.commit()
+    cmds={
+        'restart_panel':'systemctl restart ironpanel',
+        'restart_vpn':'systemctl restart openvpn-server@server ocserv wg-quick@wg0 xl2tpd strongswan-starter strongswan || true',
+        'repair':'bash /opt/ironpanel/scripts/install_vpn_core.sh && systemctl restart ironpanel',
+        'backup':'bash -lc "cd /opt/ironpanel && .venv/bin/python -m flask --app run.py safe-backup >/dev/null 2>&1 || true"',
+        'update':'bash /opt/ironpanel/upgrade.sh || true',
+    }
+    cmd=cmds.get(action,'true')
+    p=run_cmd(['bash','-lc',cmd])
+    job.status='done' if p.returncode==0 else 'failed'
+    job.output=(p.stdout+p.stderr)[-4000:]
+    db.session.commit()
+    return job
+
+
+def schedule_backup_if_needed():
+    if get_setting('auto_backup_enabled','1')!='1': return None
+    return backup_now()
