@@ -1,4 +1,4 @@
-# v2.0.11 - IronAPP Android Client Compatibility
+# v2.2.1 - IronAPP Android Client Compatibility
 
 - **New public JSON API for the open-source IronAPP Android client** (`IronAPP` repo):
   `GET /s/<token>/app.json` (full snapshot: quota, expiry, allowed protocols,
@@ -12,9 +12,9 @@
   modified client cannot bypass limits.
 - New module `app/web/app_api.py` (registered on the shared `web` blueprint),
   plus `docs/IRONAPP.md` documenting the contract for client developers.
-- CSS/JS cache-buster bumped to 2.0.11.
+- CSS/JS cache-buster bumped to 2.2.1.
 
-# v2.0.10 - Updater Fix: no more username prompt on public GitHub
+# v2.2.1 - Updater Fix: no more username prompt on public GitHub
 
 - **Fixed the GitHub updater hanging on "Username for 'https://github.com'":** on servers
   with a leftover global `credential.helper=store`, git prompts for a username even on
@@ -25,7 +25,7 @@
 - Note: the first run still needs the server's own credential helper cleaned up once
   (`git config --global --unset credential.helper`), after which future updates are
   fully automatic.
-- CSS/JS cache-buster bumped to 2.0.10.
+- CSS/JS cache-buster bumped to 2.2.1.
 
 # v2.0.9 - Volume-Based User Grouping + Group Bulk Actions
 

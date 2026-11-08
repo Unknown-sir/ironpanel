@@ -8,7 +8,7 @@
   <meta name="theme-color" content="#0b1220">
   {% if csrf_token is defined %}<meta name="csrf-token" content="{{ csrf_token() }}">{% endif %}
   <title>{% block title %}IronPanel{% endblock %}</title>
-  <link rel="stylesheet" href="/static/css/style.css?v=2.0.10">
+  <link rel="stylesheet" href="/static/css/style.css?v=2.2.1">
 </head>
 <body class="theme-{{ current_theme() }} lang-{{ lang }} iron-stable-v19103 iron-mobile-fix-v19104">
 {% set simple_ui = is_simple_ui() if current_user.is_authenticated else true %}
@@ -204,6 +204,6 @@
   </nav>
 </main>
 </div>
-<script src="/static/js/app.js?v=2.0.10"></script>
+<script src="/static/js/app.js?v=2.2.1"></script>
 </body>
 </html>

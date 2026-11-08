@@ -46,7 +46,7 @@ else
 fi
 
 echo "IRONPANEL_PROGRESS 30% - fetching latest source"
-# v2.0.10: disable any interactive credential helper for this public remote. A
+# v2.2.1: disable any interactive credential helper for this public remote. A
 # leftover global 'credential.helper=store' makes git prompt for a username even
 # on public repos; GIT_TERMINAL_PROMPT=0 + -c credential.helper= avoids that hang
 # and lets the public fetch/clone complete without asking for credentials.

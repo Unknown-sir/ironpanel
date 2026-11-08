@@ -1,6 +1,6 @@
 # IronAPP — Android Client Contract / قرارداد اپ اندروید آیرون
 
-> Panel: **2.0.11+** · App: **IronAPP 1.0.0+** · Repo: `https://github.com/Unknown-sir/IronAPP`
+> Panel: **2.2.1+** · App: **IronAPP 1.0.0+** · Repo: `https://github.com/Unknown-sir/IronAPP`
 
 This document is the contract between the IronPanel server and the
 open-source IronAPP Android client. The app lets a user paste **one
@@ -39,7 +39,7 @@ Conventions (panel-wide, unchanged):
   "success": true,
   "app": "ironapp",
   "min_app_version": "1.0.0",
-  "panel_version": "2.0.11",
+  "panel_version": "2.2.1",
   "server_time": "2026-09-29T12:00:00+00:00",
   "user": {
     "username": "ali",

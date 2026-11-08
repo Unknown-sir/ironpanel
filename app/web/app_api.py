@@ -1,4 +1,4 @@
-"""IronAPP compatibility API (panel v2.0.11+).
+"""IronAPP compatibility API (panel v2.2.1+).
 
 Public, token-authenticated JSON endpoints consumed by the open-source
 IronAPP Android client (https://github.com/Unknown-sir/IronAPP):
@@ -35,7 +35,7 @@ from ..services.provisioning import (
 from . import web_bp
 
 APP_API_MIN_APP_VERSION = "1.0.0"
-PANEL_VERSION_FALLBACK = "2.0.11"
+PANEL_VERSION_FALLBACK = "2.2.1"
 
 # Short English mirrors of the Persian access reasons so the app can render
 # either locale without parsing Persian text.
